@@ -17,7 +17,10 @@ env:
 
 jobs:
   Build-Windows:
-    runs-on: windows-latest
+    # windows-2022 = VS2022 (msvc 194): совпадает с Qt win64_msvc2022_64 и с публичными
+    # conan-пребилтами Amnezia. windows-latest уже редиректит на VS2026 (Visual Studio 18) —
+    # пребилтов под него нет, conan собирает из исходников и падает на неизвестном генераторе.
+    runs-on: windows-2022
 
     env:
       QT_VERSION: 6.10.1
