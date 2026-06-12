@@ -91,6 +91,12 @@ namespace PageLoader
         PageProtocolXrayFlowSettings,
         PageProtocolXraySecuritySettings,
         PageProtocolXrayXPaddingBytesSettings,
+
+        // NvoVPN
+        PageNvoLogin,
+        PageNvoHome,
+        PageNvoCountries,
+        PageNvoSubscription,
     };
     Q_ENUM_NS(PageEnum)
 

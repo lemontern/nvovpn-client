@@ -46,7 +46,29 @@ QString NvoApiController::subscriptionPlan() const { return m_subPlan; }
 QString NvoApiController::subscriptionStatus() const { return m_subStatus; }
 QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt; }
 int NvoApiController::subscriptionDaysRemaining() const { return m_subDaysRemaining; }
+int NvoApiController::selectedServerId() const { return m_selectedServerId; }
 QString NvoApiController::token() const { return m_token; }
+
+void NvoApiController::setSelectedServerId(int serverId)
+{
+    if (m_selectedServerId != serverId) {
+        m_selectedServerId = serverId;
+        emit selectedServerChanged();
+    }
+}
+
+void NvoApiController::connectToSelected()
+{
+    int id = m_selectedServerId;
+    if (id < 0 && m_serversModel) {
+        id = m_serversModel->bestServerId();   // Авто = рекомендованный/наименее загруженный
+    }
+    if (id < 0) {
+        emit errorOccurred(tr("Нет доступных серверов, попробуйте позже"));
+        return;
+    }
+    requestConfig(id);
+}
 
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const
 {

@@ -237,6 +237,19 @@ void CoreController::initControllers()
     // NvoVPN: свой API-клиент (логин/серверы/конфиг/подписка). Доступен в QML как `NvoApi`.
     m_nvoApiController = new NvoApiController(m_settings, m_nvoServersModel, this);
     setQmlContextProperty("NvoApi", m_nvoApiController);
+
+    // NvoVPN connect-оркестрация: готовый awg .conf из POST /connect → движок коннекта Amnezia.
+    // Держим ровно один сервер: удаляем прежние, импортируем свежий (станет default), подключаем.
+    connect(m_nvoApiController, &NvoApiController::configReady, this,
+            [this](const QString &config, int, const QString &, const QString &, const QString &) {
+                while (m_serversController->getServersCount() > 0) {
+                    m_serversController->removeServer(m_serversController->getServerId(0));
+                }
+                if (m_importController->extractConfigFromData(config)) {
+                    m_importController->importConfig();
+                    m_connectionUiController->openConnection();
+                }
+            });
 }
 
 void CoreController::initAndroidController()

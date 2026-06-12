@@ -27,6 +27,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString subscriptionStatus READ subscriptionStatus NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionExpiresAt READ subscriptionExpiresAt NOTIFY subscriptionChanged)
     Q_PROPERTY(int subscriptionDaysRemaining READ subscriptionDaysRemaining NOTIFY subscriptionChanged)
+    Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
 
 public:
     explicit NvoApiController(SecureQSettings *settings, NvoServersModel *serversModel, QObject *parent = nullptr);
@@ -40,6 +41,7 @@ public:
     QString subscriptionStatus() const;
     QString subscriptionExpiresAt() const;
     int subscriptionDaysRemaining() const;
+    int selectedServerId() const;               // -1 = Авто (лучший сервер)
 
 public slots:
     void login(const QString &email, const QString &password);
@@ -48,6 +50,8 @@ public slots:
     void refreshServers();
     void refreshUser();
     void requestConfig(int serverId);          // POST /connect → сигнал configReady
+    void connectToSelected();                   // выбранный сервер или Авто → requestConfig
+    void setSelectedServerId(int serverId);
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
 
@@ -56,6 +60,7 @@ signals:
     void busyChanged();
     void userChanged();
     void subscriptionChanged();
+    void selectedServerChanged();
 
     void loginSucceeded();
     void loginFailed(const QString &message);
@@ -84,6 +89,7 @@ private:
     QString m_subStatus;
     QString m_subExpiresAt;
     int m_subDaysRemaining = 0;
+    int m_selectedServerId = -1;
     bool m_busy = false;
 };
 
