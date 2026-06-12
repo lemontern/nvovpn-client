@@ -1,0 +1,99 @@
+name: 'NvoVPN CI'
+
+# Сборка клиента NvoVPN на GitHub-hosted раннерах (Qt локально не собираем).
+# Пока Windows (приоритет ТЗ). Android добавим после зелёного Windows.
+# Секреты gateway Amnezia (PROD_AGW_* и т.д.) в нашем репо не заданы → пустые строки,
+# нам они не нужны (свой REST-API, не gateway). Кастомные conan-пакеты берутся из ./recipes
+# + публичного remote artifactory.amnezia.org (creds нужны только для upload, не для build).
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+
+env:
+  QT_MIRROR: https://mirrors.ocf.berkeley.edu/qt/
+
+jobs:
+  Build-Windows:
+    runs-on: windows-latest
+
+    env:
+      QT_VERSION: 6.10.1
+      QIF_VERSION: 4.7
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+          fetch-depth: 10
+
+      - name: 'Install Qt'
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtremoteobjects qt5compat qtshadertools'
+          dir: ${{ runner.temp }}
+          setup-python: 'true'
+          tools: 'tools_ifw'
+          set-env: 'true'
+          aqtversion: '==3.3.0'
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Setup msvc'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: 'x64'
+
+      - name: 'Setup .NET SDK'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 'Install WiX Toolset'
+        shell: powershell
+        run: |
+          dotnet tool install --global wix --version 4.0.6
+          wix extension add -g WixToolset.UI.wixext/4.0.6
+          wix extension add -g WixToolset.Util.wixext/4.0.6
+          wix extension list -g
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: pip install "conan==2.28.0"
+
+      - name: 'Build project'
+        shell: cmd
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        run: |
+          set WIX_ROOT_PATH=%USERPROFILE%\.dotnet\tools
+          deploy\build.bat --installer all
+
+      - name: 'Upload installers'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-windows-x64
+          path: |
+            deploy/build/*_windows_x64.msi
+            deploy/build/*_windows_x64.exe
+          retention-days: 14
+          if-no-files-found: warn
