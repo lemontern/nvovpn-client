@@ -135,6 +135,10 @@
         <file>Pages2/PageShareFullAccess.qml</file>
         <file>Pages2/PageShareConnection.qml</file>
         <file>Pages2/PageStart.qml</file>
+        <file>Pages2/PageNvoLogin.qml</file>
+        <file>Pages2/PageNvoHome.qml</file>
+        <file>Pages2/PageNvoCountries.qml</file>
+        <file>Pages2/PageNvoSubscription.qml</file>
         <file>Components/RenameServerDrawer.qml</file>
         <file>Controls2/ListViewType.qml</file>
         <file>Pages2/PageSettingsApiSupport.qml</file>

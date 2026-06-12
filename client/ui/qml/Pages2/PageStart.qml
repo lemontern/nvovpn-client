@@ -24,13 +24,13 @@ PageType {
         target: PageController
 
         function onGoToPageHome() {
-            if (PageController.isStartPageVisible()) {
+            if (!NvoApi.isAuthenticated) {
                 tabBar.visible = false
-                tabBarStackView.goToTabBarPage(PageEnum.PageSetupWizardStart)
+                tabBarStackView.goToTabBarPage(PageEnum.PageNvoLogin)
             } else {
                 tabBar.visible = true
                 tabBar.setCurrentIndex(0)
-                tabBarStackView.goToTabBarPage(PageEnum.PageHome)
+                tabBarStackView.goToTabBarPage(PageEnum.PageNvoHome)
             }
         }
 
@@ -262,6 +262,15 @@ PageType {
         }
     }
 
+    Connections {
+        target: NvoApi
+
+        // Логин / логаут / истёкший токен → перенаправить на нужный стартовый экран.
+        function onAuthenticationChanged() {
+            PageController.goToPageHome()
+        }
+    }
+
     StackViewType {
         id: tabBarStackView
         objectName: "tabBarStackView"
@@ -281,13 +290,13 @@ PageType {
 
         Component.onCompleted: {
             var pagePath
-            if (PageController.isStartPageVisible()) {
+            if (!NvoApi.isAuthenticated) {
                 tabBar.visible = false
-                pagePath = PageController.getPagePath(PageEnum.PageSetupWizardStart)
+                pagePath = PageController.getPagePath(PageEnum.PageNvoLogin)
             } else {
                 tabBar.visible = true
-                pagePath = PageController.getPagePath(PageEnum.PageHome)
-                ServersUiController.setProcessedServerId(ServersUiController.defaultServerId)
+                tabBar.setCurrentIndex(0)
+                pagePath = PageController.getPagePath(PageEnum.PageNvoHome)
             }
 
             tabBarStackView.push(pagePath, { "objectName" : pagePath })
@@ -360,36 +369,8 @@ PageType {
             isSelected: tabBar.currentIndex === 0
             image: "qrc:/images/controls/home.svg"
             clickedFunc: function () {
-                tabBarStackView.goToTabBarPage(PageEnum.PageHome)
-                ServersUiController.setProcessedServerId(ServersUiController.defaultServerId)
+                tabBarStackView.goToTabBarPage(PageEnum.PageNvoHome)
                 tabBar.currentIndex = 0
-            }
-        }
-
-        TabImageButtonType {
-            id: shareTabButton
-            objectName: "shareTabButton"
-
-            Connections {
-                target: ServersModel
-
-                function onModelReset() {
-                    if (!SettingsController.isOnTv()) {
-                        var hasServerWithWriteAccess = ServersUiController.hasServerWithWriteAccess()
-                        shareTabButton.visible = hasServerWithWriteAccess
-                        shareTabButton.width = hasServerWithWriteAccess ? undefined : 0
-                    }
-                }
-            }
-
-            visible: !SettingsController.isOnTv() && ServersUiController.hasServerWithWriteAccess()
-            width: !SettingsController.isOnTv() && ServersUiController.hasServerWithWriteAccess() ? undefined : 0
-
-            isSelected: tabBar.currentIndex === 1
-            image: "qrc:/images/controls/share-2.svg"
-            clickedFunc: function () {
-                tabBarStackView.goToTabBarPage(PageEnum.PageShare)
-                tabBar.currentIndex = 1
             }
         }
 
@@ -411,16 +392,5 @@ PageType {
             }
         }
 
-        TabImageButtonType {
-            id: plusTabButton
-            objectName: "plusTabButton"
-
-            isSelected: tabBar.currentIndex === 3
-            image: "qrc:/images/controls/plus.svg"
-            clickedFunc: function () {
-                tabBarStackView.goToTabBarPage(PageEnum.PageSetupWizardConfigSource)
-                tabBar.currentIndex = 3
-            }
-        }
     }
 }
