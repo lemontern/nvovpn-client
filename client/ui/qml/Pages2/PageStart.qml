@@ -35,7 +35,7 @@ PageType {
         }
 
         function onGoToPageSettings() {
-            tabBar.setCurrentIndex(2)
+            tabBar.setCurrentIndex(1)
             tabBarStackView.goToTabBarPage(PageEnum.PageSettings)
         }
 
@@ -378,7 +378,7 @@ PageType {
             id: settingsTabButton
             objectName: "settingsTabButton"
 
-            isSelected: tabBar.currentIndex === 2
+            isSelected: tabBar.currentIndex === 1
             image: (ServersUiController.hasServersFromGatewayApi && NewsModel.hasUnread && SettingsController.isNewsNotificationsEnabled()) ? "qrc:/images/controls/settings-news.svg" : "qrc:/images/controls/settings.svg"
             Binding {
                 target: settingsTabButton
@@ -388,7 +388,7 @@ PageType {
             }
             clickedFunc: function () {
                 tabBarStackView.goToTabBarPage(PageEnum.PageSettings)
-                tabBar.currentIndex = 2
+                tabBar.currentIndex = 1
             }
         }
 
