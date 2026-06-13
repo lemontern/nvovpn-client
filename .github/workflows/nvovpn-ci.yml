@@ -180,13 +180,25 @@ jobs:
       - name: 'Install conan'
         run: pip install "conan==2.28.0"
 
-      - name: 'Build project (unsigned, arm64-v8a + armeabi-v7a)'
+      - name: 'Generate signing keystore'
+        # APK ОБЯЗАН быть подписан, иначе Android не устанавливает («Не установлено»).
+        # Пока генерим keystore в CI (тестовая подпись). Для стабильных обновлений/раздачи —
+        # перейти на постоянный keystore через secret (ANDROID_RELEASE_KEYSTORE_BASE64).
+        run: |
+          keytool -genkeypair -v -keystore "$GITHUB_WORKSPACE/nvovpn.keystore" \
+            -alias nvovpn -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass nvovpn2026 -keypass nvovpn2026 \
+            -dname "CN=NvoVPN, O=NvoVPN, C=US"
+
+      - name: 'Build project (signed, arm64-v8a + armeabi-v7a)'
         env:
           QT_INSTALL_DIR: ${{ runner.temp }}
-        # Без --sign: debug-подпись, ставится sideload'ом (для теста). Release-подпись —
-        # позже через keystore secret. Universal APK с двумя реальными ABI (без x86 эмуляторных).
+          QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/nvovpn.keystore
+          QT_ANDROID_KEYSTORE_ALIAS: nvovpn
+          QT_ANDROID_KEYSTORE_STORE_PASS: nvovpn2026
+          QT_ANDROID_KEYSTORE_KEY_PASS: nvovpn2026
         run: |
-          deploy/build.sh -t android --abi arm64-v8a --abi armeabi-v7a
+          deploy/build.sh -t android --sign --abi arm64-v8a --abi armeabi-v7a
 
       - name: 'Upload APK'
         uses: actions/upload-artifact@v4
