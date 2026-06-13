@@ -59,14 +59,28 @@ void NvoApiController::setSelectedServerId(int serverId)
 
 void NvoApiController::connectToSelected()
 {
-    int id = m_selectedServerId;
-    if (id < 0 && m_serversModel) {
-        id = m_serversModel->bestServerId();   // Авто = рекомендованный/наименее загруженный
-    }
-    if (id < 0) {
-        emit errorOccurred(tr("Нет доступных серверов, попробуйте позже"));
+    if (m_selectedServerId >= 0) {
+        // Явный выбор страны — без failover (юзер хочет именно её).
+        m_inFailover = false;
+        m_failoverQueue.clear();
+        requestConfig(m_selectedServerId);
         return;
     }
+
+    // Авто (ТЗ §12.6): перебираем рабочие ноды молча, начиная с рекомендованной.
+    m_failoverQueue = m_serversModel ? m_serversModel->onlineServerIdsByLoad() : QList<int>();
+    m_inFailover = true;
+    tryNextFailover();
+}
+
+void NvoApiController::tryNextFailover()
+{
+    if (m_failoverQueue.isEmpty()) {
+        m_inFailover = false;
+        emit errorOccurred(tr("Не удалось подобрать сервер, попробуйте позже"));
+        return;
+    }
+    const int id = m_failoverQueue.takeFirst();
     requestConfig(id);
 }
 
@@ -244,27 +258,48 @@ void NvoApiController::requestConfig(int serverId)
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, serverId]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
+
+        // 403/401 — не повод для failover (это аккаунт/сессия).
         if (status == 403) {
+            m_inFailover = false;
+            m_failoverQueue.clear();
+            setBusy(false);
             emit subscriptionRequired();
             return;
         }
         if (status == 401) {
+            m_inFailover = false;
+            m_failoverQueue.clear();
             setToken(QString());
+            setBusy(false);
             emit errorOccurred(tr("Сессия истекла, войдите снова"));
             return;
         }
-        if (reply->error() != QNetworkReply::NoError) {
-            emit errorOccurred(humanError(reply));
-            return;
-        }
+
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         const QString config = root.value(QStringLiteral("config")).toString();
-        if (config.isEmpty()) {
-            emit errorOccurred(tr("Не удалось получить настройки сервера"));
+        const bool failed = (reply->error() != QNetworkReply::NoError) || config.isEmpty();
+
+        if (failed) {
+            // Режим «Авто» — молча пробуем следующую ноду (ТЗ §12.6).
+            if (m_inFailover && !m_failoverQueue.isEmpty()) {
+                tryNextFailover();
+                return;
+            }
+            const bool wasExplicit = (m_selectedServerId >= 0);
+            m_inFailover = false;
+            m_failoverQueue.clear();
+            setBusy(false);
+            emit errorOccurred(wasExplicit ? tr("Этот сервер сейчас недоступен, выберите другой")
+                                           : tr("Не удалось подключиться, попробуйте позже"));
             return;
         }
+
+        // Успех — сбрасываем failover.
+        m_inFailover = false;
+        m_failoverQueue.clear();
+        setBusy(false);
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
         emit configReady(config, serverId, server.value(QStringLiteral("name")).toString(),
                          root.value(QStringLiteral("vpn_key")).toString(),

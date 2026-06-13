@@ -1,6 +1,7 @@
 #include "nvoServersModel.h"
 
 #include <QJsonObject>
+#include <algorithm>
 
 #include "logger.h"
 
@@ -124,6 +125,25 @@ int NvoServersModel::bestServerId() const
         return bestId;
     // 3) хоть что-то
     return m_servers.isEmpty() ? -1 : m_servers.first().id;
+}
+
+QList<int> NvoServersModel::onlineServerIdsByLoad() const
+{
+    QVector<ServerInfo> sorted;
+    for (const ServerInfo &s : m_servers) {
+        if (s.online)
+            sorted.push_back(s);
+    }
+    // recommended первым, затем по возрастанию нагрузки
+    std::stable_sort(sorted.begin(), sorted.end(), [](const ServerInfo &a, const ServerInfo &b) {
+        if (a.recommended != b.recommended)
+            return a.recommended;
+        return a.loadPercent < b.loadPercent;
+    });
+    QList<int> ids;
+    for (const ServerInfo &s : sorted)
+        ids.append(s.id);
+    return ids;
 }
 
 int NvoServersModel::indexOfServerId(int serverId) const

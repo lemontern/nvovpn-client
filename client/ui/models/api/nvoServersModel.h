@@ -37,6 +37,7 @@ public slots:
     QString nameAt(int index) const;
     int recommendedServerId() const;        // -1 если нет рекомендованного
     int bestServerId() const;               // рекомендованный online; иначе наименее загруженный online; иначе первый
+    QList<int> onlineServerIdsByLoad() const; // online ноды по возрастанию нагрузки (recommended первым) — для авто-failover
     int indexOfServerId(int serverId) const;
 
 protected:

@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QList>
 #include <QNetworkRequest>
 
 class QNetworkAccessManager;
@@ -72,6 +73,7 @@ signals:
 
 private:
     QNetworkRequest makeRequest(const QString &path, bool auth) const;
+    void tryNextFailover();                     // следующий сервер в режиме Авто
     void setBusy(bool busy);
     void setToken(const QString &token);
     void applyUser(const QJsonObject &root);
@@ -91,6 +93,10 @@ private:
     int m_subDaysRemaining = 0;
     int m_selectedServerId = -1;
     bool m_busy = false;
+
+    // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
+    QList<int> m_failoverQueue;
+    bool m_inFailover = false;
 };
 
 #endif // NVOAPICONTROLLER_H
