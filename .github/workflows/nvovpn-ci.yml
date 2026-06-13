@@ -102,3 +102,97 @@ jobs:
             deploy/build/*_windows_x64.exe
           retention-days: 14
           if-no-files-found: warn
+
+  Build-Android:
+    runs-on: ubuntu-latest   # вместо self-hosted android-runner Amnezia
+    env:
+      ANDROID_PLATFORM: android-28
+      NDK_VERSION: 27.0.11718014
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: 'Install desktop Qt (host tools)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Install android_arm64_v8a Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'android'
+          arch: 'android_arm64_v8a'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Install android_armv7 Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'android'
+          arch: 'android_armv7'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Setup Java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 'Setup Android SDK'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;${{ env.ANDROID_PLATFORM }} ndk;${{ env.NDK_VERSION }}"
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: pip install "conan==2.28.0"
+
+      - name: 'Build project (unsigned, arm64-v8a + armeabi-v7a)'
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        # Без --sign: debug-подпись, ставится sideload'ом (для теста). Release-подпись —
+        # позже через keystore secret. Universal APK с двумя реальными ABI (без x86 эмуляторных).
+        run: |
+          deploy/build.sh -t android --abi arm64-v8a --abi armeabi-v7a
+
+      - name: 'Upload APK'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-android
+          path: |
+            deploy/build/client/android-build/*.apk
+          retention-days: 14
+          if-no-files-found: warn
