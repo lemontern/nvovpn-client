@@ -281,10 +281,10 @@ class AmneziaActivity : QtActivity() {
         openFileDeliveryScheduled = false
         Log.d(TAG, "Stop Amnezia activity")
         doUnbindService()
-        mainScope.launch {
-            qtInitialized.await()
-            QtAndroidController.onServiceDisconnected()
-        }
+        // NvoVPN: НЕ шлём onServiceDisconnected при сворачивании — это ложно сбрасывало UI
+        // в «Disconnected», хотя VPN-туннель остаётся активным (foreground service жив).
+        // GUI-процесс при сворачивании не убивается; при возврате onStart() переподключит службу
+        // и статус восстановится. (Было: QtAndroidController.onServiceDisconnected() здесь.)
         super.onStop()
     }
 
