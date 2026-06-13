@@ -4,8 +4,8 @@
         <ServiceInstall
                 Id="AmneziaServiceInstall"
                 Name="AmneziaVPN-service"
-                DisplayName="AmneziaVPN Service"
-                Description="Service for AmneziaVPN"
+                DisplayName="NvoVPN Service"
+                Description="Service for NvoVPN"
                 Start="auto"
                 Type="ownProcess"
                 ErrorControl="normal"

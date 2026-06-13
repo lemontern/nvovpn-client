@@ -1,10 +1,10 @@
 #include <windows.h>
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
-#define VER_COMPANYNAME_STR         "AmneziaVPN"
-#define VER_FILEDESCRIPTION_STR     "AmneziaVPN Service"
+#define VER_COMPANYNAME_STR         "NvoVPN"
+#define VER_FILEDESCRIPTION_STR     "NvoVPN Service"
 #define VER_INTERNALNAME_STR        VER_FILEDESCRIPTION_STR
-#define VER_LEGALCOPYRIGHT_STR      "AmneziaVPN."
+#define VER_LEGALCOPYRIGHT_STR      "NvoVPN."
 #define VER_LEGALTRADEMARKS1_STR    "All Rights Reserved"
 #define VER_LEGALTRADEMARKS2_STR    VER_LEGALTRADEMARKS1_STR
 #define VER_ORIGINALFILENAME_STR    "AmneziaVPN-service.exe"
