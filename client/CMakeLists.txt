@@ -71,15 +71,16 @@ qt6_add_resources(QRC ${QRC}
 )
 
 # -- i18n begin
+# NvoVPN: языки как на сайте. ru — Amnezia-переводы + наши строки (source=рус).
+# en/de/pl/it/es/fr — наши экраны переведены; Amnezia-строки fallback на англ. source.
 set(AMNEZIAVPN_TS_FILES
     ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_ru_RU.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_zh_CN.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_fa_IR.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_ar_EG.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_my_MM.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_uk_UA.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_ur_PK.ts
-    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_hi_IN.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_en.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_de_DE.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_pl_PL.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_it_IT.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_es_ES.ts
+    ${CMAKE_CURRENT_LIST_DIR}/translations/amneziavpn_fr_FR.ts
 )
 
 qt6_add_translations(${PROJECT}
