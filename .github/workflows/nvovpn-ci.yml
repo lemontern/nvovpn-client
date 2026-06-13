@@ -106,7 +106,9 @@ jobs:
   Build-Android:
     runs-on: ubuntu-latest   # вместо self-hosted android-runner Amnezia
     env:
-      ANDROID_PLATFORM: android-34   # стабильный Android 14 (не preview-36, иначе APK не ставится на старых устройствах)
+      ANDROID_PLATFORM: android-28   # conan api_level / minSdk (НЕ менять: prebuilt libssh собран под api 28;
+                                     # api 34 → conan пересобирает libssh из исходников и падает на openssl).
+                                     # compileSdk/targetSdk=34 задаются отдельно (SDK platform 34 + android.cmake).
       NDK_VERSION: 27.0.11718014
       QT_VERSION: 6.10.1
       QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
