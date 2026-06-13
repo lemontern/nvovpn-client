@@ -302,7 +302,7 @@ void SecureAppSettingsRepository::setStrictKillSwitchEnabled(bool enabled)
 
 bool SecureAppSettingsRepository::isAutoConnect() const
 {
-    return value("Conf/autoConnect", false).toBool();
+    return value("Conf/autoConnect", true).toBool();  // NvoVPN §12.7: вкл по умолчанию
 }
 
 void SecureAppSettingsRepository::setAutoConnect(bool enabled)

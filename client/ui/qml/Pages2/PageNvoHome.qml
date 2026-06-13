@@ -19,6 +19,9 @@ PageType {
     readonly property bool connected: ConnectionController.isConnected
     readonly property bool busy: NvoApi.isBusy || ConnectionController.isConnectionInProgress
 
+    // §12.7: авто-подключение при запуске (один раз за сессию экрана), если включено в настройках.
+    property bool autoConnectTried: false
+
     function currentCountryText() {
         if (NvoApi.selectedServerId < 0)
             return qsTr("Авто (лучший сервер)")
@@ -50,6 +53,18 @@ PageType {
 
         function onErrorOccurred(message) {
             PageController.showNotificationMessage(message)
+        }
+
+        // Серверы загрузились → если включён авто-коннект и есть подписка, подключаемся сами (§12.7).
+        function onServersUpdated() {
+            if (!root.autoConnectTried
+                    && SettingsController.isAutoConnectEnabled()
+                    && NvoApi.hasSubscription
+                    && !ConnectionController.isConnected
+                    && !ConnectionController.isConnectionInProgress) {
+                root.autoConnectTried = true
+                NvoApi.connectToSelected()
+            }
         }
     }
 
