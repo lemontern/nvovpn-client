@@ -34,7 +34,10 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.amnezia.vpn"
+        // NvoVPN: install-identity на устройстве (отдельное приложение, не конфликтует с
+        // оригинальным AmneziaVPN org.amnezia.vpn). namespace остаётся org.amnezia.vpn —
+        // от него зависят JNI-классы (android_controller.cpp) и R/BuildConfig.
+        applicationId = "com.nvovpn.app"
         targetSdk = qtTargetSdkVersion.toInt()
 
         // keeps language resources for only the locales specified below
