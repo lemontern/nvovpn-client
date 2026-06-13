@@ -87,16 +87,18 @@ jobs:
         shell: cmd
         env:
           QT_INSTALL_DIR: ${{ runner.temp }}
+        # Только IFW (.exe) — им раздаём с сайта. WIX (.msi) пока выключен:
+        # после полного rename его авто-Id фрагмента службы (CM_CP_<comp>.<exe>) требует
+        # подбора под CPack; .msi сейчас не нужен. Вернём при необходимости.
         run: |
           set WIX_ROOT_PATH=%USERPROFILE%\.dotnet\tools
-          deploy\build.bat --installer all
+          deploy\build.bat --installer ifw
 
       - name: 'Upload installers'
         uses: actions/upload-artifact@v4
         with:
           name: nvovpn-windows-x64
           path: |
-            deploy/build/*_windows_x64.msi
             deploy/build/*_windows_x64.exe
           retention-days: 14
           if-no-files-found: warn
