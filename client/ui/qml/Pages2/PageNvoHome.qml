@@ -238,6 +238,50 @@ PageType {
         }
     }
 
+    // ---- Онбординг: одно обучающее окно при первом запуске (§12.8) ----
+    Rectangle {
+        id: onboarding
+        anchors.fill: parent
+        z: 100
+        visible: NvoApi.isAuthenticated && !NvoApi.onboardingDone
+        color: Qt.rgba(0, 0, 0, 0.82)
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: NvoApi.setOnboardingDone()
+        }
+
+        ColumnLayout {
+            anchors.centerIn: parent
+            width: parent.width
+            spacing: 24
+
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: "👆"
+                font.pixelSize: 64
+            }
+            Text {
+                Layout.fillWidth: true
+                Layout.leftMargin: 32
+                Layout.rightMargin: 32
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: qsTr("Нажмите большую кнопку —\nи вы под защитой")
+                color: "white"
+                font.family: "PT Root UI VF"
+                font.weight: 700
+                font.pixelSize: 24
+            }
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                text: qsTr("Нажмите в любом месте, чтобы продолжить")
+                color: AmneziaStyle.color.mutedGray
+                font.pixelSize: 15
+            }
+        }
+    }
+
     // ---- Низ: статус подписки ----
     Text {
         anchors.bottom: parent.bottom

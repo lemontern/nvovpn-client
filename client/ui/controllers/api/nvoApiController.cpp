@@ -19,6 +19,7 @@ namespace
 
     constexpr char API_BASE[] = "https://nvovpn.com/api/v1";
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
+    constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -34,6 +35,7 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
 {
     if (m_settings) {
         m_token = QString::fromUtf8(m_settings->value(QString::fromLatin1(TOKEN_KEY)).toByteArray());
+        m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
     }
 }
 
@@ -47,7 +49,18 @@ QString NvoApiController::subscriptionStatus() const { return m_subStatus; }
 QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt; }
 int NvoApiController::subscriptionDaysRemaining() const { return m_subDaysRemaining; }
 int NvoApiController::selectedServerId() const { return m_selectedServerId; }
+bool NvoApiController::onboardingDone() const { return m_onboardingDone; }
 QString NvoApiController::token() const { return m_token; }
+
+void NvoApiController::setOnboardingDone()
+{
+    if (m_onboardingDone)
+        return;
+    m_onboardingDone = true;
+    if (m_settings)
+        m_settings->setValue(QString::fromLatin1(ONBOARDING_KEY), true);
+    emit onboardingChanged();
+}
 
 void NvoApiController::setSelectedServerId(int serverId)
 {

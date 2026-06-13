@@ -29,6 +29,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString subscriptionExpiresAt READ subscriptionExpiresAt NOTIFY subscriptionChanged)
     Q_PROPERTY(int subscriptionDaysRemaining READ subscriptionDaysRemaining NOTIFY subscriptionChanged)
     Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
+    Q_PROPERTY(bool onboardingDone READ onboardingDone NOTIFY onboardingChanged)
 
 public:
     explicit NvoApiController(SecureQSettings *settings, NvoServersModel *serversModel, QObject *parent = nullptr);
@@ -43,8 +44,10 @@ public:
     QString subscriptionExpiresAt() const;
     int subscriptionDaysRemaining() const;
     int selectedServerId() const;               // -1 = Авто (лучший сервер)
+    bool onboardingDone() const;                // показан ли обучающий экран (§12.8)
 
 public slots:
+    void setOnboardingDone();
     void login(const QString &email, const QString &password);
     void loginByCode(const QString &code);
     void logout();
@@ -62,6 +65,7 @@ signals:
     void userChanged();
     void subscriptionChanged();
     void selectedServerChanged();
+    void onboardingChanged();
 
     void loginSucceeded();
     void loginFailed(const QString &message);
@@ -93,6 +97,7 @@ private:
     int m_subDaysRemaining = 0;
     int m_selectedServerId = -1;
     bool m_busy = false;
+    bool m_onboardingDone = false;
 
     // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
     QList<int> m_failoverQueue;
