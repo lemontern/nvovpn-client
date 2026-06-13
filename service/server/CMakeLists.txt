@@ -7,7 +7,7 @@ if (APPLE)
     # CMAKE_INSTALL_BINDIR must be called before find_package(Qt6) for
     # Qt to configure prefixes properly
     # FIXME: make Amnezia-service a bundle and remove this hack completely
-    set(CMAKE_INSTALL_BINDIR "AmneziaVPN.app/Contents/MacOS")
+    set(CMAKE_INSTALL_BINDIR "NvoVPN.app/Contents/MacOS")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)
@@ -345,7 +345,7 @@ qt_add_repc_sources(${PROJECT} ${CMAKE_CURRENT_LIST_DIR}/../../ipc/ipc_process_i
 if(APPLE)
     install(DIRECTORY ${CMAKE_SOURCE_DIR}/deploy/data/macos/pf
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
     )
 endif()
 
@@ -380,12 +380,12 @@ if(WIN32)
     # to the files so just omit it for it
     install(FILES ${CONAN_EXECS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
     )
 else()
     install(FILES ${CONAN_EXECS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
         PERMISSIONS
             OWNER_READ OWNER_EXECUTE
             GROUP_READ GROUP_EXECUTE
@@ -407,7 +407,7 @@ if (WIN32)
     )
     install(DIRECTORY "${TAP_WINDOWS6_BIN}/"
         DESTINATION "${CMAKE_INSTALL_BINDIR}/tap"
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
     )
 
     find_package(win-split-tunnel REQUIRED)
@@ -418,7 +418,7 @@ if (WIN32)
     )
     install(DIRECTORY "${WIN_SPLIT_TUNNEL_BIN}/"
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
     )
 endif()
 

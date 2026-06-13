@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.0 FATAL_ERROR)
 
-set(PROJECT AmneziaVPN)
+set(PROJECT NvoVPN)
 project(${PROJECT})
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -213,11 +213,11 @@ endif()
 install(TARGETS ${PROJECT}
     DESTINATION ${CMAKE_INSTALL_BINDIR}
     RUNTIME_DEPENDENCY_SET client_deps
-    COMPONENT AmneziaVPN
+    COMPONENT NvoVPN
 )
 
 if(APPLE)
-    set(RUNTIME_DEPS_DIR ${CMAKE_INSTALL_BINDIR}/AmneziaVPN.app/Contents/Frameworks)
+    set(RUNTIME_DEPS_DIR ${CMAKE_INSTALL_BINDIR}/NvoVPN.app/Contents/Frameworks)
 else()
     set(RUNTIME_DEPS_DIR ${CMAKE_INSTALL_BINDIR})
 endif()
@@ -236,7 +236,7 @@ install(RUNTIME_DEPENDENCY_SET client_deps
         [[^/lib.*]]
         [[^/usr/lib.*]]
     DIRECTORIES ${CONAN_RUNTIME_LIB_DIRS}
-    COMPONENT AmneziaVPN
+    COMPONENT NvoVPN
     DESTINATION "${RUNTIME_DEPS_DIR}"
 )
 
@@ -252,7 +252,7 @@ qt_generate_deploy_qml_app_script(
     DEPLOY_TOOL_OPTIONS ${deploy_tool_options}
 )
 install(SCRIPT ${QT_DEPLOY_SCRIPT}
-    COMPONENT AmneziaVPN
+    COMPONENT NvoVPN
 )
 
 if (APPLE AND NOT IOS AND NOT MACOS_NE)
@@ -271,7 +271,7 @@ if(OVPN_SCRIPTS)
 
     install(FILES ${OVPN_SCRIPTS}
         DESTINATION ${CMAKE_INSTALL_BINDIR}
-        COMPONENT AmneziaVPN
+        COMPONENT NvoVPN
         PERMISSIONS
             OWNER_READ OWNER_EXECUTE
             GROUP_READ GROUP_EXECUTE
