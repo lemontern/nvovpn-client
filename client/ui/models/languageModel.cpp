@@ -39,15 +39,13 @@ QString LanguageModel::getLocalLanguageName(const LanguageSettings::AvailableLan
 {
     QString strLanguage("");
     switch (language) {
-    case LanguageSettings::AvailableLanguageEnum::English: strLanguage = "English"; break;
     case LanguageSettings::AvailableLanguageEnum::Russian: strLanguage = "Русский"; break;
-    case LanguageSettings::AvailableLanguageEnum::Ukrainian: strLanguage = "Українська"; break;
-    case LanguageSettings::AvailableLanguageEnum::China_cn: strLanguage = "\347\256\200\344\275\223\344\270\255\346\226\207"; break;
-    case LanguageSettings::AvailableLanguageEnum::Persian: strLanguage = "فارسی"; break;
-    case LanguageSettings::AvailableLanguageEnum::Arabic: strLanguage = "العربية"; break;
-    case LanguageSettings::AvailableLanguageEnum::Burmese: strLanguage = "မြန်မာဘာသာ"; break;
-    case LanguageSettings::AvailableLanguageEnum::Urdu: strLanguage = "اُرْدُوْ"; break;
-    case LanguageSettings::AvailableLanguageEnum::Hindi: strLanguage = "हिन्दी"; break;
+    case LanguageSettings::AvailableLanguageEnum::English: strLanguage = "English"; break;
+    case LanguageSettings::AvailableLanguageEnum::German: strLanguage = "Deutsch"; break;
+    case LanguageSettings::AvailableLanguageEnum::Polish: strLanguage = "Polski"; break;
+    case LanguageSettings::AvailableLanguageEnum::Italian: strLanguage = "Italiano"; break;
+    case LanguageSettings::AvailableLanguageEnum::Spanish: strLanguage = "Español"; break;
+    case LanguageSettings::AvailableLanguageEnum::French: strLanguage = "Français"; break;
     default: break;
     }
 

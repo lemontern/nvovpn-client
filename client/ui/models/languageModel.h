@@ -7,16 +7,15 @@
 namespace LanguageSettings
 {
     Q_NAMESPACE
+    // NvoVPN: языки как на сайте nvovpn.com
     enum class AvailableLanguageEnum {
-        English,
         Russian,
-        China_cn,
-        Ukrainian,
-        Persian,
-        Arabic,
-        Burmese,
-        Urdu,
-        Hindi
+        English,
+        German,
+        Polish,
+        Italian,
+        Spanish,
+        French
     };
     Q_ENUM_NS(AvailableLanguageEnum)
 

@@ -217,13 +217,28 @@ PageType {
                 }
             }
 
-            CaptionTextType {
+            RowLayout {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 32
                 Layout.bottomMargin: 24
-                horizontalAlignment: Text.AlignHCenter
-                color: AmneziaStyle.color.mutedGray
-                text: qsTr("Нет аккаунта? Оформите подписку на nvovpn.com")
+                spacing: 6
+
+                CaptionTextType {
+                    color: AmneziaStyle.color.mutedGray
+                    text: qsTr("Нет аккаунта?")
+                }
+
+                CaptionTextType {
+                    color: AmneziaStyle.color.nvoBlue
+                    font.weight: 700
+                    text: qsTr("Зарегистрироваться")
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Qt.openUrlExternally("https://nvovpn.com/")
+                    }
+                }
             }
         }
     }
