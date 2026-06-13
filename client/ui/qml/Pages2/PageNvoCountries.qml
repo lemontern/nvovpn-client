@@ -112,7 +112,13 @@ PageType {
                 anchors.rightMargin: 20
                 spacing: 14
 
-                Text { text: "🌍"; font.pixelSize: 26 }
+                Image {
+                    source: "qrc:/countriesFlags/images/flagKit/" + countryImageCode + ".svg"
+                    sourceSize.width: 36
+                    Layout.preferredWidth: 36
+                    Layout.preferredHeight: 27
+                    fillMode: Image.PreserveAspectFit
+                }
 
                 ColumnLayout {
                     spacing: 2

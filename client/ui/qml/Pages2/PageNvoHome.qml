@@ -27,6 +27,13 @@ PageType {
         return name === "" ? qsTr("Авто (лучший сервер)") : name
     }
 
+    function currentCountryCode() {
+        if (NvoApi.selectedServerId < 0)
+            return ""
+        var idx = NvoServersModel.indexOfServerId(NvoApi.selectedServerId)
+        return NvoServersModel.countryCodeAt(idx).toUpperCase()
+    }
+
     Component.onCompleted: {
         if (NvoApi.isAuthenticated) {
             NvoApi.refreshServers()
@@ -182,7 +189,20 @@ PageType {
                 anchors.centerIn: parent
                 spacing: 10
 
-                Text { text: "🌍"; font.pixelSize: 22 }
+                Text {
+                    visible: root.currentCountryCode() === ""
+                    text: "⚡"
+                    font.pixelSize: 22
+                }
+
+                Image {
+                    visible: root.currentCountryCode() !== ""
+                    source: visible ? "qrc:/countriesFlags/images/flagKit/" + root.currentCountryCode() + ".svg" : ""
+                    sourceSize.width: 28
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 21
+                    fillMode: Image.PreserveAspectFit
+                }
 
                 Text {
                     text: root.currentCountryText()
