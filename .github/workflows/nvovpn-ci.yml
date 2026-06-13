@@ -106,7 +106,7 @@ jobs:
   Build-Android:
     runs-on: ubuntu-latest   # вместо self-hosted android-runner Amnezia
     env:
-      ANDROID_PLATFORM: android-28
+      ANDROID_PLATFORM: android-34   # стабильный Android 14 (не preview-36, иначе APK не ставится на старых устройствах)
       NDK_VERSION: 27.0.11718014
       QT_VERSION: 6.10.1
       QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
@@ -170,7 +170,7 @@ jobs:
       - name: 'Setup Android SDK'
         uses: android-actions/setup-android@v4
         with:
-          packages: "platforms;${{ env.ANDROID_PLATFORM }} ndk;${{ env.NDK_VERSION }}"
+          packages: "platforms;android-34 build-tools;34.0.0 ndk;${{ env.NDK_VERSION }}"
 
       - name: 'Setup python (conan)'
         uses: actions/setup-python@v5
