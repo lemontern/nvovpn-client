@@ -1,9 +1,15 @@
 #include "connectionUiController.h"
 
+#include <QMetaEnum>
+
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS) || defined(MACOS_NE)
     #include <QGuiApplication>
 #else
     #include <QApplication>
+#endif
+
+#ifdef Q_OS_ANDROID
+    #include <android/log.h>
 #endif
 
 #include "amneziaApplication.h"
@@ -52,6 +58,11 @@ ErrorCode ConnectionUiController::getLastConnectionError()
 
 void ConnectionUiController::onConnectionStateChanged(Vpn::ConnectionState state)
 {
+#ifdef Q_OS_ANDROID
+    __android_log_print(4 /*INFO*/, "NvoVPN_DBG", "onConnectionStateChanged: state=%d (%s)",
+                        static_cast<int>(state),
+                        QMetaEnum::fromType<Vpn::ConnectionState>().valueToKey(static_cast<int>(state)));
+#endif
     m_state = state;
 
     m_isConnected = false;

@@ -1,6 +1,11 @@
 #include "coreSignalHandlers.h"
 
 #include <QTimer>
+#include <QMetaEnum>
+
+#ifdef Q_OS_ANDROID
+    #include <android/log.h>
+#endif
 
 #include "core/utils/selfhosted/sshSession.h"
 #include "core/utils/errorCodes.h"
@@ -377,8 +382,12 @@ void CoreSignalHandlers::initAndroidConnectionHandler()
 {
 #ifdef Q_OS_ANDROID
     connect(AndroidController::instance(), &AndroidController::initConnectionState, this, [this](Vpn::ConnectionState state) {
+        __android_log_print(4, "NvoVPN_DBG", "initConnectionState from service: state=%d (%s)",
+                            static_cast<int>(state),
+                            QMetaEnum::fromType<Vpn::ConnectionState>().valueToKey(static_cast<int>(state)));
         m_coreController->m_connectionUiController->onConnectionStateChanged(state);
         m_coreController->m_connectionController->restoreConnection();
+        __android_log_print(4, "NvoVPN_DBG", "after restoreConnection (state restored)");
     });
     connect(AndroidController::instance(), &AndroidController::importConfigFromOutside, this, [this](QString data) {
         emit m_coreController->m_pageController->goToPageHome();
