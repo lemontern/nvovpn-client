@@ -182,23 +182,19 @@ jobs:
       - name: 'Install conan'
         run: pip install "conan==2.28.0"
 
-      - name: 'Generate signing keystore'
-        # APK ОБЯЗАН быть подписан, иначе Android не устанавливает («Не установлено»).
-        # Пока генерим keystore в CI (тестовая подпись). Для стабильных обновлений/раздачи —
-        # перейти на постоянный keystore через secret (ANDROID_RELEASE_KEYSTORE_BASE64).
+      - name: 'Decode signing keystore from secret'
+        # Постоянный keystore (один ключ для всех билдов) → обновления ставятся поверх
+        # без переустановки. APK обязан быть подписан, иначе Android «Не установлено».
         run: |
-          keytool -genkeypair -v -keystore "$GITHUB_WORKSPACE/nvovpn.keystore" \
-            -alias nvovpn -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass nvovpn2026 -keypass nvovpn2026 \
-            -dname "CN=NvoVPN, O=NvoVPN, C=US"
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$GITHUB_WORKSPACE/nvovpn.keystore"
 
       - name: 'Build project (signed, arm64-v8a + armeabi-v7a)'
         env:
           QT_INSTALL_DIR: ${{ runner.temp }}
           QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/nvovpn.keystore
-          QT_ANDROID_KEYSTORE_ALIAS: nvovpn
-          QT_ANDROID_KEYSTORE_STORE_PASS: nvovpn2026
-          QT_ANDROID_KEYSTORE_KEY_PASS: nvovpn2026
+          QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
         run: |
           deploy/build.sh -t android --sign --abi arm64-v8a --abi armeabi-v7a
 

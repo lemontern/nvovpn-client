@@ -302,7 +302,10 @@ void SecureAppSettingsRepository::setStrictKillSwitchEnabled(bool enabled)
 
 bool SecureAppSettingsRepository::isAutoConnect() const
 {
-    return value("Conf/autoConnect", true).toBool();  // NvoVPN §12.7: вкл по умолчанию
+    // NvoVPN: ВЫКЛ по умолчанию. Авто-коннект при старте конфликтовал с восстановлением
+    // состояния VPN на Android (REQUEST_STATUS): при переоткрытии туннель активен, а авто-коннект
+    // запускал второй поверх → «крутится», кнопка не зелёная. Тумблер остаётся для желающих.
+    return value("Conf/autoConnect", false).toBool();
 }
 
 void SecureAppSettingsRepository::setAutoConnect(bool enabled)
