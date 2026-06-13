@@ -10,7 +10,7 @@
 #endif
 
 #define APPLICATION_NAME    "NvoVPN"
-#define SERVICE_NAME        "AmneziaVPN-service"
+#define SERVICE_NAME        "NvoVPN-service"
 #define ORGANIZATION_NAME   "NvoVPN"
 
 #endif  // VERSION_H

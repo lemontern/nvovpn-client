@@ -85,6 +85,10 @@ Component.prototype.createOperations = function()
         }
 
         let pu_path = installer.value("TargetDir").replace(/\//g, '\\') + "\\"
+        // NvoVPN: на случай ранее установленной/битой службы — снять и удалить перед созданием
+        // (sc create не перезаписывает существующую). exit /b 0 — игнорируем отсутствие службы.
+        component.addElevatedOperation("Execute",
+                                       ["cmd", "/c", "sc stop " + serviceName() + " & sc delete " + serviceName() + " & exit /b 0"]);
         component.addElevatedOperation("Execute",
                                        ["sc", "create", serviceName(), "binpath=", pu_path + serviceName() + ".exe",
                                         "start=", "auto", "depend=", "BFE/nsi"],

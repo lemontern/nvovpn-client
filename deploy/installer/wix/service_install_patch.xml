@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CPackWiXPatch>
-    <CPackWiXFragment Id="CM_CP_NvoVPN.AmneziaVPN_service.exe">
+    <CPackWiXFragment Id="CM_CP_NvoVPN.NvoVPN_service.exe">
         <ServiceInstall
                 Id="AmneziaServiceInstall"
-                Name="AmneziaVPN-service"
+                Name="NvoVPN-service"
                 DisplayName="NvoVPN Service"
                 Description="Service for NvoVPN"
                 Start="auto"
@@ -15,7 +15,7 @@
         </ServiceInstall>
         <ServiceControl
                 Id="AmneziaServiceControl"
-                Name="AmneziaVPN-service"
+                Name="NvoVPN-service"
                 Start="install"
                 Stop="both"
                 Remove="uninstall"
