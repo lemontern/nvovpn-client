@@ -1,5 +1,6 @@
 #include <QDebug>
 #include <QTimer>
+#include <QIcon>
 #include <libssh/libssh.h>
 
 #include "amneziaApplication.h"
@@ -45,6 +46,9 @@ int main(int argc, char *argv[])
 
     AmneziaApplication app(argc, argv);
     OsSignalHandler::setup();
+
+    // NvoVPN: иконка окна/дока/таскбара (не зависит от exe-ресурса и кэша иконок ОС).
+    app.setWindowIcon(QIcon(QStringLiteral(":/images/nvoAppIcon.png")));
 
     ssh_init();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {

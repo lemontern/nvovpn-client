@@ -4,6 +4,7 @@
     </qresource>
     <qresource prefix="/images">
         <file>amneziaBigLogo.png</file>
+        <file>nvoAppIcon.png</file>
         <file>AmneziaVPN.png</file>
         <file>controls/alert-circle.svg</file>
         <file>controls/amnezia.svg</file>

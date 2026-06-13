@@ -186,7 +186,7 @@ PageType {
 
         readonly property string title: qsTr("Сайт nvovpn.com")
         readonly property string description: qsTr("Подписка, поддержка, оплата")
-        readonly property string imageSource: "qrc:/images/controls/amnezia.svg"
+        readonly property string imageSource: "qrc:/images/controls/globe-2.svg"
         readonly property var handler: function() {
             Qt.openUrlExternally("https://nvovpn.com/")
         }

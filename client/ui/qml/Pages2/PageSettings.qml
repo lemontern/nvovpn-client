@@ -179,7 +179,7 @@ PageType {
         id: about
 
         property string title: qsTr("О NvoVPN")
-        readonly property string leftImagePath: "qrc:/images/controls/amnezia.svg"
+        readonly property string leftImagePath: "qrc:/images/controls/globe-2.svg"
         property bool isVisible: true
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsAbout)
