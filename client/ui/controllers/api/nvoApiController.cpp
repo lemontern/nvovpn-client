@@ -363,12 +363,18 @@ bool NvoApiController::handleDeepLink(const QString &url)
     if (u.scheme() != QStringLiteral("nvovpn")) {
         return false;
     }
-    // nvovpn://login?code=XXXX
+    // nvovpn://login?code=XXXX (успех) или nvovpn://login?error=... (ошибка Google-входа)
     const bool isLogin = (u.host() == QStringLiteral("login")) || u.path().contains(QStringLiteral("login"));
     if (!isLogin) {
         return false;
     }
-    const QString code = QUrlQuery(u).queryItemValue(QStringLiteral("code"));
+    const QUrlQuery query(u);
+    const QString error = query.queryItemValue(QStringLiteral("error"));
+    if (!error.isEmpty()) {
+        emit loginFailed(tr("Не удалось войти через Google, попробуйте ещё раз"));
+        return true;
+    }
+    const QString code = query.queryItemValue(QStringLiteral("code"));
     if (code.isEmpty()) {
         return false;
     }
