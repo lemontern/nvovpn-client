@@ -181,6 +181,30 @@ und Sie sind geschützt</translation>
         <source>О NvoVPN</source>
         <translation>Über NvoVPN</translation>
     </message>
+    <message>
+        <source>Settings</source>
+        <translation>Einstellungen</translation>
+    </message>
+    <message>
+        <source>Close application</source>
+        <translation>Anwendung schließen</translation>
+    </message>
+    <message>
+        <source>Connection</source>
+        <translation>Verbindung</translation>
+    </message>
+    <message>
+        <source>Application</source>
+        <translation>Anwendung</translation>
+    </message>
+    <message>
+        <source>News &amp; Notifications</source>
+        <translation>Neuigkeiten &amp; Benachrichtigungen</translation>
+    </message>
+    <message>
+        <source>Dev console</source>
+        <translation>Entwicklerkonsole</translation>
+    </message>
 </context>
 <context>
     <name>PageSettingsAbout</name>
@@ -207,6 +231,147 @@ und Sie sind geschützt</translation>
     <message>
         <source>Открытый код (GPLv3)</source>
         <translation>Open Source (GPLv3)</translation>
+    </message>
+    <message>
+        <source>Contacts</source>
+        <translation>Kontakte</translation>
+    </message>
+    <message>
+        <source>Software version: %1</source>
+        <translation>Softwareversion: %1</translation>
+    </message>
+    <message>
+        <source>Privacy Policy</source>
+        <translation>Datenschutzrichtlinie</translation>
+    </message>
+    <message>
+        <source>Проверить обновления</source>
+        <translation>Nach Updates suchen</translation>
+    </message>
+</context>
+<context>
+    <name>PageSettingsApplication</name>
+    <message>
+        <source>Application</source>
+        <translation>Anwendung</translation>
+    </message>
+    <message>
+        <source>Allow application screenshots</source>
+        <translation>Screenshots der Anwendung erlauben</translation>
+    </message>
+    <message>
+        <source>Enable notifications</source>
+        <translation>Benachrichtigungen aktivieren</translation>
+    </message>
+    <message>
+        <source>Enable notifications to show the VPN state in the status bar</source>
+        <translation>Benachrichtigungen aktivieren, um den VPN-Status in der Statusleiste anzuzeigen</translation>
+    </message>
+    <message>
+        <source>Auto start</source>
+        <translation>Autostart</translation>
+    </message>
+    <message>
+        <source>Launch the application every time the device is starts</source>
+        <translation>Die Anwendung bei jedem Start des Geräts starten</translation>
+    </message>
+    <message>
+        <source>Auto connect</source>
+        <translation>Automatisch verbinden</translation>
+    </message>
+    <message>
+        <source>Connect to VPN on app start</source>
+        <translation>Beim Start der App mit dem VPN verbinden</translation>
+    </message>
+    <message>
+        <source>Start minimized</source>
+        <translation>Minimiert starten</translation>
+    </message>
+    <message>
+        <source>Launch application minimized (works with autostart option turned on)</source>
+        <translation>Anwendung minimiert starten (funktioniert mit aktivierter Autostart-Option)</translation>
+    </message>
+    <message>
+        <source>News Notification</source>
+        <translation>Neuigkeiten-Benachrichtigung</translation>
+    </message>
+    <message>
+        <source>Show a notification icon for unread news</source>
+        <translation>Ein Benachrichtigungssymbol für ungelesene Neuigkeiten anzeigen</translation>
+    </message>
+    <message>
+        <source>Language</source>
+        <translation>Sprache</translation>
+    </message>
+    <message>
+        <source>Reset settings and remove all data from the application</source>
+        <translation>Einstellungen zurücksetzen und alle Daten aus der Anwendung entfernen</translation>
+    </message>
+    <message>
+        <source>Reset settings and remove all data from the application?</source>
+        <translation>Einstellungen zurücksetzen und alle Daten aus der Anwendung entfernen?</translation>
+    </message>
+    <message>
+        <source>All settings will be reset to default. All installed AmneziaVPN services will still remain on the server.</source>
+        <translation>Alle Einstellungen werden auf die Standardwerte zurückgesetzt. Alle installierten AmneziaVPN-Dienste bleiben weiterhin auf dem Server.</translation>
+    </message>
+    <message>
+        <source>Continue</source>
+        <translation>Fortfahren</translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation>Abbrechen</translation>
+    </message>
+    <message>
+        <source>Cannot reset settings during active connection</source>
+        <translation>Einstellungen können während einer aktiven Verbindung nicht zurückgesetzt werden</translation>
+    </message>
+</context>
+<context>
+    <name>PageSettingsConnection</name>
+    <message>
+        <source>Connection</source>
+        <translation>Verbindung</translation>
+    </message>
+    <message>
+        <source>KillSwitch</source>
+        <translation>KillSwitch</translation>
+    </message>
+    <message>
+        <source>Blocks network connections without VPN</source>
+        <translation>Blockiert Netzwerkverbindungen ohne VPN</translation>
+    </message>
+</context>
+<context>
+    <name>PageSettingsKillSwitch</name>
+    <message>
+        <source>KillSwitch</source>
+        <translation>KillSwitch</translation>
+    </message>
+    <message>
+        <source>Enable to ensure network traffic goes through a secure VPN tunnel, preventing accidental exposure of your IP and DNS queries if the connection drops</source>
+        <translation>Aktivieren, damit der Netzwerkverkehr durch einen sicheren VPN-Tunnel läuft, um die versehentliche Preisgabe Ihrer IP-Adresse und DNS-Anfragen bei einem Verbindungsabbruch zu verhindern</translation>
+    </message>
+    <message>
+        <source>KillSwitch settings cannot be changed during an active connection</source>
+        <translation>KillSwitch-Einstellungen können während einer aktiven Verbindung nicht geändert werden</translation>
+    </message>
+    <message>
+        <source>Soft KillSwitch</source>
+        <translation>Soft KillSwitch</translation>
+    </message>
+    <message>
+        <source>Internet access is blocked if the VPN disconnects unexpectedly</source>
+        <translation>Der Internetzugang wird blockiert, wenn die VPN-Verbindung unerwartet getrennt wird</translation>
+    </message>
+    <message>
+        <source>DNS Exceptions</source>
+        <translation>DNS-Ausnahmen</translation>
+    </message>
+    <message>
+        <source>DNS servers listed here will remain accessible when KillSwitch is active.</source>
+        <translation>Die hier aufgeführten DNS-Server bleiben erreichbar, wenn KillSwitch aktiv ist.</translation>
     </message>
 </context>
 </TS>
