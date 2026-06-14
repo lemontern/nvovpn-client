@@ -269,6 +269,11 @@ PageType {
         function onAuthenticationChanged() {
             PageController.goToPageHome()
         }
+
+        // Токен отозван/истёк (напр. вход на другом устройстве сверх лимита) — объяснить, почему просим войти.
+        function onSessionExpired() {
+            PageController.showNotificationMessage(qsTr("Сессия завершена — возможно, выполнен вход на другом устройстве. Войдите снова."))
+        }
     }
 
     StackViewType {

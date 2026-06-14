@@ -8,6 +8,11 @@
 #include <QDateTime>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QSysInfo>
+
+#if defined(Q_OS_ANDROID)
+    #include <QJniObject>
+#endif
 
 #include "secureQSettings.h"
 #include "ui/models/api/nvoServersModel.h"
@@ -24,6 +29,32 @@ namespace
     int httpStatus(QNetworkReply *reply)
     {
         return reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+
+    // Имя устройства для бэкенда (мульти-девайс): "Windows • hostname", "Android • model".
+    // Необязательное поле ≤100 символов — бэкенд различает устройства и вытесняет старейшее по лимиту.
+    QString deviceName()
+    {
+        QString platform;
+        QString detail;
+#if defined(Q_OS_ANDROID)
+        platform = QStringLiteral("Android");
+        detail = QJniObject::getStaticObjectField<jstring>("android/os/Build", "MODEL").toString();
+#elif defined(Q_OS_WIN)
+        platform = QStringLiteral("Windows");
+        detail = QSysInfo::machineHostName();
+#elif defined(Q_OS_MACOS)
+        platform = QStringLiteral("macOS");
+        detail = QSysInfo::machineHostName();
+#elif defined(Q_OS_IOS)
+        platform = QStringLiteral("iOS");
+        detail = QSysInfo::machineHostName();
+#else
+        platform = QStringLiteral("Device");
+        detail = QSysInfo::machineHostName();
+#endif
+        const QString name = detail.isEmpty() ? platform : (platform + QStringLiteral(" • ") + detail);
+        return name.left(100);
     }
 }
 
@@ -135,7 +166,7 @@ void NvoApiController::setToken(const QString &token)
 void NvoApiController::login(const QString &email, const QString &password)
 {
     setBusy(true);
-    const QJsonObject body { { "email", email }, { "password", password } };
+    const QJsonObject body { { "email", email }, { "password", password }, { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/login"), false),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -163,7 +194,7 @@ void NvoApiController::login(const QString &email, const QString &password)
 void NvoApiController::loginByCode(const QString &code)
 {
     setBusy(true);
-    const QJsonObject body { { "code", code } };
+    const QJsonObject body { { "code", code }, { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/login/code"), false),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
@@ -224,7 +255,7 @@ void NvoApiController::refreshServers()
         const int status = httpStatus(reply);
         if (status == 401) {
             setToken(QString());
-            emit errorOccurred(tr("Сессия истекла, войдите снова"));
+            emit sessionExpired();
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
@@ -250,6 +281,7 @@ void NvoApiController::refreshUser()
         const int status = httpStatus(reply);
         if (status == 401) {
             setToken(QString());
+            emit sessionExpired();
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
@@ -286,7 +318,7 @@ void NvoApiController::requestConfig(int serverId)
             m_failoverQueue.clear();
             setToken(QString());
             setBusy(false);
-            emit errorOccurred(tr("Сессия истекла, войдите снова"));
+            emit sessionExpired();
             return;
         }
 
