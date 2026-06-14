@@ -75,6 +75,7 @@ bool NvoApiController::isBusy() const { return m_busy; }
 QString NvoApiController::userName() const { return m_userName; }
 QString NvoApiController::userEmail() const { return m_userEmail; }
 bool NvoApiController::hasSubscription() const { return m_hasSubscription; }
+double NvoApiController::balance() const { return m_balance; }
 QString NvoApiController::subscriptionPlan() const { return m_subPlan; }
 QString NvoApiController::subscriptionStatus() const { return m_subStatus; }
 QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt; }
@@ -378,6 +379,7 @@ void NvoApiController::applyUser(const QJsonObject &root)
         m_userName = user.value(QStringLiteral("name")).toString();
         m_userEmail = user.value(QStringLiteral("email")).toString();
         m_hasSubscription = user.value(QStringLiteral("has_subscription")).toBool();
+        m_balance = user.value(QStringLiteral("balance")).toDouble();
         emit userChanged();
     }
 

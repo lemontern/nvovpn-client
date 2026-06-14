@@ -24,6 +24,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString userName READ userName NOTIFY userChanged)
     Q_PROPERTY(QString userEmail READ userEmail NOTIFY userChanged)
     Q_PROPERTY(bool hasSubscription READ hasSubscription NOTIFY subscriptionChanged)
+    Q_PROPERTY(double balance READ balance NOTIFY userChanged)
     Q_PROPERTY(QString subscriptionPlan READ subscriptionPlan NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionStatus READ subscriptionStatus NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionExpiresAt READ subscriptionExpiresAt NOTIFY subscriptionChanged)
@@ -39,6 +40,7 @@ public:
     QString userName() const;
     QString userEmail() const;
     bool hasSubscription() const;
+    double balance() const;
     QString subscriptionPlan() const;
     QString subscriptionStatus() const;
     QString subscriptionExpiresAt() const;
@@ -92,6 +94,7 @@ private:
     QString m_userName;
     QString m_userEmail;
     bool m_hasSubscription = false;
+    double m_balance = 0.0;
     QString m_subPlan;
     QString m_subStatus;
     QString m_subExpiresAt;
