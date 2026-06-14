@@ -12,6 +12,10 @@
     <string name="yes">Да</string>
     <string name="no">Нет</string>
 
+    <string name="nvoVpnPermissionTitle">Включить защиту</string>
+    <string name="nvoVpnPermissionMessage">Сейчас Android попросит разрешить VPN-подключение. Нажмите «ОК» (или «Разрешить»), чтобы включить защиту. Это нужно сделать только один раз.</string>
+    <string name="nvoVpnPermissionContinue">Продолжить</string>
+
     <string name="vpnGranted">VPN-подключение разрешено</string>
     <string name="vpnSetupFailed">Ошибка настройки VPN</string>
     <string name="vpnSetupFailedMessage">Чтобы подключиться к AmneziaVPN необходимо:\n\n- Разрешить приложению подключаться к сети VPN\n- Отключить функцию \"Постоянная VPN\" для всех остальных VPN-приложений в системных настройках VPN</string>

@@ -555,7 +555,15 @@ class AmneziaActivity : QtActivity() {
     @MainThread
     private fun checkVpnPermission(onPermissionGranted: () -> Unit) {
         Log.d(TAG, "Check VPN permission")
-        VpnService.prepare(applicationContext)?.let { intent ->
+        val intent = VpnService.prepare(applicationContext)
+        if (intent == null) {
+            // Разрешение уже выдано — сразу подключаемся.
+            onPermissionGranted()
+            return
+        }
+
+        // Запрос системного диалога Android (появляется только когда разрешение ещё не дано).
+        val requestSystemPermission = {
             startActivityForResult(intent, CHECK_VPN_PERMISSION_ACTION_CODE, ActivityResultHandler(
                 onSuccess = {
                     Log.d(TAG, "Vpn permission granted")
@@ -571,7 +579,25 @@ class AmneziaActivity : QtActivity() {
                     }
                 }
             ))
-        } ?: onPermissionGranted()
+        }
+
+        // NvoVPN §12.2: дружелюбное пояснение ПЕРЕД системным окном, чтобы пользователь
+        // (бабушка/ребёнок) не растерялся и понял, что нужно нажать «Разрешить/OK».
+        AlertDialog.Builder(this)
+            .setTitle(R.string.nvoVpnPermissionTitle)
+            .setMessage(R.string.nvoVpnPermissionMessage)
+            .setCancelable(false)
+            .setNegativeButton(R.string.cancel) { _, _ ->
+                Log.w(TAG, "VPN permission explanation cancelled")
+                mainScope.launch {
+                    qtInitialized.await()
+                    QtAndroidController.onVpnPermissionRejected()
+                }
+            }
+            .setPositiveButton(R.string.nvoVpnPermissionContinue) { _, _ ->
+                requestSystemPermission()
+            }
+            .show()
     }
 
     private fun showOnVpnPermissionRejectDialog() {
