@@ -71,6 +71,14 @@
         <source>Зарегистрироваться</source>
         <translation>Registrarse</translation>
     </message>
+    <message>
+        <source>или</source>
+        <translation>o</translation>
+    </message>
+    <message>
+        <source>Войти через Google</source>
+        <translation>Iniciar sesión con Google</translation>
+    </message>
 </context>
 <context>
     <name>PageNvoHome</name>
@@ -169,6 +177,14 @@ y estás protegido</translation>
     <message>
         <source>Продлить подписку</source>
         <translation>Renovar suscripción</translation>
+    </message>
+    <message>
+        <source>Баланс: %1</source>
+        <translation>Saldo: %1</translation>
+    </message>
+    <message>
+        <source>Пополнить баланс</source>
+        <translation>Recargar saldo</translation>
     </message>
 </context>
 <context>
