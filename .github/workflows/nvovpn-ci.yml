@@ -15,6 +15,15 @@ on:
 env:
   QT_MIRROR: https://mirrors.ocf.berkeley.edu/qt/
 
+# Нужно для авто-выкладки собранных билдов в GitHub Release (gh release upload).
+permissions:
+  contents: write
+
+# Новый пуш в ту же ветку отменяет предыдущую (незавершённую) сборку — без лишних параллельных прогонов.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   Build-Windows:
     # windows-2022 = VS2022 (msvc 194): совпадает с Qt win64_msvc2022_64 и с публичными
@@ -102,6 +111,15 @@ jobs:
             deploy/build/*_windows_x64.exe
           retention-days: 14
           if-no-files-found: warn
+
+      # Авто-выкладка в релиз (стабильная ссылка для раздачи на сайте). Только main.
+      - name: 'Publish to Release'
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload test-win-1 deploy/build/*_windows_x64.exe --clobber -R "${{ github.repository }}"
 
   Build-Android:
     runs-on: ubuntu-latest   # вместо self-hosted android-runner Amnezia
@@ -206,3 +224,14 @@ jobs:
             deploy/build/client/android-build/*.apk
           retention-days: 14
           if-no-files-found: warn
+
+      # Авто-выкладка в релиз (стабильная ссылка для раздачи на сайте). Только main.
+      - name: 'Publish to Release'
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(find deploy/build/client/android-build -name "*.apk" ! -name "*unsigned*" | head -1)
+          echo "APK: $APK"
+          cp "$APK" NvoVPN.apk
+          gh release upload test-android-1 NvoVPN.apk --clobber -R "${{ github.repository }}"
