@@ -199,6 +199,39 @@ PageType {
                 }
             }
 
+            // ---- «или» + вход через Google ----
+            CaptionTextType {
+                visible: !root.codeMode
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 16
+                color: AmneziaStyle.color.mutedGray
+                text: qsTr("или")
+            }
+
+            BasicButtonType {
+                id: googleButton
+                visible: !root.codeMode
+                Layout.fillWidth: true
+                Layout.topMargin: 12
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+                Layout.preferredHeight: 56
+
+                defaultColor: AmneziaStyle.color.transparent
+                hoveredColor: AmneziaStyle.color.translucentWhite
+                pressedColor: AmneziaStyle.color.sheerWhite
+                textColor: AmneziaStyle.color.paleGray
+                borderColor: AmneziaStyle.color.slateGray
+                borderWidth: 1
+
+                text: qsTr("Войти через Google")
+
+                clickedFunc: function() {
+                    errorLabel.text = ""
+                    NvoApi.openGoogleLogin()
+                }
+            }
+
             // ---- Переключатель режима ----
             CaptionTextType {
                 Layout.alignment: Qt.AlignHCenter

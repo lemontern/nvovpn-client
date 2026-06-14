@@ -60,6 +60,16 @@ PageType {
             }
         }
 
+        // Баланс (мультивалютный — форматирует бэкенд: «0 ₽» / «0 €»)
+        CaptionTextType {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 8
+            horizontalAlignment: Text.AlignHCenter
+            color: AmneziaStyle.color.paleGray
+            text: qsTr("Баланс: %1").arg(NvoApi.balanceFormatted !== "" ? NvoApi.balanceFormatted : "—")
+        }
+
+        // Основная кнопка: продлить (истекла) / управление (активна) — открывает залогиненный ЛК.
         BasicButtonType {
             Layout.fillWidth: true
             Layout.topMargin: 16
@@ -68,7 +78,28 @@ PageType {
             Layout.preferredHeight: 56
             text: root.active ? qsTr("Управление подпиской") : qsTr("Продлить подписку")
             clickedFunc: function() {
-                Qt.openUrlExternally("https://nvovpn.com/")
+                NvoApi.openWebCabinet(root.active ? "" : "plans")
+            }
+        }
+
+        // Пополнить баланс — для авто-продления подписки с баланса (открывает страницу оплаты в ЛК).
+        BasicButtonType {
+            Layout.fillWidth: true
+            Layout.topMargin: 12
+            Layout.leftMargin: 24
+            Layout.rightMargin: 24
+            Layout.preferredHeight: 56
+
+            defaultColor: AmneziaStyle.color.transparent
+            hoveredColor: AmneziaStyle.color.translucentWhite
+            pressedColor: AmneziaStyle.color.sheerWhite
+            textColor: AmneziaStyle.color.paleGray
+            borderColor: AmneziaStyle.color.slateGray
+            borderWidth: 1
+
+            text: qsTr("Пополнить баланс")
+            clickedFunc: function() {
+                NvoApi.openWebCabinet("billing")
             }
         }
     }

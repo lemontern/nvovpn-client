@@ -25,6 +25,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString userEmail READ userEmail NOTIFY userChanged)
     Q_PROPERTY(bool hasSubscription READ hasSubscription NOTIFY subscriptionChanged)
     Q_PROPERTY(double balance READ balance NOTIFY userChanged)
+    Q_PROPERTY(QString balanceFormatted READ balanceFormatted NOTIFY userChanged)
     Q_PROPERTY(QString subscriptionPlan READ subscriptionPlan NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionStatus READ subscriptionStatus NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionExpiresAt READ subscriptionExpiresAt NOTIFY subscriptionChanged)
@@ -41,6 +42,7 @@ public:
     QString userEmail() const;
     bool hasSubscription() const;
     double balance() const;
+    QString balanceFormatted() const;
     QString subscriptionPlan() const;
     QString subscriptionStatus() const;
     QString subscriptionExpiresAt() const;
@@ -60,6 +62,8 @@ public slots:
     void setSelectedServerId(int serverId);
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
+    void openGoogleLogin();                      // открыть браузер на web-флоу Google-входа
+    void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
 
 signals:
     void authenticationChanged();
@@ -95,6 +99,7 @@ private:
     QString m_userEmail;
     bool m_hasSubscription = false;
     double m_balance = 0.0;
+    QString m_balanceFormatted;
     QString m_subPlan;
     QString m_subStatus;
     QString m_subExpiresAt;

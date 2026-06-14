@@ -9,6 +9,7 @@
 #include <QUrl>
 #include <QUrlQuery>
 #include <QSysInfo>
+#include <QDesktopServices>
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
@@ -23,6 +24,8 @@ namespace
     Logger logger("NvoApiController");
 
     constexpr char API_BASE[] = "https://nvovpn.com/api/v1";
+    constexpr char SITE_BASE[] = "https://nvovpn.com";
+    constexpr char GOOGLE_LOGIN_URL[] = "https://nvovpn.com/app/login/google";
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
 
@@ -76,6 +79,7 @@ QString NvoApiController::userName() const { return m_userName; }
 QString NvoApiController::userEmail() const { return m_userEmail; }
 bool NvoApiController::hasSubscription() const { return m_hasSubscription; }
 double NvoApiController::balance() const { return m_balance; }
+QString NvoApiController::balanceFormatted() const { return m_balanceFormatted; }
 QString NvoApiController::subscriptionPlan() const { return m_subPlan; }
 QString NvoApiController::subscriptionStatus() const { return m_subStatus; }
 QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt; }
@@ -372,6 +376,44 @@ bool NvoApiController::handleDeepLink(const QString &url)
     return true;
 }
 
+void NvoApiController::openGoogleLogin()
+{
+    // Браузер открывает web-флоу Google OAuth; по успеху сайт редиректит на
+    // nvovpn://login?code=XXXX → handleDeepLink → loginByCode.
+    QDesktopServices::openUrl(QUrl(QString::fromLatin1(GOOGLE_LOGIN_URL)));
+}
+
+void NvoApiController::openWebCabinet(const QString &redirect)
+{
+    if (m_token.isEmpty()) {
+        QDesktopServices::openUrl(QUrl(QString::fromLatin1(SITE_BASE)));
+        return;
+    }
+    QJsonObject body;
+    if (!redirect.isEmpty()) {
+        body.insert(QStringLiteral("redirect"), redirect);
+    }
+    QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/web-login"), true),
+                                       QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        const int status = httpStatus(reply);
+        if (status == 401) {
+            setToken(QString());
+            emit sessionExpired();
+            return;
+        }
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString url = root.value(QStringLiteral("url")).toString();
+        if (reply->error() != QNetworkReply::NoError || url.isEmpty()) {
+            // Фолбэк: открыть сайт напрямую (юзер войдёт сам).
+            QDesktopServices::openUrl(QUrl(QString::fromLatin1(SITE_BASE)));
+            return;
+        }
+        QDesktopServices::openUrl(QUrl(url));
+    });
+}
+
 void NvoApiController::applyUser(const QJsonObject &root)
 {
     const QJsonObject user = root.value(QStringLiteral("user")).toObject();
@@ -380,6 +422,7 @@ void NvoApiController::applyUser(const QJsonObject &root)
         m_userEmail = user.value(QStringLiteral("email")).toString();
         m_hasSubscription = user.value(QStringLiteral("has_subscription")).toBool();
         m_balance = user.value(QStringLiteral("balance")).toDouble();
+        m_balanceFormatted = user.value(QStringLiteral("balance_formatted")).toString();
         emit userChanged();
     }
 
