@@ -9,10 +9,11 @@ import "./"
 import "../Controls2"
 import "../Config"
 
+// NvoVPN: технические экраны Amnezia скрыты (ТЗ §12 — простой UX без жаргона):
+// AmneziaDNS, DNS-серверы, Site/App split tunneling убраны. Остался только KillSwitch (desktop).
+// Сама страница показывается лишь на desktop (см. PageSettings: connection.isVisible = GC.isDesktop()).
 PageType {
     id: root
-
-    property bool isAppSplitTinnelingEnabled: Qt.platform.os === "windows" || Qt.platform.os === "android"
 
     BackButtonType {
         id: backButton
@@ -52,86 +53,9 @@ PageType {
 
         model: 1 // fake model to force the ListView to be created without a model
 
-        delegate: ColumnLayout { // TODO(CyAn84): add DelegateChooser when have migrated to 6.9
+        delegate: ColumnLayout {
 
             width: listView.width
-
-            SwitcherType {
-                id: amneziaDnsSwitch
-
-                Layout.fillWidth: true
-                Layout.margins: 16
-
-                text: qsTr("Use AmneziaDNS")
-                descriptionText: qsTr("If AmneziaDNS is installed on the server")
-
-                checked: SettingsController.isAmneziaDnsEnabled()
-                onToggled: function() {
-                    if (checked !== SettingsController.isAmneziaDnsEnabled()) {
-                        SettingsController.toggleAmneziaDns(checked)
-                    }
-                }
-            }
-
-            DividerType {}
-
-            LabelWithButtonType {
-                id: dnsServersButton
-
-                Layout.fillWidth: true
-
-                text: qsTr("DNS servers")
-                descriptionText: qsTr("When AmneziaDNS is not used or installed")
-                rightImageSource: "qrc:/images/controls/chevron-right.svg"
-
-                clickedFunction: function() {
-                    PageController.goToPage(PageEnum.PageSettingsDns)
-                }
-            }
-
-            DividerType {}
-
-            LabelWithButtonType {
-                id: splitTunnelingButton
-
-                Layout.fillWidth: true
-
-                text: qsTr("Site-based split tunneling")
-                descriptionText: qsTr("Allows you to select which sites you want to access through the VPN")
-                rightImageSource: "qrc:/images/controls/chevron-right.svg"
-
-                clickedFunction: function() {
-                    PageController.goToPage(PageEnum.PageSettingsSplitTunneling)
-                }
-            }
-
-            DividerType {}
-
-        }
-
-        footer: ColumnLayout { // TODO(CyAn84): move to delegate,add DelegateChooser when have migrated to 6.9
-
-            width: listView.width
-
-            LabelWithButtonType {
-                id: splitTunnelingButton2
-
-                visible: root.isAppSplitTinnelingEnabled
-
-                Layout.fillWidth: true
-
-                text: qsTr("App-based split tunneling")
-                descriptionText: qsTr("Allows you to use the VPN only for certain Apps")
-                rightImageSource: "qrc:/images/controls/chevron-right.svg"
-
-                clickedFunction: function() {
-                    PageController.goToPage(PageEnum.PageSettingsAppSplitTunneling)
-                }
-            }
-
-            DividerType {
-                visible: root.isAppSplitTinnelingEnabled
-            }
 
             LabelWithButtonType {
                 id: killSwitchButton

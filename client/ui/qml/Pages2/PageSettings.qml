@@ -142,7 +142,9 @@ PageType {
 
         property string title: qsTr("Connection")
         readonly property string leftImagePath: "qrc:/images/controls/radio.svg"
-        property bool isVisible: true
+        // NvoVPN: на странице остался только KillSwitch (desktop). DNS/Split Tunneling скрыты.
+        // На мобильных страница была бы пустой → показываем пункт лишь на desktop.
+        property bool isVisible: GC.isDesktop()
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsConnection)
         }

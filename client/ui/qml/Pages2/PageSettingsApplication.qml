@@ -213,8 +213,11 @@ PageType {
 
             DividerType {}
 
+            // NvoVPN §12: технический экран «Логи» скрыт (простой UX). Логирование доступно через Dev console при необходимости.
             LabelWithButtonType {
                 id: labelWithButtonLogging
+
+                visible: false
 
                 Layout.fillWidth: true
 
@@ -227,7 +230,7 @@ PageType {
                 }
             }
 
-            DividerType {}
+            DividerType { visible: false }
 
             LabelWithButtonType {
                 id: labelWithButtonReset
