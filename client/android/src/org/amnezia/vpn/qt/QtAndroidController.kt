@@ -25,6 +25,8 @@ object QtAndroidController {
 
     external fun onConfigImported(data: String)
 
+    external fun onDeepLink(url: String)
+
     external fun onAuthResult(result: Boolean)
 
     external fun decodeQrCode(data: String): Boolean

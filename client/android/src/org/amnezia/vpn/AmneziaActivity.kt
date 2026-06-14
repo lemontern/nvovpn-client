@@ -256,6 +256,17 @@ class AmneziaActivity : QtActivity() {
                         QtAndroidController.onConfigImported(it)
                     }
                 }
+            } else if (intent.action == Intent.ACTION_VIEW) {
+                // NvoVPN deep-link: nvovpn://login?code=XXXX (возврат из браузера после Google-входа)
+                intent.data?.let { uri ->
+                    if (uri.scheme == "nvovpn") {
+                        Log.d(TAG, "Deep link received: $uri")
+                        mainScope.launch {
+                            qtInitialized.await()
+                            QtAndroidController.onDeepLink(uri.toString())
+                        }
+                    }
+                }
             }
         }
     }

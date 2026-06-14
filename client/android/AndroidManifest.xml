@@ -123,6 +123,15 @@
                 <data android:scheme="vpn" android:host="*" />
             </intent-filter>
 
+            <!-- NvoVPN deep-link: возврат из браузера после Google-входа (nvovpn://login?code=XXXX) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="nvovpn" android:host="*" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

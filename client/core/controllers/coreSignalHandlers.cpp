@@ -20,6 +20,7 @@
 #include "ui/controllers/languageUiController.h"
 #include "ui/controllers/selfhosted/installUiController.h"
 #include "ui/controllers/importUiController.h"
+#include "ui/controllers/api/nvoApiController.h"
 #include "ui/controllers/api/subscriptionUiController.h"
 #include "ui/controllers/updateUiController.h"
 #include "ui/models/serversModel.h"
@@ -385,6 +386,12 @@ void CoreSignalHandlers::initAndroidConnectionHandler()
         m_coreController->m_importController->extractConfigFromData(data);
         data.clear();
         emit m_coreController->m_pageController->goToPageViewConfig();
+    });
+    // NvoVPN deep-link (nvovpn://login?code=...) из браузера → вход по коду.
+    connect(AndroidController::instance(), &AndroidController::deepLinkReceived, this, [this](const QString &url) {
+        if (m_coreController->m_nvoApiController) {
+            m_coreController->m_nvoApiController->handleDeepLink(url);
+        }
     });
 #endif
 }

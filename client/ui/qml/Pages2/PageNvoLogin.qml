@@ -19,6 +19,10 @@ PageType {
     property bool codeMode: false
     property bool showPassword: false
 
+    // Google-вход пока только на мобильных: на Android возврат из браузера (deep-link nvovpn://)
+    // подключён; на desktop схема ещё не зарегистрирована (нужен single-instance + установщик) — follow-up.
+    readonly property bool googleAvailable: Qt.platform.os === "android" || Qt.platform.os === "ios"
+
     Connections {
         target: NvoApi
 
@@ -199,9 +203,9 @@ PageType {
                 }
             }
 
-            // ---- «или» + вход через Google ----
+            // ---- «или» + вход через Google (только мобильные, см. root.googleAvailable) ----
             CaptionTextType {
-                visible: !root.codeMode
+                visible: !root.codeMode && root.googleAvailable
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 16
                 color: AmneziaStyle.color.mutedGray
@@ -210,7 +214,7 @@ PageType {
 
             BasicButtonType {
                 id: googleButton
-                visible: !root.codeMode
+                visible: !root.codeMode && root.googleAvailable
                 Layout.fillWidth: true
                 Layout.topMargin: 12
                 Layout.leftMargin: 24

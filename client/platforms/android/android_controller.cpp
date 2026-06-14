@@ -98,6 +98,7 @@ bool AndroidController::initialize()
         {"onStatisticsUpdate", "(JJ)V", reinterpret_cast<void *>(onStatisticsUpdate)},
         {"onFileOpened", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onFileOpened)},
         {"onConfigImported", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onConfigImported)},
+        {"onDeepLink", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onDeepLink)},
         {"onAuthResult", "(Z)V", reinterpret_cast<void *>(onAuthResult)},
         {"decodeQrCode", "(Ljava/lang/String;)Z", reinterpret_cast<bool *>(decodeQrCode)},
         {"onImeInsetsChanged", "(I)V", reinterpret_cast<void *>(onImeInsetsChanged)},
@@ -523,6 +524,14 @@ void AndroidController::onConfigImported(JNIEnv *env, jobject thiz, jstring data
     Q_UNUSED(thiz);
 
     emit AndroidController::instance()->configImported(AndroidUtils::convertJString(env, data));
+}
+
+// static
+void AndroidController::onDeepLink(JNIEnv *env, jobject thiz, jstring url)
+{
+    Q_UNUSED(thiz);
+
+    emit AndroidController::instance()->deepLinkReceived(AndroidUtils::convertJString(env, url));
 }
 
 // static

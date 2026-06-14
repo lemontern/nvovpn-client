@@ -70,6 +70,7 @@ signals:
     void statisticsUpdated(quint64 rxBytes, quint64 txBytes);
     void fileOpened(QString uri);
     void configImported(QString config);
+    void deepLinkReceived(QString url);   // nvovpn://login?code=... из браузера
     void importConfigFromOutside(QString config);
     void initConnectionState(Vpn::ConnectionState state);
     void authenticationResult(bool result);
@@ -102,6 +103,7 @@ private:
     static void onVpnStateChanged(JNIEnv *env, jobject thiz, jint stateCode);
     static void onStatisticsUpdate(JNIEnv *env, jobject thiz, jlong rxBytes, jlong txBytes);
     static void onConfigImported(JNIEnv *env, jobject thiz, jstring data);
+    static void onDeepLink(JNIEnv *env, jobject thiz, jstring url);
     static void onFileOpened(JNIEnv *env, jobject thiz, jstring uri);
     static void onAuthResult(JNIEnv *env, jobject thiz, jboolean result);
     static bool decodeQrCode(JNIEnv *env, jobject thiz, jstring data);
