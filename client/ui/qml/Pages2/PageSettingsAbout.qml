@@ -170,7 +170,8 @@ PageType {
                 text: qsTr("Privacy Policy")
 
                 clickedFunc: function() {
-                    Qt.openUrlExternally(LanguageUiController.getCurrentSiteUrl("policy"))
+                    // nvovpn.com/privacy → сайт сам редиректит на нужную локаль (не amnezia.org!)
+                    Qt.openUrlExternally("https://nvovpn.com/privacy")
                 }
             }
         }
