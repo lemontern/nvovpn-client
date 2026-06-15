@@ -10,6 +10,8 @@
 #include <QUrlQuery>
 #include <QSysInfo>
 #include <QDesktopServices>
+#include <QTimer>
+#include <QRandomGenerator>
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
@@ -382,11 +384,85 @@ bool NvoApiController::handleDeepLink(const QString &url)
     return true;
 }
 
-void NvoApiController::openGoogleLogin()
+void NvoApiController::loginWithGoogle()
 {
-    // Браузер открывает web-флоу Google OAuth; по успеху сайт редиректит на
-    // nvovpn://login?code=XXXX → handleDeepLink → loginByCode.
-    QDesktopServices::openUrl(QUrl(QString::fromLatin1(GOOGLE_LOGIN_URL)));
+    // Polling-флоу (без deep-link, работает на всех платформах):
+    // 1) генерим криптослучайный ds, 2) открываем браузер на /app/login/google?ds=...,
+    // 3) опрашиваем /auth/poll?ds=... — по готовности получаем токен.
+    stopGooglePolling();
+
+    QString ds;
+    for (int i = 0; i < 5; ++i) {
+        ds += QString::number(QRandomGenerator::system()->generate(), 16).rightJustified(8, QLatin1Char('0'));
+    }
+    m_googleDs = ds; // 40 hex символов
+
+    QUrl url(QString::fromLatin1(GOOGLE_LOGIN_URL));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("ds"), m_googleDs);
+    url.setQuery(q);
+    QDesktopServices::openUrl(url);
+
+    setBusy(true);
+    m_googlePollElapsedMs = 0;
+    if (!m_googlePollTimer) {
+        m_googlePollTimer = new QTimer(this);
+        m_googlePollTimer->setInterval(1500);
+        connect(m_googlePollTimer, &QTimer::timeout, this, &NvoApiController::pollGoogleLogin);
+    }
+    m_googlePollTimer->start();
+}
+
+void NvoApiController::stopGooglePolling()
+{
+    if (m_googlePollTimer) {
+        m_googlePollTimer->stop();
+    }
+    m_googleDs.clear();
+}
+
+void NvoApiController::pollGoogleLogin()
+{
+    m_googlePollElapsedMs += 1500;
+    if (m_googlePollElapsedMs > 120000) { // таймаут ~2 минуты
+        stopGooglePolling();
+        setBusy(false);
+        emit loginFailed(tr("Вход через Google не завершён, попробуйте ещё раз"));
+        return;
+    }
+
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("ds"), m_googleDs);
+    q.addQueryItem(QStringLiteral("device_name"), deviceName());
+    const QString path = QStringLiteral("/auth/poll?") + q.query(QUrl::FullyEncoded);
+
+    QNetworkReply *reply = m_nam->get(makeRequest(path, false));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        // Опрос мог быть остановлен (таймаут/успех/новая попытка) — игнорируем поздний ответ.
+        if (!m_googlePollTimer || !m_googlePollTimer->isActive()) {
+            return;
+        }
+        if (reply->error() != QNetworkReply::NoError) {
+            return; // сетевой сбой — просто ждём следующий тик
+        }
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString status = root.value(QStringLiteral("status")).toString();
+        if (status == QStringLiteral("ready")) {
+            const QString token = root.value(QStringLiteral("token")).toString();
+            if (token.isEmpty()) {
+                return; // подождём следующий тик
+            }
+            stopGooglePolling();
+            setToken(token);
+            applyUser(root);
+            setBusy(false);
+            emit loginSucceeded();
+            refreshUser();
+            refreshServers();
+        }
+        // "pending" — продолжаем опрос
+    });
 }
 
 void NvoApiController::openWebCabinet(const QString &redirect)

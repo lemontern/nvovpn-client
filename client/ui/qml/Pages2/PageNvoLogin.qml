@@ -19,9 +19,9 @@ PageType {
     property bool codeMode: false
     property bool showPassword: false
 
-    // Google-вход пока только на мобильных: на Android возврат из браузера (deep-link nvovpn://)
-    // подключён; на desktop схема ещё не зарегистрирована (нужен single-instance + установщик) — follow-up.
-    readonly property bool googleAvailable: Qt.platform.os === "android" || Qt.platform.os === "ios"
+    // Google-вход через polling (без deep-link) работает на всех платформах:
+    // браузер открывается, приложение опрашивает /auth/poll и получает токен в фоне.
+    readonly property bool googleAvailable: true
 
     Connections {
         target: NvoApi
@@ -228,11 +228,12 @@ PageType {
                 borderColor: AmneziaStyle.color.slateGray
                 borderWidth: 1
 
-                text: qsTr("Войти через Google")
+                enabled: !NvoApi.isBusy
+                text: NvoApi.isBusy ? qsTr("Ожидаем вход через Google…") : qsTr("Войти через Google")
 
                 clickedFunc: function() {
                     errorLabel.text = ""
-                    NvoApi.openGoogleLogin()
+                    NvoApi.loginWithGoogle()
                 }
             }
 

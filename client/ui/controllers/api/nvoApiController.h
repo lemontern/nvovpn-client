@@ -9,6 +9,7 @@
 class QNetworkAccessManager;
 class QNetworkReply;
 class QJsonObject;
+class QTimer;
 class SecureQSettings;
 class NvoServersModel;
 
@@ -62,7 +63,7 @@ public slots:
     void setSelectedServerId(int serverId);
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
-    void openGoogleLogin();                      // открыть браузер на web-флоу Google-входа
+    void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
 
 signals:
@@ -89,6 +90,8 @@ private:
     void setToken(const QString &token);
     void applyUser(const QJsonObject &root);
     QString humanError(QNetworkReply *reply) const;
+    void pollGoogleLogin();                      // один тик опроса /auth/poll?ds=...
+    void stopGooglePolling();
 
     QNetworkAccessManager *m_nam;
     SecureQSettings *m_settings;
@@ -111,6 +114,11 @@ private:
     // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
     QList<int> m_failoverQueue;
     bool m_inFailover = false;
+
+    // Google-вход через polling (без deep-link): открываем браузер, опрашиваем /auth/poll по ds.
+    QTimer *m_googlePollTimer = nullptr;
+    QString m_googleDs;
+    int m_googlePollElapsedMs = 0;
 };
 
 #endif // NVOAPICONTROLLER_H
