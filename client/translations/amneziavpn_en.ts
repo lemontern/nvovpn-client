@@ -79,6 +79,18 @@
         <source>Войти через Google</source>
         <translation>Sign in with Google</translation>
     </message>
+    <message>
+        <source>Ожидаем вход через Google…</source>
+        <translation>Waiting for Google sign-in…</translation>
+    </message>
+    <message>
+        <source>Вход через Google не завершён, попробуйте ещё раз</source>
+        <translation>Google sign-in was not completed, please try again</translation>
+    </message>
+    <message>
+        <source>Не удалось войти через Google, попробуйте ещё раз</source>
+        <translation>Failed to sign in with Google, please try again</translation>
+    </message>
 </context>
 <context>
     <name>PageNvoHome</name>

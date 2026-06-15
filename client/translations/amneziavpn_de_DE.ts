@@ -79,6 +79,18 @@
         <source>Войти через Google</source>
         <translation>Mit Google anmelden</translation>
     </message>
+    <message>
+        <source>Ожидаем вход через Google…</source>
+        <translation>Warten auf Google-Anmeldung…</translation>
+    </message>
+    <message>
+        <source>Вход через Google не завершён, попробуйте ещё раз</source>
+        <translation>Google-Anmeldung nicht abgeschlossen, bitte erneut versuchen</translation>
+    </message>
+    <message>
+        <source>Не удалось войти через Google, попробуйте ещё раз</source>
+        <translation>Anmeldung mit Google fehlgeschlagen, bitte erneut versuchen</translation>
+    </message>
 </context>
 <context>
     <name>PageNvoHome</name>
