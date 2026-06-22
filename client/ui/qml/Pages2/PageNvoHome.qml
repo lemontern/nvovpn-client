@@ -47,7 +47,14 @@ PageType {
     Connections {
         target: NvoApi
 
-        function onSubscriptionRequired() {
+        function onSubscriptionRequired(message, reason) {
+            // Бэкенд сам выдаёт авто-триал; сюда попадаем только при реальном отказе /connect.
+            if (message && message.length > 0)
+                PageController.showNotificationMessage(message)
+            // email не подтверждён — остаёмся на главной с подсказкой (на сайт идти не нужно).
+            if (reason === "email_unverified")
+                return
+            // нет тарифа/триал использован/др. — экран подписки (там продлить/пополнить).
             PageController.goToPage(PageEnum.PageNvoSubscription)
         }
 
@@ -157,7 +164,8 @@ PageType {
                         wrapMode: Text.WordWrap
                         text: root.connected ? qsTr("ЗАЩИТА\nВКЛЮЧЕНА")
                                              : (root.busy ? qsTr("Подключаем…")
-                                                          : qsTr("Нажмите,\nчтобы включить"))
+                                                          : (NvoApi.hasSubscription ? qsTr("Нажмите,\nчтобы включить")
+                                                                                    : qsTr("Подключиться\nбесплатно (2 дня)")))
                         color: root.connected ? "white" : AmneziaStyle.color.paleGray
                         font.family: "PT Root UI VF"
                         font.weight: 700

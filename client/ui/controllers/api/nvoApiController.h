@@ -79,7 +79,7 @@ signals:
     void serversUpdated();
     void configReady(const QString &config, int serverId, const QString &serverName,
                      const QString &vpnKey, const QString &awgIp);
-    void subscriptionRequired();                // 403 — нет активной подписки
+    void subscriptionRequired(const QString &message, const QString &reason);  // 403 — отказ /connect (email_unverified|ip_used|trial_used|no_plan|no_subscription)
     void sessionExpired();                      // 401 — токен отозван/истёк (вход на другом устройстве)
     void errorOccurred(const QString &message);
 

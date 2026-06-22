@@ -305,19 +305,26 @@ void NvoApiController::requestConfig(int serverId)
         return;
     }
     setBusy(true);
-    const QJsonObject body { { "server_id", serverId }, { "protocol", QStringLiteral("amneziawg") } };
+    const QJsonObject body { { "server_id", serverId }, { "protocol", QStringLiteral("amneziawg") },
+                             { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/connect"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
     connect(reply, &QNetworkReply::finished, this, [this, reply, serverId]() {
         reply->deleteLater();
         const int status = httpStatus(reply);
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
 
         // 403/401 — не повод для failover (это аккаунт/сессия).
         if (status == 403) {
             m_inFailover = false;
             m_failoverQueue.clear();
             setBusy(false);
-            emit subscriptionRequired();
+            // Бэкенд сам выдаёт авто-триал (2 дня) на /connect, если подписки нет.
+            // 403 = реальная причина отказа: email_unverified | ip_used | trial_used | no_plan | no_subscription.
+            // Показываем текст от сервера + код причины (клиент НЕ блокирует кнопку до /connect).
+            const QString message = root.value(QStringLiteral("error")).toString();
+            const QString reason = root.value(QStringLiteral("reason")).toString();
+            emit subscriptionRequired(message, reason);
             return;
         }
         if (status == 401) {
@@ -329,7 +336,6 @@ void NvoApiController::requestConfig(int serverId)
             return;
         }
 
-        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         const QString config = root.value(QStringLiteral("config")).toString();
         const bool failed = (reply->error() != QNetworkReply::NoError) || config.isEmpty();
 

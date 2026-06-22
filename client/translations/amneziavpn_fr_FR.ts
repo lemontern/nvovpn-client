@@ -140,6 +140,12 @@ et vous êtes protégé</translation>
         <source>Нажмите в любом месте, чтобы продолжить</source>
         <translation>Appuyez n'importe où pour continuer</translation>
     </message>
+    <message>
+        <source>Подключиться
+бесплатно (2 дня)</source>
+        <translation>Connexion gratuite
+(2 jours)</translation>
+    </message>
 </context>
 <context>
     <name>PageNvoCountries</name>
