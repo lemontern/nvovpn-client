@@ -326,7 +326,7 @@ jobs:
             else
               cp "$WGGO" "/tmp/wg-$arch.a"
             fi
-            ld -r -arch "$arch" -unexported_symbols_list /tmp/cgo_hidden.txt "/tmp/wg-$arch.a" -o "/tmp/wg-$arch.o"
+            ld -r -arch "$arch" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "/tmp/wg-$arch.a" -o "/tmp/wg-$arch.o"
             rm -f "/tmp/wg-$arch-fixed.a"
             ar -crs "/tmp/wg-$arch-fixed.a" "/tmp/wg-$arch.o"
             FIXED+=("/tmp/wg-$arch-fixed.a")
