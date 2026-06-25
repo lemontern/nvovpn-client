@@ -284,13 +284,11 @@ jobs:
           pip install "conan==2.28.0"
           conan profile detect --force
 
-      - name: 'Build macOS app (compile-only, signing off)'
+      - name: 'Configure (cmake) — тянет conan-пакеты'
         env:
           QT_INSTALL_DIR: ${{ runner.temp }}
-        # ЭТАП 1: проверяем, что код компилируется на macOS-раннере.
-        # Вызываем cmake напрямую (build.sh для macos-ne хардкодит DEPLOY=1 → Manual signing
-        # с provisioning-профилями, которых у нас нет — нам нужен Developer ID, иной путь).
-        # CODE_SIGNING_ALLOWED=NO отключает подпись на этапе сборки.
+        # build.sh для macos-ne хардкодит DEPLOY=1 (Manual signing + App Store профили, которых нет) —
+        # вызываем cmake напрямую. CODE_SIGNING_ALLOWED=NO отключает подпись на этапе сборки.
         run: |
           QT_ROOT="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
           echo "QT_ROOT=$QT_ROOT"
@@ -298,6 +296,50 @@ jobs:
             -DMACOS_NE=TRUE \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_ROOT"
+
+      - name: 'Fix Go cgo symbol clash in libwg-go.a'
+        # libwg-go.a (AmneziaWG, Go) и OpenVPNAdapter.framework (тоже содержит Go cgo) дают
+        # "duplicate cgo symbols" при линковке NE на ld-prime. Мы AmneziaWG-only — OpenVPN мёртвый код
+        # (не вызывается, его Go-рантайм не активируется). Локализуем cgo-символы в libwg-go.a через
+        # `ld -r -unexported_symbols_list` → они перестают быть глобальными → конфликта нет.
+        run: |
+          set -e
+          WGGO="$(find "$HOME/.conan2" -path '*awg*/p/lib/libwg-go.a' 2>/dev/null | head -1)"
+          echo "libwg-go.a: $WGGO"
+          test -n "$WGGO" || { echo "libwg-go.a не найден"; exit 1; }
+          printf '%s\n' \
+            __cgo_set_stacklo \
+            __cgo_get_context_function \
+            _x_cgo_notify_runtime_init_done \
+            _x_cgo_sys_thread_create \
+            _x_cgo_bindm \
+            _x_cgo_pthread_key_created \
+            __cgo_wait_runtime_init_done \
+            __cgo_try_pthread_create \
+            _x_crosscall2_ptr > /tmp/cgo_hidden.txt
+          ARCHS="$(lipo -archs "$WGGO" 2>/dev/null || echo "x86_64")"
+          echo "Архитектуры: $ARCHS"
+          FIXED=()
+          for arch in $ARCHS; do
+            if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+              lipo "$WGGO" -thin "$arch" -output "/tmp/wg-$arch.a"
+            else
+              cp "$WGGO" "/tmp/wg-$arch.a"
+            fi
+            ld -r -arch "$arch" -unexported_symbols_list /tmp/cgo_hidden.txt "/tmp/wg-$arch.a" -o "/tmp/wg-$arch.o"
+            rm -f "/tmp/wg-$arch-fixed.a"
+            ar -crs "/tmp/wg-$arch-fixed.a" "/tmp/wg-$arch.o"
+            FIXED+=("/tmp/wg-$arch-fixed.a")
+          done
+          if [ "${#FIXED[@]}" -gt 1 ]; then
+            lipo -create "${FIXED[@]}" -output "$WGGO"
+          else
+            cp "${FIXED[0]}" "$WGGO"
+          fi
+          echo "✓ libwg-go.a пропатчен (cgo-символы локализованы)"
+
+      - name: 'Build macOS app (compile-only, signing off)'
+        run: |
           cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
 
       - name: 'Show build output'
