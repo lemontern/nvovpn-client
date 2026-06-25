@@ -158,9 +158,9 @@ if(APPLE)
     if(NOT BUILD_IOS_GROUP_IDENTIFIER)
         set(BUILD_IOS_GROUP_IDENTIFIER group.com.nvovpn.app CACHE STRING "iOS Group identifier")
     endif()
-    # NvoVPN: Team ID впишется, когда будет Apple Developer аккаунт (нужен для подписи NE).
+    # NvoVPN: Apple Developer Team ID (Snaiderz, LLC) — для подписи macOS/iOS + NetworkExtension.
     if(NOT BUILD_VPN_DEVELOPMENT_TEAM)
-        set(BUILD_VPN_DEVELOPMENT_TEAM "" CACHE STRING "NvoVPN Apple Development Team")
+        set(BUILD_VPN_DEVELOPMENT_TEAM Q9PKZ8C922 CACHE STRING "NvoVPN Apple Development Team")
     endif()
 
     set(CMAKE_XCODE_GENERATE_SCHEME FALSE)

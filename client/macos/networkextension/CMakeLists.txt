@@ -51,7 +51,7 @@ set_target_properties(AmneziaVPNNetworkExtension PROPERTIES
 )
 
 set_target_properties("AmneziaVPNNetworkExtension" PROPERTIES
-    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "X7UJ388FXK"
+    XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "Q9PKZ8C922"
 )
 
 find_library(FW_ASSETS_LIBRARY AssetsLibrary)
