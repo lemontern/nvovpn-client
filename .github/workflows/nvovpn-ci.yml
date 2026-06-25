@@ -235,3 +235,81 @@ jobs:
           echo "APK: $APK"
           cp "$APK" NvoVPN.apk
           gh release upload test-android-1 NvoVPN.apk --clobber -R "${{ github.repository }}"
+
+  # macOS — Network Extension (рабочий VPN), раздача .dmg вне App Store (Developer ID).
+  # ЭТАП 1: добиться компиляции (Qt macos + conan + код). Подпись отключена на сборке
+  # (CODE_SIGNING_ALLOWED=NO) — Developer ID подпись + нотаризация + .dmg добавим после зелёной компиляции.
+  Build-macOS:
+    runs-on: macos-14
+    env:
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: 'Install Qt (macos)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Select Xcode'
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: pip install "conan==2.28.0"
+
+      - name: 'Build macOS app (compile-only, signing off)'
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        # ЭТАП 1: проверяем, что код компилируется на macOS-раннере.
+        # Вызываем cmake напрямую (build.sh для macos-ne хардкодит DEPLOY=1 → Manual signing
+        # с provisioning-профилями, которых у нас нет — нам нужен Developer ID, иной путь).
+        # CODE_SIGNING_ALLOWED=NO отключает подпись на этапе сборки.
+        run: |
+          QT_ROOT="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
+          echo "QT_ROOT=$QT_ROOT"
+          cmake -S . -B build -G Xcode \
+            -DMACOS_NE=TRUE \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT"
+          cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
+
+      - name: 'Show build output'
+        if: always()
+        run: |
+          echo "=== Что собралось ==="
+          find build -name "*.app" -maxdepth 4 2>/dev/null || true
+          find build -name "NvoVPN*" -maxdepth 5 2>/dev/null | head -20 || true
+
+      - name: 'Upload .app (compile check)'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-macos-app
+          path: |
+            build/**/*.app
+          retention-days: 7
+          if-no-files-found: warn
