@@ -338,22 +338,113 @@ jobs:
           fi
           echo "✓ libwg-go.a пропатчен (cgo-символы локализованы)"
 
-      - name: 'Build macOS app (compile-only, signing off)'
+      - name: 'Build macOS app (unsigned)'
         run: |
           cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
 
-      - name: 'Show build output'
-        if: always()
+      - name: 'Import Developer ID certificate + provisioning profiles'
+        env:
+          P12_B64: ${{ secrets.APPLE_DEVID_P12_BASE64 }}
+          P12_PASS: ${{ secrets.APPLE_DEVID_P12_PASSWORD }}
+          PROFILE_APP_B64: ${{ secrets.APPLE_PROFILE_APP_BASE64 }}
+          PROFILE_NE_B64: ${{ secrets.APPLE_PROFILE_NE_BASE64 }}
         run: |
-          echo "=== Что собралось ==="
-          find build -name "*.app" -maxdepth 4 2>/dev/null || true
-          find build -name "NvoVPN*" -maxdepth 5 2>/dev/null | head -20 || true
+          set -e
+          KEYCHAIN="$RUNNER_TEMP/nvovpn.keychain-db"
+          KCPASS="ci-$RANDOM"
+          security create-keychain -p "$KCPASS" "$KEYCHAIN"
+          security set-keychain-settings "$KEYCHAIN"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          echo "$P12_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$P12_PASS" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          # provisioning profiles → встроим в .app/.appex как embedded.provisionprofile
+          echo "$PROFILE_APP_B64" | base64 --decode > "$RUNNER_TEMP/app.provisionprofile"
+          echo "$PROFILE_NE_B64"  | base64 --decode > "$RUNNER_TEMP/ne.provisionprofile"
+          echo "KEYCHAIN=$KEYCHAIN" >> $GITHUB_ENV
+          echo "KCPASS=$KCPASS" >> $GITHUB_ENV
 
-      - name: 'Upload .app (compile check)'
+      - name: 'Codesign (Developer ID, hardened runtime)'
+        run: |
+          set -e
+          APP="$(find build -name 'NvoVPN.app' -maxdepth 4 | head -1)"
+          echo "APP=$APP"
+          IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          # 1) Встроить provisioning profiles
+          APPEX="$(find "$APP" -name '*.appex' -maxdepth 4 | head -1)"
+          if [ -n "$APPEX" ]; then
+            cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
+          fi
+          cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+          # 2) Подписать изнутри наружу: фреймворки → appex → app
+          find "$APP/Contents/Frameworks" -name '*.framework' -maxdepth 1 2>/dev/null | while read fw; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$fw" || true
+          done
+          find "$APP/Contents/Frameworks" -name '*.dylib' 2>/dev/null | while read dy; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
+          done
+          if [ -n "$APPEX" ]; then
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
+              --entitlements client/macos/networkextension/AmneziaVPNNetworkExtension.entitlements \
+              --sign "$IDENTITY" "$APPEX"
+          fi
+          codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
+            --entitlements client/macos/app/app.entitlements \
+            --sign "$IDENTITY" "$APP"
+          echo "=== Проверка подписи ==="
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          echo "APP=$APP" >> $GITHUB_ENV
+
+      - name: 'Notarize + staple'
+        env:
+          ASC_KEY_B64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+        run: |
+          set -e
+          echo "$ASC_KEY_B64" | base64 --decode > "$RUNNER_TEMP/asc.p8"
+          # Нотаризуем zip с .app, потом staple на .app
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/NvoVPN.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/NvoVPN.zip" \
+            --key "$RUNNER_TEMP/asc.p8" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" \
+            --wait
+          xcrun stapler staple "$APP"
+          echo "✓ нотаризовано и застейплено"
+
+      - name: 'Create .dmg'
+        run: |
+          set -e
+          STAGE="$RUNNER_TEMP/dmg"
+          mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "NvoVPN" -srcfolder "$STAGE" -ov -format UDZO NvoVPN.dmg
+          # подписать и нотаризовать сам dmg
+          IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          codesign --force --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" NvoVPN.dmg
+          xcrun notarytool submit NvoVPN.dmg \
+            --key "$RUNNER_TEMP/asc.p8" --key-id "${{ secrets.APPLE_ASC_KEY_ID }}" --issuer "${{ secrets.APPLE_ASC_ISSUER_ID }}" \
+            --wait
+          xcrun stapler staple NvoVPN.dmg
+          echo "✓ NvoVPN.dmg готов"
+          ls -lh NvoVPN.dmg
+
+      - name: 'Upload .dmg'
         uses: actions/upload-artifact@v4
         with:
-          name: nvovpn-macos-app
-          path: |
-            build/**/*.app
-          retention-days: 7
+          name: nvovpn-macos-dmg
+          path: NvoVPN.dmg
+          retention-days: 14
           if-no-files-found: warn
+
+      - name: 'Publish .dmg to Release'
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload test-macos-1 NvoVPN.dmg --clobber -R "${{ github.repository }}" || \
+          gh release create test-macos-1 NvoVPN.dmg -R "${{ github.repository }}" -t "NvoVPN macOS (.dmg)" -n "Developer ID signed + notarized"
