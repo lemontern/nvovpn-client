@@ -93,17 +93,17 @@ target_sources(AmneziaVPNNetworkExtension PRIVATE
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/Array+ConcurrentMap.swift
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/IPAddress+AddrInfo.swift
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/PrivateKey.swift
-    ${CLIENT_ROOT_DIR}/platforms/ios/HevSocksTunnel.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/NELogController.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/Log.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/LogRecord.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+WireGuard.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+OpenVPN.swift
-    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+Xray.swift
+    # NvoVPN: AmneziaWG-only. Xray + hev-socks5-tunnel убраны (Go-конфликт wg-go/hev при линковке).
+    # Вместо PacketTunnelProvider+Xray.swift / XrayConfig.swift / HevSocksTunnel.swift — заглушка:
+    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+XrayStub.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/WGConfig.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/iosglue.mm
-    ${CLIENT_ROOT_DIR}/platforms/ios/XrayConfig.swift
 )
 
 target_sources(AmneziaVPNNetworkExtension PRIVATE
@@ -123,5 +123,5 @@ target_link_libraries(AmneziaVPNNetworkExtension PRIVATE amnezia::openvpnadapter
 find_package(awg-apple REQUIRED)
 target_link_libraries(AmneziaVPNNetworkExtension PRIVATE amnezia::awg-apple)
 
-find_package(hev-socks5-tunnel REQUIRED)
-target_link_libraries(AmneziaVPNNetworkExtension PRIVATE heiher::hev-socks5-tunnel)
+# NvoVPN: hev-socks5-tunnel (Go) убран — конфликтует с libwg-go (Go) на линковке macOS (duplicate cgo symbols).
+# Нужен только для Xray, который мы не используем (AmneziaWG-only).
