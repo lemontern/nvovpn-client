@@ -110,6 +110,9 @@ set_target_properties(${PROJECT} PROPERTIES
     XCODE_ATTRIBUTE_CLANG_ENABLE_MODULES "YES"
     XCODE_ATTRIBUTE_SWIFT_PRECOMPILE_BRIDGING_HEADER "NO"
     XCODE_ATTRIBUTE_SWIFT_OBJC_INTERFACE_HEADER_NAME "AmneziaVPN-Swift.h"
+    # NvoVPN: имя Swift-модуля держим AmneziaVPN (отдельно от PRODUCT_NAME=NvoVPN для .app),
+    # т.к. C++ код обращается к namespace AmneziaVPN:: и <AmneziaVPN-Swift.h> (14 мест). .app = NvoVPN.app.
+    XCODE_ATTRIBUTE_PRODUCT_MODULE_NAME "AmneziaVPN"
     XCODE_ATTRIBUTE_SWIFT_OBJC_INTEROP_MODE "objcxx"
 )
 set_target_properties(${PROJECT} PROPERTIES
