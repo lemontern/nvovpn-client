@@ -18,6 +18,8 @@ find_library(FW_STOREKIT StoreKit)
 find_library(FW_SERVICEMGMT ServiceManagement)
 find_library(FW_USERNOTIFICATIONS UserNotifications)
 find_library(FW_NETWORKEXTENSION NetworkExtension)
+# NvoVPN: для OSSystemExtensionManager/Request (активация sysext из клиента, etap 2).
+find_library(FW_SYSTEMEXTENSIONS SystemExtensions)
 
 set(LIBS ${LIBS}
     ${FW_AUTHENTICATIONSERVICES}
@@ -27,6 +29,7 @@ set(LIBS ${LIBS}
     ${FW_SERVICEMGMT}
     ${FW_USERNOTIFICATIONS}
     ${FW_NETWORKEXTENSION}
+    ${FW_SYSTEMEXTENSIONS}
 )
 
 
