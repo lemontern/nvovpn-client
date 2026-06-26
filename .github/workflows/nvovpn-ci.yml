@@ -386,13 +386,21 @@ jobs:
           find "$APP/Contents/Frameworks" -name '*.dylib' 2>/dev/null | while read dy; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
           done
+          # Подставляем реальный Team ID в entitlements ($(DEVELOPMENT_TEAM) codesign сам НЕ раскрывает —
+          # иначе keychain-access-group невалиден → launchd "spawn failed" (error 163)).
+          TEAM="${{ secrets.APPLE_TEAM_ID }}"
+          APP_ENT="$RUNNER_TEMP/app.entitlements"
+          NE_ENT="$RUNNER_TEMP/ne.entitlements"
+          sed "s/\$(DEVELOPMENT_TEAM)/$TEAM/g; s/\$(AppIdentifierPrefix)/$TEAM./g" client/macos/app/app.entitlements > "$APP_ENT"
+          sed "s/\$(DEVELOPMENT_TEAM)/$TEAM/g; s/\$(AppIdentifierPrefix)/$TEAM./g" client/macos/networkextension/AmneziaVPNNetworkExtension.entitlements > "$NE_ENT"
+          echo "=== app entitlements (подставлено) ==="; cat "$APP_ENT"
           if [ -n "$APPEX" ]; then
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
-              --entitlements client/macos/networkextension/AmneziaVPNNetworkExtension.entitlements \
+              --entitlements "$NE_ENT" \
               --sign "$IDENTITY" "$APPEX"
           fi
           codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
-            --entitlements client/macos/app/app.entitlements \
+            --entitlements "$APP_ENT" \
             --sign "$IDENTITY" "$APP"
           echo "=== Проверка подписи ==="
           codesign --verify --deep --strict --verbose=2 "$APP"
