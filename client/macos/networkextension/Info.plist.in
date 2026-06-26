@@ -32,8 +32,12 @@
 	<!-- NvoVPN: System Extension использует NetworkExtension dict (Mach-сервис), а не NSExtension. -->
 	<key>NetworkExtension</key>
 	<dict>
+		<!-- NvoVPN: TeamID-префикс ЗАХАРДКОЖЕН (Q9PKZ8C922.) — $(TeamIdentifierPrefix) НЕ раскрывается
+		     при unsigned-сборке (CODE_SIGNING_ALLOWED=NO) → NEMachServiceName оставался без TeamID →
+		     system extension category validation fail (Code=9). Mach-service обязан быть в TeamID
+		     namespace (как у DuckDuckGo/HMA VPN). Найдено 2026-06-27 на Intel-ноуте юзера. -->
 		<key>NEMachServiceName</key>
-		<string>$(TeamIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<string>Q9PKZ8C922.com.nvovpn.app.network-extension</string>
 		<key>NEProviderClasses</key>
 		<dict>
 			<key>com.apple.networkextension.packet-tunnel</key>
