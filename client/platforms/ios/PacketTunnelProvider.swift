@@ -610,9 +610,8 @@ extension NEProviderStopReason {
     case .connectionFailed:
       return "The connection failed"
 #if os(iOS)
-    // Эти case есть в iOS SDK, но отсутствуют в macOS SDK (deployment target 11.0) — иначе ошибка компиляции.
-    case .internalError:
-      return "The network extension reported an internal error"
+    // .sleep/.appUpdate есть в iOS SDK (iOS 16+), но отсутствуют в macOS SDK (deployment target 11.0).
+    // (.internalError убран — невалидный case NEProviderStopReason, его нет ни в iOS, ни в macOS SDK.)
     case .sleep:
       return "A stop reason indicating the VPNC enabled disconnect on sleep and the device went to sleep"
     case .appUpdate:
