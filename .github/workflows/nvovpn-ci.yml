@@ -343,10 +343,15 @@ jobs:
           cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
 
       - name: 'Upload unsigned .app (для локальной подписи/теста — не зависит от Apple notary)'
-        uses: actions/upload-artifact@v4
+        run: |
+          APP="$(find build -name 'NvoVPN.app' -maxdepth 4 -type d | head -1)"
+          echo "tar .app сохраняя симлинки frameworks (upload-artifact zip их ломает)"
+          tar -czf "$RUNNER_TEMP/NvoVPN-unsigned.tar.gz" -C "$(dirname "$APP")" "$(basename "$APP")"
+          ls -la "$RUNNER_TEMP/NvoVPN-unsigned.tar.gz"
+      - uses: actions/upload-artifact@v4
         with:
           name: NvoVPN-macos-unsigned
-          path: build/**/NvoVPN.app
+          path: ${{ runner.temp }}/NvoVPN-unsigned.tar.gz
           if-no-files-found: warn
           retention-days: 5
 
