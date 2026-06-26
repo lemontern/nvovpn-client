@@ -10,6 +10,10 @@
 	<string>${QT_INTERNAL_DOLLAR_VAR}{PRODUCT_NAME}</string>
 	<key>CFBundleExecutable</key>
 	<string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+	<!-- NvoVPN: иконка приложения (app.icns в Resources). Без CFBundleIconFile Finder/Dock
+	     не показывают иконку (Info.plist.in кастомный, не подхватывает MACOSX_BUNDLE_ICON_FILE). -->
+	<key>CFBundleIconFile</key>
+	<string>app.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
 	<key>CFBundleInfoDictionaryVersion</key>
