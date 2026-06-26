@@ -75,6 +75,9 @@ message("WG_APPLE_SOURCE_DIR is: ${WG_APPLE_SOURCE_DIR}")
 message("CLIENT_ROOT_DIR is: ${CLIENT_ROOT_DIR}")
 
 target_sources(AmneziaVPNNetworkExtension PRIVATE
+    # NvoVPN: точка входа main() для System Extension (standalone executable; app-extension
+    # использовал системный _NSExtensionMain, у system extension его нет).
+    ${CMAKE_CURRENT_SOURCE_DIR}/main.swift
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/WireGuardAdapter.swift
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/PacketTunnelSettingsGenerator.swift
     ${WG_APPLE_SOURCE_DIR}/WireGuardKit/DNSResolver.swift
