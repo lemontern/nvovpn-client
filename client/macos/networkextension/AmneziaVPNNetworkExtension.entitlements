@@ -5,7 +5,9 @@
 	<!-- NvoVPN: System Extension entitlements (Developer ID, вне App Store).
 	     packet-tunnel-provider-systemextension вместо app-extension packet-tunnel-provider.
 	     app-sandbox убран (system extension имеет собственный sandbox).
-	     disable-library-validation — для загрузки Qt/WireGuard библиотек под hardened runtime. -->
+	     ВНИМАНИЕ: disable-library-validation НЕЛЬЗЯ на System Extension — AMFI отвергает
+	     (error 163 "Hardened Runtime relaxation entitlements disallowed on System Extensions").
+	     Вместо него CI переподписывает ВСЕ библиотеки нашим Developer ID → library validation проходит. -->
 	<key>com.apple.developer.networking.networkextension</key>
 	<array>
 		<string>packet-tunnel-provider-systemextension</string>
@@ -17,8 +19,6 @@
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>
-	<true/>
-	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
 </dict>
 </plist>

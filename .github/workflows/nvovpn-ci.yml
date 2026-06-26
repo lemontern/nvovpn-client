@@ -389,12 +389,19 @@ jobs:
           # AMFI авторизует эти restricted entitlements ТОЛЬКО при нотаризации (как эталон HMA VPN).
           cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
           [ -n "$APPEX" ] && cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
-          # Подписываем изнутри наружу: фреймворки → sysext → app.
+          # Подписываем изнутри наружу: ВСЕ библиотеки/плагины → sysext → app.
+          # КРИТИЧНО: переподписываем ВСЕ .dylib/.so/.framework (Qt-плагины подписаны "The Qt Company",
+          # не нашим Team) НАШИМ Developer ID — тогда library validation проходит сама и
+          # disable-library-validation НЕ нужен. AMFI запрещает relaxation-entitlement
+          # (disable-library-validation) на app с System Extension → иначе error 163
+          # "Hardened Runtime relaxation entitlements disallowed on System Extensions" (найдено 2026-06-26
+          # через AMFI kernel-лог; подтверждено локально: без него + всё подписано нашим сертом → запуск).
+          find "$APP/Contents/PlugIns" "$APP/Contents/Frameworks" "$APP/Contents/Resources" \
+               -type f \( -name '*.dylib' -o -name '*.so' \) 2>/dev/null | while read dy; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
+          done
           find "$APP/Contents/Frameworks" -name '*.framework' -maxdepth 1 2>/dev/null | while read fw; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$fw" || true
-          done
-          find "$APP/Contents/Frameworks" -name '*.dylib' 2>/dev/null | while read dy; do
-            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
           done
           # Developer ID (вне App Store) entitlements.
           # ДИАГНОЗ error 163 (launchd "spawn failed") уточнён 2026-06-26 через log show на Mac:
@@ -419,7 +426,6 @@ jobs:
             <key>com.apple.developer.system-extension.install</key><true/>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
-            <key>com.apple.security.cs.disable-library-validation</key><true/>
           </dict></plist>
           EOF
           cat > "$NE_ENT" <<EOF
@@ -430,7 +436,6 @@ jobs:
             <key>com.apple.developer.team-identifier</key><string>${TEAM}</string>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
-            <key>com.apple.security.cs.disable-library-validation</key><true/>
           </dict></plist>
           EOF
           # heredoc в YAML добавляет ведущие пробелы — убираем
