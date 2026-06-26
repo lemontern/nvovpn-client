@@ -35,7 +35,7 @@ using namespace ProtocolUtils;
 // NvoVPN macOS (Developer ID, вне App Store): Network Extension работает как System Extension.
 // Её надо явно активировать через OSSystemExtensionRequest (на iOS/App Store это App Extension
 // и активации не требует). Делегат ловит результат активации.
-#if !MACOS_NE && (defined(Q_OS_MACOS) || TARGET_OS_OSX)
+#if defined(MACOS_NE) && !defined(NETWORK_EXTENSION)
 #import <SystemExtensions/SystemExtensions.h>
 
 API_AVAILABLE(macos(10.15))
@@ -256,7 +256,7 @@ bool IosController::initialize()
 
 bool IosController::ensureSystemExtensionActivated()
 {
-#if !MACOS_NE && (defined(Q_OS_MACOS) || TARGET_OS_OSX)
+#if defined(MACOS_NE) && !defined(NETWORK_EXTENSION)
     if (@available(macOS 10.15, *)) {
         NSString *extId = [NSString stringWithUTF8String:VPN_NE_BUNDLEID];
         qDebug() << "IosController::ensureSystemExtensionActivated requesting" << QString::fromNSString(extId);
