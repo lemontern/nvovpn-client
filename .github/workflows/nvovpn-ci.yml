@@ -373,10 +373,21 @@ jobs:
           echo "APP=$APP"
           IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
           security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
-          # System Extension лежит в Contents/Library/SystemExtensions/*.systemextension
-          APPEX="$(find "$APP" -name '*.systemextension' -maxdepth 5 | head -1)"
-          echo "SystemExtension: $APPEX"
-          # NB: provisioning profiles НЕ встраиваем. Подписываем изнутри наружу: фреймворки → sysext → app.
+          # XCODE_EMBED_SYSTEM_EXTENSIONS не встроил sysext в .app — встраиваем вручную в
+          # Contents/Library/SystemExtensions/ из собранного bundle.
+          BUILT_SYSEXT="$(find build -name 'AmneziaVPNNetworkExtension.systemextension' -type d | head -1)"
+          echo "Собранный sysext: $BUILT_SYSEXT"
+          if [ -n "$BUILT_SYSEXT" ] && [ ! -d "$APP/Contents/Library/SystemExtensions" ]; then
+            mkdir -p "$APP/Contents/Library/SystemExtensions"
+            cp -R "$BUILT_SYSEXT" "$APP/Contents/Library/SystemExtensions/"
+            echo "✓ sysext встроен вручную"
+          fi
+          APPEX="$(find "$APP" -name '*.systemextension' -maxdepth 5 -type d | head -1)"
+          echo "SystemExtension в .app: $APPEX"
+          # Встраиваем provisioning profiles (authorizes networkextension-systemextension managed entitlement).
+          cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+          [ -n "$APPEX" ] && cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
+          # Подписываем изнутри наружу: фреймворки → sysext → app.
           find "$APP/Contents/Frameworks" -name '*.framework' -maxdepth 1 2>/dev/null | while read fw; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$fw" || true
           done
