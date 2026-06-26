@@ -384,7 +384,9 @@ jobs:
           fi
           APPEX="$(find "$APP" -name '*.systemextension' -maxdepth 5 -type d | head -1)"
           echo "SystemExtension в .app: $APPEX"
-          # Встраиваем provisioning profiles (authorizes networkextension-systemextension managed entitlement).
+          # Встраиваем provisioning profiles v2 (содержат networkextension-systemextension И
+          # system-extension.install — добавлен capability SYSTEM_EXTENSION_INSTALL к App ID 2026-06-26).
+          # AMFI авторизует эти restricted entitlements ТОЛЬКО при нотаризации (как эталон HMA VPN).
           cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
           [ -n "$APPEX" ] && cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
           # Подписываем изнутри наружу: фреймворки → sysext → app.
@@ -394,21 +396,22 @@ jobs:
           find "$APP/Contents/Frameworks" -name '*.dylib' 2>/dev/null | while read dy; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
           done
-          # Developer ID (вне App Store) entitlements. Генерим чистые: БЕЗ app-sandbox и
-          # system-extension.install — они для App Store/sysext и ломают запуск через launchd
-          # (error 163 "spawn failed"), что подтверждено локально на Mac. Оставляем только VPN/NE.
+          # Developer ID (вне App Store) entitlements.
+          # ДИАГНОЗ error 163 (launchd "spawn failed") уточнён 2026-06-26 через log show на Mac:
+          #   xpcproxy spawned → job spawn failed = AMFI отвергает entitlement, не покрытый профилем.
+          #   Виновник: com.apple.developer.networking.vpn.api[allow-vpn] — это Personal VPN (NEVPNManager),
+          #   его НЕТ в провижен-профиле и он НЕ нужен для packet-tunnel-provider. УБРАН.
+          # system-extension.install ОСТАВЛЕН: он free-for-Developer-ID (не требует профиля), нужен для
+          #   OSSystemExtensionRequest (активация sysext). networkextension[*-systemextension] ЕСТЬ в профиле.
           TEAM="${{ secrets.APPLE_TEAM_ID }}"
           APP_ENT="$RUNNER_TEMP/app.entitlements"
           NE_ENT="$RUNNER_TEMP/ne.entitlements"
-          # System Extension (Developer ID): app устанавливает sysext (system-extension.install),
-          # networkextension с -systemextension; disable-library-validation для Qt-плагинов (подписаны Qt Company).
           cat > "$APP_ENT" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>com.apple.developer.system-extension.install</key><true/>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
-            <key>com.apple.developer.networking.vpn.api</key><array><string>allow-vpn</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
             <key>com.apple.security.cs.disable-library-validation</key><true/>
           </dict></plist>
@@ -418,7 +421,6 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
-            <key>com.apple.developer.networking.vpn.api</key><array><string>allow-vpn</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
             <key>com.apple.security.cs.disable-library-validation</key><true/>
           </dict></plist>
