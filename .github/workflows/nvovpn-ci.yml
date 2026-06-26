@@ -406,10 +406,16 @@ jobs:
           TEAM="${{ secrets.APPLE_TEAM_ID }}"
           APP_ENT="$RUNNER_TEMP/app.entitlements"
           NE_ENT="$RUNNER_TEMP/ne.entitlements"
+          # КРИТИЧНО: application-identifier + team-identifier ОБЯЗАТЕЛЬНЫ — без них AMFI не
+          # привязывает provisioning profile к бинарю → managed entitlements (networkextension,
+          # system-extension.install) не авторизуются → error 163. (Сравнение с рабочим HMA VPN:
+          # у него оба есть в app И sysext; у нас их не было → 163. Найдено 2026-06-26.)
           cat > "$APP_ENT" <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
+            <key>com.apple.application-identifier</key><string>${TEAM}.com.nvovpn.app</string>
+            <key>com.apple.developer.team-identifier</key><string>${TEAM}</string>
             <key>com.apple.developer.system-extension.install</key><true/>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
@@ -420,6 +426,8 @@ jobs:
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict>
+            <key>com.apple.application-identifier</key><string>${TEAM}.com.nvovpn.app.network-extension</string>
+            <key>com.apple.developer.team-identifier</key><string>${TEAM}</string>
             <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
             <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
             <key>com.apple.security.cs.disable-library-validation</key><true/>
