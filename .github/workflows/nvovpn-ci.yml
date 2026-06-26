@@ -386,14 +386,34 @@ jobs:
           find "$APP/Contents/Frameworks" -name '*.dylib' 2>/dev/null | while read dy; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
           done
-          # Подставляем реальный Team ID в entitlements ($(DEVELOPMENT_TEAM) codesign сам НЕ раскрывает —
-          # иначе keychain-access-group невалиден → launchd "spawn failed" (error 163)).
+          # Developer ID (вне App Store) entitlements. Генерим чистые: БЕЗ app-sandbox и
+          # system-extension.install — они для App Store/sysext и ломают запуск через launchd
+          # (error 163 "spawn failed"), что подтверждено локально на Mac. Оставляем только VPN/NE.
           TEAM="${{ secrets.APPLE_TEAM_ID }}"
           APP_ENT="$RUNNER_TEMP/app.entitlements"
           NE_ENT="$RUNNER_TEMP/ne.entitlements"
-          sed "s/\$(DEVELOPMENT_TEAM)/$TEAM/g; s/\$(AppIdentifierPrefix)/$TEAM./g" client/macos/app/app.entitlements > "$APP_ENT"
-          sed "s/\$(DEVELOPMENT_TEAM)/$TEAM/g; s/\$(AppIdentifierPrefix)/$TEAM./g" client/macos/networkextension/AmneziaVPNNetworkExtension.entitlements > "$NE_ENT"
-          echo "=== app entitlements (подставлено) ==="; cat "$APP_ENT"
+          cat > "$APP_ENT" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider</string></array>
+            <key>com.apple.developer.networking.vpn.api</key><array><string>allow-vpn</string></array>
+            <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
+            <key>keychain-access-groups</key><array><string>$TEAM.com.nvovpn.app</string></array>
+          </dict></plist>
+          EOF
+          cat > "$NE_ENT" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider</string></array>
+            <key>com.apple.developer.networking.vpn.api</key><array><string>allow-vpn</string></array>
+            <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
+          </dict></plist>
+          EOF
+          # heredoc в YAML добавляет ведущие пробелы — убираем
+          sed -i '' 's/^          //' "$APP_ENT" "$NE_ENT"
+          echo "=== app entitlements (Developer ID, без sandbox) ==="; cat "$APP_ENT"
           if [ -n "$APPEX" ]; then
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
               --entitlements "$NE_ENT" \
