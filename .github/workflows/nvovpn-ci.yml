@@ -388,12 +388,16 @@ jobs:
           security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
           # XCODE_EMBED_SYSTEM_EXTENSIONS не встроил sysext в .app — встраиваем вручную в
           # Contents/Library/SystemExtensions/ из собранного bundle.
+          # КРИТИЧНО: имя .systemextension бандла ДОЛЖНО совпадать с его CFBundleIdentifier,
+          # иначе sysextd: "bundle identifier and service path did not match" → активация не проходит
+          # (найдено 2026-06-27 на Mac юзера). Переименовываем в com.nvovpn.app.network-extension.systemextension.
           BUILT_SYSEXT="$(find build -name 'AmneziaVPNNetworkExtension.systemextension' -type d | head -1)"
           echo "Собранный sysext: $BUILT_SYSEXT"
+          SYSEXT_NAME="com.nvovpn.app.network-extension.systemextension"
           if [ -n "$BUILT_SYSEXT" ] && [ ! -d "$APP/Contents/Library/SystemExtensions" ]; then
             mkdir -p "$APP/Contents/Library/SystemExtensions"
-            cp -R "$BUILT_SYSEXT" "$APP/Contents/Library/SystemExtensions/"
-            echo "✓ sysext встроен вручную"
+            cp -R "$BUILT_SYSEXT" "$APP/Contents/Library/SystemExtensions/$SYSEXT_NAME"
+            echo "✓ sysext встроен вручную как $SYSEXT_NAME"
           fi
           APPEX="$(find "$APP" -name '*.systemextension' -maxdepth 5 -type d | head -1)"
           echo "SystemExtension в .app: $APPEX"
