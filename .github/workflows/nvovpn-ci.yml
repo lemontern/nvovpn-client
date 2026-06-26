@@ -373,13 +373,10 @@ jobs:
           echo "APP=$APP"
           IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
           security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
-          # 1) Встроить provisioning profiles
           APPEX="$(find "$APP" -name '*.appex' -maxdepth 4 | head -1)"
-          if [ -n "$APPEX" ]; then
-            cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
-          fi
-          cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
-          # 2) Подписать изнутри наружу: фреймворки → appex → app
+          # NB: provisioning profiles НЕ встраиваем — для Developer ID .app с packet-tunnel NE они
+          # ломают запуск через launchd (error 163, подтверждено локально на Mac). Developer ID +
+          # нотаризация + валидные entitlements достаточны. Подписываем изнутри наружу: фреймворки → appex → app.
           find "$APP/Contents/Frameworks" -name '*.framework' -maxdepth 1 2>/dev/null | while read fw; do
             codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$fw" || true
           done
