@@ -26,6 +26,9 @@
 	<string>${MACOSX_BUNDLE_COPYRIGHT}</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- NvoVPN: описание для запроса одобрения System Extension у пользователя. -->
+	<key>NSSystemExtensionUsageDescription</key>
+	<string>NvoVPN использует системное расширение для защищённого VPN-подключения.</string>
         <key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 

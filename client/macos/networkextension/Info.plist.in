@@ -23,6 +23,12 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 
+	<!-- NvoVPN: ОБЯЗАТЕЛЬНО для network_extension category — без этого ключа sysextd:
+	     "extension failed category property check ... require NSSystemExtensionUsageDescription"
+	     → Code=9 validation failed. Найдено 2026-06-27 на ноуте юзера. -->
+	<key>NSSystemExtensionUsageDescription</key>
+	<string>NvoVPN использует системное расширение для защищённого VPN-подключения.</string>
+
 	<key>LSMinimumSystemVersion</key>
 	<string>${CMAKE_OSX_DEPLOYMENT_TARGET}</string>
 
