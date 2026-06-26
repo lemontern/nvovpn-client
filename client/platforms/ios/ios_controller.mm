@@ -30,6 +30,44 @@ const char* MessageKey::SplitTunnelSites = "SplitTunnelSites";
 
 using namespace ProtocolUtils;
 
+// NvoVPN macOS (Developer ID, вне App Store): Network Extension работает как System Extension.
+// Её надо явно активировать через OSSystemExtensionRequest (на iOS/App Store это App Extension
+// и активации не требует). Делегат ловит результат активации.
+#if !MACOS_NE && TARGET_OS_OSX
+#import <SystemExtensions/SystemExtensions.h>
+
+API_AVAILABLE(macos(10.15))
+@interface NvoSysExtDelegate : NSObject <OSSystemExtensionRequestDelegate>
+@property (nonatomic) dispatch_semaphore_t sem;
+@property (nonatomic) BOOL activated;
+@property (nonatomic) BOOL needsApproval;
+@end
+
+@implementation NvoSysExtDelegate
+- (OSSystemExtensionReplacementAction)request:(OSSystemExtensionRequest *)request
+                  actionForReplacingExtension:(OSSystemExtensionProperties *)existing
+                                withExtension:(OSSystemExtensionProperties *)ext {
+    // Всегда заменяем (новая версия при обновлении приложения).
+    return OSSystemExtensionReplacementActionReplace;
+}
+- (void)requestNeedsUserApproval:(OSSystemExtensionRequest *)request {
+    NSLog(@"NvoVPN: system extension needs user approval (System Settings)");
+    self.needsApproval = YES;
+    if (self.sem) dispatch_semaphore_signal(self.sem);
+}
+- (void)request:(OSSystemExtensionRequest *)request didFinishWithResult:(OSSystemExtensionRequestResult)result {
+    NSLog(@"NvoVPN: system extension request finished, result=%ld", (long)result);
+    self.activated = (result == OSSystemExtensionRequestCompleted);
+    if (self.sem) dispatch_semaphore_signal(self.sem);
+}
+- (void)request:(OSSystemExtensionRequest *)request didFailWithError:(NSError *)error {
+    NSLog(@"NvoVPN: system extension activation failed: %@", error);
+    self.activated = NO;
+    if (self.sem) dispatch_semaphore_signal(self.sem);
+}
+@end
+#endif
+
 #if !MACOS_NE
 static UIViewController* getViewController() {
     UIApplication *application = [UIApplication sharedApplication];
@@ -214,6 +252,43 @@ bool IosController::initialize()
     return ok;
 }
 
+bool IosController::ensureSystemExtensionActivated()
+{
+#if !MACOS_NE && TARGET_OS_OSX
+    if (@available(macOS 10.15, *)) {
+        NSString *extId = [NSString stringWithUTF8String:VPN_NE_BUNDLEID];
+        qDebug() << "IosController::ensureSystemExtensionActivated requesting" << QString::fromNSString(extId);
+        NvoSysExtDelegate *delegate = [[NvoSysExtDelegate alloc] init];
+        delegate.sem = dispatch_semaphore_create(0);
+        OSSystemExtensionRequest *req =
+            [OSSystemExtensionRequest activationRequestForExtension:extId
+                                                              queue:dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0)];
+        req.delegate = delegate;
+        [[OSSystemExtensionManager sharedManager] submitRequest:req];
+        // Короткое ожидание: если sysext уже активен — приходит Completed за мс;
+        // если нужно одобрение — needsApproval тоже приходит быстро (до показа сис. диалога).
+        // НЕ ждём здесь всё одобрение юзера (это заблокировало бы UI) — ждём вердикта.
+        dispatch_semaphore_wait(delegate.sem, dispatch_time(DISPATCH_TIME_NOW, (int64_t)20 * NSEC_PER_SEC));
+        if (delegate.activated) {
+            qDebug() << "IosController: system extension active";
+            return true;
+        }
+        if (delegate.needsApproval) {
+            qWarning() << "IosController: system extension needs user approval — emitting signal";
+            emit systemExtensionNeedsApproval();
+            return false;
+        }
+        qWarning() << "IosController: system extension not yet active (awaiting approval/failed)";
+        emit systemExtensionNeedsApproval();
+        return false;
+    }
+    return false;
+#else
+    // iOS / App Store: расширение — App Extension, активация не требуется.
+    return true;
+#endif
+}
+
 bool IosController::connectVpn(amnezia::Proto proto, const QJsonObject& configuration)
 {
     m_proto = proto;
@@ -231,6 +306,15 @@ bool IosController::connectVpn(amnezia::Proto proto, const QJsonObject& configur
     }
 
     qDebug() << "IosController::connectVpn" << tunnelName;
+
+    // NvoVPN macOS: убедиться что System Extension активирована (зарегистрирован провайдер).
+    // Без этого NETunnelProviderManager создаст профиль, но туннель не стартует ("Подключаем…" висит).
+    // На первом коннекте юзер одобряет расширение в System Settings → повторный коннект пройдёт.
+    if (!ensureSystemExtensionActivated()) {
+        qWarning() << "IosController::connectVpn : system extension not active, aborting connect";
+        emit connectionStateChanged(Vpn::ConnectionState::Disconnected);
+        return false;
+    }
 
     m_currentTunnel = nullptr;
 

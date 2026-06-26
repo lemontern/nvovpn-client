@@ -83,6 +83,8 @@ public:
 signals:
     void connectionStateChanged(Vpn::ConnectionState state);
     void bytesChanged(quint64 receivedBytes, quint64 sentBytes);
+    // NvoVPN macOS: расширение требует одобрения юзером в System Settings (один раз).
+    void systemExtensionNeedsApproval();
     void importConfigFromOutside(const QString);
     void importBackupFromOutside(const QString);
 
@@ -105,6 +107,13 @@ private:
 
     void startTunnel();
     void emitConnectionStateIfChanged(Vpn::ConnectionState state);
+
+    // NvoVPN macOS: активация Network Extension как System Extension (Developer ID, вне App Store).
+    // На iOS/App Store расширение — App Extension и активации не требует; на macOS Developer ID
+    // нужно явно активировать через OSSystemExtensionRequest (юзер одобряет в System Settings),
+    // иначе провайдер com.nvovpn.app не зарегистрирован → туннель не стартует ("Подключаем…" висит).
+    // Возвращает true если sysext уже активен (можно стартовать туннель), false если ждём одобрения.
+    bool ensureSystemExtensionActivated();
 
 private:
     void *m_iosControllerWrapper {};

@@ -342,6 +342,14 @@ jobs:
         run: |
           cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
 
+      - name: 'Upload unsigned .app (для локальной подписи/теста — не зависит от Apple notary)'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NvoVPN-macos-unsigned
+          path: build/**/NvoVPN.app
+          if-no-files-found: warn
+          retention-days: 5
+
       - name: 'Import Developer ID certificate + provisioning profiles'
         env:
           P12_B64: ${{ secrets.APPLE_DEVID_P12_BASE64 }}
