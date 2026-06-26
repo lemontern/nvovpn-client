@@ -29,12 +29,16 @@
 	<key>CFBundleDisplayName</key>
 	<string>AmneziaVPNNetworkExtension</string>
 
-	<key>NSExtension</key>
+	<!-- NvoVPN: System Extension использует NetworkExtension dict (Mach-сервис), а не NSExtension. -->
+	<key>NetworkExtension</key>
 	<dict>
-		<key>NSExtensionPointIdentifier</key>
-		<string>com.apple.networkextension.packet-tunnel</string>
-		<key>NSExtensionPrincipalClass</key>
-		<string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string>
+		<key>NEMachServiceName</key>
+		<string>$(TeamIdentifierPrefix)$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>NEProviderClasses</key>
+		<dict>
+			<key>com.apple.networkextension.packet-tunnel</key>
+			<string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string>
+		</dict>
 	</dict>
 
 	<key>com.wireguard.ios.app_group_id</key>

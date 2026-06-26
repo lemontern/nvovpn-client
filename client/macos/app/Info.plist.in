@@ -158,15 +158,8 @@
                         </array>
                 </dict>
         </array>
-        <key>NSExtensions</key>
-        <array>
-        <dict>
-                <key>NSExtensionPointIdentifier</key>
-                <string>com.apple.networkextension.packet-tunnel</string>
-                <key>NSExtensionPrincipalClass</key>
-                <string>$(PRODUCT_MODULE_NAME).PacketTunnelProvider</string>
-        </dict>
-        </array>
+        <!-- NvoVPN: NSExtensions убран — System Extension обнаруживается системой в
+             Contents/Library/SystemExtensions, NSExtensions (app-extension) не используется. -->
 
 </dict>
 </plist>

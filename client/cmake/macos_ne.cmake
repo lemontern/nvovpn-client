@@ -88,7 +88,8 @@ set_target_properties(${PROJECT} PROPERTIES
 
     XCODE_LINK_BUILD_PHASE_MODE KNOWN_LOCATION
     XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/../Frameworks"
-    XCODE_EMBED_APP_EXTENSIONS AmneziaVPNNetworkExtension
+    # NvoVPN: System Extension встраивается в Contents/Library/SystemExtensions (не PlugIns как app-extension).
+    XCODE_EMBED_SYSTEM_EXTENSIONS AmneziaVPNNetworkExtension
 )
 
 if(DEPLOY)

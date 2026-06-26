@@ -6,9 +6,10 @@ add_executable(AmneziaVPNNetworkExtension)
 
 message("executable_path is: @executable_path/../../Frameworks")
 set_target_properties(AmneziaVPNNetworkExtension PROPERTIES
-    XCODE_PRODUCT_TYPE com.apple.product-type.app-extension
-    # MACOSX_BUNDLE YES
-    BUNDLE_EXTENSION appex
+    # NvoVPN: System Extension (вместо app-extension) — для раздачи .dmg вне App Store (Developer ID).
+    # App Extension VPN авторизуется только для App Store; Developer ID требует system-extension.
+    XCODE_PRODUCT_TYPE com.apple.product-type.system-extension
+    BUNDLE_EXTENSION systemextension
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${APPLE_PROJECT_VERSION}"
     MACOSX_BUNDLE_INFO_STRING "AmneziaVPNNetworkExtension"
     MACOSX_BUNDLE_BUNDLE_NAME "AmneziaVPNNetworkExtension"
@@ -19,7 +20,7 @@ set_target_properties(AmneziaVPNNetworkExtension PROPERTIES
     XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION "${CMAKE_PROJECT_VERSION_TWEAK}"
     XCODE_ATTRIBUTE_PRODUCT_NAME "AmneziaVPNNetworkExtension"
 
-    XCODE_ATTRIBUTE_APPLICATION_EXTENSION_API_ONLY "YES"
+    # APPLICATION_EXTENSION_API_ONLY убран — system extension это не app extension.
     XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
     XCODE_ATTRIBUTE_MACOSX_DEPLOYMENT_TARGET "11.0"
 
