@@ -141,31 +141,25 @@ PageType {
                 scale: knobMouse.pressed ? 0.96 : 1.0
                 Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
-                // Лого NvoVPN заполняет ВЕСЬ круг кнопки когда отключено (обрезано в круг
-                // надёжным Qt6 OpacityMask). Когда подключено — круг зелёный/красный с галочкой.
-                Item {
+                // Лого NvoVPN = весь круг кнопки (отключено). Приём: круг залит ТЕМ ЖЕ градиентом,
+                // что и квадратная иконка → квадратные углы иконки сливаются с кругом, визуально
+                // получается круглое лого. Надёжнее капризного OpacityMask.
+                Rectangle {
                     anchors.fill: parent
+                    radius: width / 2
                     visible: !root.busy && !root.connected
-                    Image {
-                        id: logoSrc
-                        anchors.fill: parent
-                        source: "qrc:/images/nvoAppIcon.png"
-                        sourceSize.width: 200
-                        sourceSize.height: 200
-                        fillMode: Image.PreserveAspectCrop
-                        visible: false
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: AmneziaStyle.color.nvoGradientStart }
+                        GradientStop { position: 1.0; color: AmneziaStyle.color.nvoGradientEnd }
                     }
-                    Rectangle {
-                        id: logoMask
-                        anchors.fill: parent
-                        radius: width / 2
-                        visible: false
-                    }
-                    OpacityMask {
-                        anchors.fill: parent
-                        source: logoSrc
-                        maskSource: logoMask
-                    }
+                }
+                Image {
+                    anchors.fill: parent
+                    source: "qrc:/images/nvoAppIcon.png"
+                    sourceSize.width: 200
+                    sourceSize.height: 200
+                    fillMode: Image.PreserveAspectCrop
+                    visible: !root.busy && !root.connected
                 }
 
                 // По центру: галочка/крестик (подключено) или спиннер (подключаем).
