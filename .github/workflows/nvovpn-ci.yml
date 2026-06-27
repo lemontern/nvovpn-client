@@ -587,6 +587,9 @@ jobs:
           QT_INSTALL_DIR: ${{ runner.temp }}
         run: |
           set -e
+          # Уникальный build number (CFBundleVersion) на каждый прогон — App Store отклоняет дубль номера.
+          sed -i '' "s/set(AMNEZIAVPN_VERSION 1.0.0.0)/set(AMNEZIAVPN_VERSION 1.0.0.${GITHUB_RUN_NUMBER})/" CMakeLists.txt
+          echo "iOS version: $(grep 'set(AMNEZIAVPN_VERSION' CMakeLists.txt | head -1)"
           QT_HOST="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
           QT_IOS="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/ios 2>/dev/null | head -1)"
           echo "QT_HOST=$QT_HOST  QT_IOS=$QT_IOS"

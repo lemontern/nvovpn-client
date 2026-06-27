@@ -134,6 +134,7 @@ PageType {
 
             BasicButtonType {
                 id: checkUpdatesButton
+                visible: Qt.platform.os !== "ios"   // iOS: обновления через App Store; ссылка вела на сайт
 
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 8
@@ -177,10 +178,9 @@ PageType {
         }
     }
     
-    property list<QtObject> contacts: [
-        website,
-        sourceCode
-    ]
+    // iOS (App Store 3.1.3(f)): убираем «Сайт … Подписка/оплата» — призыв к покупке вне App Store
+    // запрещён. На остальных платформах оставляем как есть.
+    property var contacts: Qt.platform.os === "ios" ? [sourceCode] : [website, sourceCode]
 
     QtObject {
         id: website
