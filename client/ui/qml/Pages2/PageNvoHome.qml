@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtQuick.Effects
 
 import PageEnum 1.0
 import Style 1.0
@@ -141,29 +140,14 @@ PageType {
                 scale: knobMouse.pressed ? 0.96 : 1.0
                 Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
-                // Лого NvoVPN = весь круг кнопки (отключено), обрезано в идеальный круг через
-                // MultiEffect (нативный Qt6, надёжнее устаревшего OpacityMask из Qt5Compat).
+                // Лого NvoVPN = весь круг кнопки (отключено). Готовый КРУГЛЫЙ PNG (обрезан в круг
+                // заранее через PIL) — надёжнее рантайм-масок (OpacityMask/MultiEffect не обрезали).
                 Image {
-                    id: logoImg
                     anchors.fill: parent
-                    source: "qrc:/images/nvoAppIcon.png"
+                    source: "qrc:/images/nvoAppIconRound.png"
                     sourceSize.width: 200
                     sourceSize.height: 200
-                    fillMode: Image.PreserveAspectCrop
-                    visible: false
-                }
-                Item {
-                    id: circleMask
-                    anchors.fill: parent
-                    layer.enabled: true
-                    visible: false
-                    Rectangle { anchors.fill: parent; radius: width / 2; color: "black" }
-                }
-                MultiEffect {
-                    anchors.fill: parent
-                    source: logoImg
-                    maskEnabled: true
-                    maskSource: circleMask
+                    fillMode: Image.PreserveAspectFit
                     visible: !root.busy && !root.connected
                 }
 
