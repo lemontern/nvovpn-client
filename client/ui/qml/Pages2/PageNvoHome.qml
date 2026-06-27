@@ -132,10 +132,13 @@ PageType {
                 anchors.centerIn: parent
                 width: 200; height: 200
                 radius: width / 2
-                color: root.connected ? AmneziaStyle.color.connectedGreen
+                // Подключено: зелёная; при наведении — красноватый намёк, что нажатие отключит.
+                color: root.connected ? (knobMouse.containsMouse ? "#C7493F" : AmneziaStyle.color.connectedGreen)
                                       : AmneziaStyle.color.onyxBlack
 
                 Behavior on color { ColorAnimation { duration: 250 } }
+                scale: knobMouse.pressed ? 0.96 : 1.0
+                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
                 ColumnLayout {
                     anchors.centerIn: parent
@@ -143,7 +146,7 @@ PageType {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: root.connected ? "✓" : "🛡"
+                        text: root.connected ? (knobMouse.containsMouse ? "✕" : "✓") : "🛡"
                         font.pixelSize: 56
                         color: root.connected ? "white" : AmneziaStyle.color.mutedGray
                         visible: !root.busy
@@ -162,7 +165,8 @@ PageType {
                         Layout.maximumWidth: 170
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: root.connected ? qsTr("ЗАЩИТА\nВКЛЮЧЕНА")
+                        text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите,\nчтобы отключить")
+                                                                        : qsTr("ЗАЩИТА\nВКЛЮЧЕНА"))
                                              : (root.busy ? qsTr("Подключаем…")
                                                           : (NvoApi.hasSubscription ? qsTr("Нажмите,\nчтобы включить")
                                                                                     : qsTr("Подключиться\nбесплатно (2 дня)")))
@@ -174,9 +178,11 @@ PageType {
                 }
 
                 MouseArea {
+                    id: knobMouse
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     enabled: !root.busy
+                    hoverEnabled: true
                     onClicked: {
                         if (root.connected) {
                             ConnectionController.closeConnection()

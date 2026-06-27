@@ -64,6 +64,7 @@ public slots:
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
+    void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
 
 signals:

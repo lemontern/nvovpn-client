@@ -22,6 +22,8 @@ PageType {
     // Google-вход через polling (без deep-link) работает на всех платформах:
     // браузер открывается, приложение опрашивает /auth/poll и получает токен в фоне.
     readonly property bool googleAvailable: true
+    // Sign in with Apple — через тот же polling (/app/login/apple). На iOS обязателен при соц-входах.
+    readonly property bool appleAvailable: true
 
     Connections {
         target: NvoApi
@@ -234,6 +236,32 @@ PageType {
                 clickedFunc: function() {
                     errorLabel.text = ""
                     NvoApi.loginWithGoogle()
+                }
+            }
+
+            // ---- Sign in with Apple (обязателен для App Store при наличии соц-входов) ----
+            BasicButtonType {
+                id: appleButton
+                visible: !root.codeMode && root.appleAvailable
+                Layout.fillWidth: true
+                Layout.topMargin: 12
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+                Layout.preferredHeight: 56
+
+                defaultColor: AmneziaStyle.color.transparent
+                hoveredColor: AmneziaStyle.color.translucentWhite
+                pressedColor: AmneziaStyle.color.sheerWhite
+                textColor: AmneziaStyle.color.paleGray
+                borderColor: AmneziaStyle.color.slateGray
+                borderWidth: 1
+
+                enabled: !NvoApi.isBusy
+                text: NvoApi.isBusy ? qsTr("Ожидаем вход через Apple…") : qsTr("Войти через Apple")
+
+                clickedFunc: function() {
+                    errorLabel.text = ""
+                    NvoApi.loginWithApple()
                 }
             }
 

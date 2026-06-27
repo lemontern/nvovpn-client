@@ -28,6 +28,7 @@ namespace
     constexpr char API_BASE[] = "https://nvovpn.com/api/v1";
     constexpr char SITE_BASE[] = "https://nvovpn.com";
     constexpr char GOOGLE_LOGIN_URL[] = "https://nvovpn.com/app/login/google";
+    constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
 
@@ -404,6 +405,35 @@ void NvoApiController::loginWithGoogle()
     m_googleDs = ds; // 40 hex символов
 
     QUrl url(QString::fromLatin1(GOOGLE_LOGIN_URL));
+    QUrlQuery q;
+    q.addQueryItem(QStringLiteral("ds"), m_googleDs);
+    url.setQuery(q);
+    QDesktopServices::openUrl(url);
+
+    setBusy(true);
+    m_googlePollElapsedMs = 0;
+    if (!m_googlePollTimer) {
+        m_googlePollTimer = new QTimer(this);
+        m_googlePollTimer->setInterval(1500);
+        connect(m_googlePollTimer, &QTimer::timeout, this, &NvoApiController::pollGoogleLogin);
+    }
+    m_googlePollTimer->start();
+}
+
+void NvoApiController::loginWithApple()
+{
+    // Sign in with Apple через тот же polling-механизм, что и Google: открываем браузер на
+    // /app/login/apple?ds=..., опрашиваем /auth/poll?ds=... (poll провайдер-агностичен — по ds).
+    // Переиспользуем m_googleDs/m_googlePollTimer (одновременно активен только один вход).
+    stopGooglePolling();
+
+    QString ds;
+    for (int i = 0; i < 5; ++i) {
+        ds += QString::number(QRandomGenerator::system()->generate(), 16).rightJustified(8, QLatin1Char('0'));
+    }
+    m_googleDs = ds;
+
+    QUrl url(QString::fromLatin1(APPLE_LOGIN_URL));
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("ds"), m_googleDs);
     url.setQuery(q);
