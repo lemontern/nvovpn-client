@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
+import QtQuick.Effects
 
 import PageEnum 1.0
 import Style 1.0
@@ -141,24 +141,29 @@ PageType {
                 scale: knobMouse.pressed ? 0.96 : 1.0
                 Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
-                // Лого NvoVPN = весь круг кнопки (отключено). Приём: круг залит ТЕМ ЖЕ градиентом,
-                // что и квадратная иконка → квадратные углы иконки сливаются с кругом, визуально
-                // получается круглое лого. Надёжнее капризного OpacityMask.
-                Rectangle {
-                    anchors.fill: parent
-                    radius: width / 2
-                    visible: !root.busy && !root.connected
-                    gradient: Gradient {
-                        GradientStop { position: 0.0; color: AmneziaStyle.color.nvoGradientStart }
-                        GradientStop { position: 1.0; color: AmneziaStyle.color.nvoGradientEnd }
-                    }
-                }
+                // Лого NvoVPN = весь круг кнопки (отключено), обрезано в идеальный круг через
+                // MultiEffect (нативный Qt6, надёжнее устаревшего OpacityMask из Qt5Compat).
                 Image {
+                    id: logoImg
                     anchors.fill: parent
                     source: "qrc:/images/nvoAppIcon.png"
                     sourceSize.width: 200
                     sourceSize.height: 200
                     fillMode: Image.PreserveAspectCrop
+                    visible: false
+                }
+                Item {
+                    id: circleMask
+                    anchors.fill: parent
+                    layer.enabled: true
+                    visible: false
+                    Rectangle { anchors.fill: parent; radius: width / 2; color: "black" }
+                }
+                MultiEffect {
+                    anchors.fill: parent
+                    source: logoImg
+                    maskEnabled: true
+                    maskSource: circleMask
                     visible: !root.busy && !root.connected
                 }
 
