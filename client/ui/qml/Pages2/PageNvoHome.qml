@@ -141,70 +141,47 @@ PageType {
                 scale: knobMouse.pressed ? 0.96 : 1.0
                 Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
-                ColumnLayout {
+                // Лого NvoVPN заполняет ВЕСЬ круг кнопки когда отключено (обрезано в круг
+                // надёжным Qt6 OpacityMask). Когда подключено — круг зелёный/красный с галочкой.
+                Item {
+                    anchors.fill: parent
+                    visible: !root.busy && !root.connected
+                    Image {
+                        id: logoSrc
+                        anchors.fill: parent
+                        source: "qrc:/images/nvoAppIcon.png"
+                        sourceSize.width: 200
+                        sourceSize.height: 200
+                        fillMode: Image.PreserveAspectCrop
+                        visible: false
+                    }
+                    Rectangle {
+                        id: logoMask
+                        anchors.fill: parent
+                        radius: width / 2
+                        visible: false
+                    }
+                    OpacityMask {
+                        anchors.fill: parent
+                        source: logoSrc
+                        maskSource: logoMask
+                    }
+                }
+
+                // По центру: галочка/крестик (подключено) или спиннер (подключаем).
+                Text {
                     anchors.centerIn: parent
-                    spacing: 6
-
-                    // Лого NvoVPN когда отключено; галочка/крестик когда подключено.
-                    // Обрезано в круг (надёжный Qt6 OpacityMask: отдельные source + maskSource items).
-                    Item {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.preferredWidth: 108
-                        Layout.preferredHeight: 108
-                        visible: !root.busy && !root.connected
-
-                        Image {
-                            id: logoSrc
-                            anchors.fill: parent
-                            source: "qrc:/images/nvoAppIcon.png"
-                            sourceSize.width: 108
-                            sourceSize.height: 108
-                            fillMode: Image.PreserveAspectCrop
-                            visible: false
-                        }
-                        Rectangle {
-                            id: logoMask
-                            anchors.fill: parent
-                            radius: width / 2
-                            visible: false
-                        }
-                        OpacityMask {
-                            anchors.fill: parent
-                            source: logoSrc
-                            maskSource: logoMask
-                        }
-                    }
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        text: knobMouse.containsMouse ? "✕" : "✓"
-                        font.pixelSize: 56
-                        color: "white"
-                        visible: !root.busy && root.connected
-                    }
-
-                    BusyIndicator {
-                        Layout.alignment: Qt.AlignHCenter
-                        running: root.busy
-                        visible: root.busy
-                        implicitWidth: 64
-                        implicitHeight: 64
-                    }
-
-                    Text {
-                        Layout.alignment: Qt.AlignHCenter
-                        Layout.maximumWidth: 170
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите,\nчтобы отключить")
-                                                                        : qsTr("ЗАЩИТА\nВКЛЮЧЕНА"))
-                                             : (root.busy ? qsTr("Подключаем…")
-                                                          : (NvoApi.hasSubscription ? qsTr("Нажмите,\nчтобы включить")
-                                                                                    : qsTr("Подключиться\nбесплатно (2 дня)")))
-                        color: root.connected ? "white" : AmneziaStyle.color.paleGray
-                        font.family: "PT Root UI VF"
-                        font.weight: 700
-                        font.pixelSize: 18
-                    }
+                    text: knobMouse.containsMouse ? "✕" : "✓"
+                    font.pixelSize: 72
+                    color: "white"
+                    visible: !root.busy && root.connected
+                }
+                BusyIndicator {
+                    anchors.centerIn: parent
+                    running: root.busy
+                    visible: root.busy
+                    implicitWidth: 64
+                    implicitHeight: 64
                 }
 
                 MouseArea {
@@ -224,11 +201,26 @@ PageType {
             }
         }
 
+        // Статус под кнопкой (вынесен из круга — лого теперь занимает весь круг).
         Text {
             Layout.alignment: Qt.AlignHCenter
-            text: root.connected ? qsTr("Ваш интернет защищён, IP скрыт") : ""
-            color: AmneziaStyle.color.connectedGreen
-            font.pixelSize: 15
+            Layout.topMargin: 4
+            horizontalAlignment: Text.AlignHCenter
+            text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите, чтобы отключить")
+                                                            : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
+                                 : (root.busy ? qsTr("Подключаем…")
+                                              : (NvoApi.hasSubscription ? qsTr("Нажмите, чтобы включить")
+                                                                        : qsTr("Подключиться бесплатно (2 дня)")))
+            color: root.connected ? AmneziaStyle.color.connectedGreen : AmneziaStyle.color.paleGray
+            font.family: "PT Root UI VF"
+            font.weight: 800
+            font.pixelSize: 20
+        }
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            text: qsTr("Ваш интернет защищён, IP скрыт")
+            color: AmneziaStyle.color.mutedGray
+            font.pixelSize: 13
             visible: root.connected
         }
 

@@ -104,7 +104,8 @@ PageType {
             color: AmneziaStyle.color.onyxBlack
             border.width: NvoApi.selectedServerId === serverId ? 2 : 1
             border.color: NvoApi.selectedServerId === serverId ? AmneziaStyle.color.nvoBlue : AmneziaStyle.color.slateGray
-            opacity: online ? 1.0 : 0.45
+            // Не притемняем по health_status — он бывает ложным (France: unhealthy, но работает).
+            opacity: 1.0
 
             RowLayout {
                 anchors.fill: parent
