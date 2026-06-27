@@ -146,19 +146,32 @@ PageType {
                     spacing: 6
 
                     // Лого NvoVPN когда отключено; галочка/крестик когда подключено.
-                    // Обрезано в круг (OpacityMask) — иначе квадратная иконка плохо смотрится в круглой кнопке.
-                    Image {
+                    // Обрезано в круг (надёжный Qt6 OpacityMask: отдельные source + maskSource items).
+                    Item {
                         Layout.alignment: Qt.AlignHCenter
-                        Layout.preferredWidth: 104
-                        Layout.preferredHeight: 104
-                        source: "qrc:/images/nvoAppIcon.png"
-                        sourceSize.width: 104
-                        sourceSize.height: 104
-                        fillMode: Image.PreserveAspectCrop
+                        Layout.preferredWidth: 108
+                        Layout.preferredHeight: 108
                         visible: !root.busy && !root.connected
-                        layer.enabled: true
-                        layer.effect: OpacityMask {
-                            maskSource: Rectangle { width: 104; height: 104; radius: 52 }
+
+                        Image {
+                            id: logoSrc
+                            anchors.fill: parent
+                            source: "qrc:/images/nvoAppIcon.png"
+                            sourceSize.width: 108
+                            sourceSize.height: 108
+                            fillMode: Image.PreserveAspectCrop
+                            visible: false
+                        }
+                        Rectangle {
+                            id: logoMask
+                            anchors.fill: parent
+                            radius: width / 2
+                            visible: false
+                        }
+                        OpacityMask {
+                            anchors.fill: parent
+                            source: logoSrc
+                            maskSource: logoMask
                         }
                     }
                     Text {
