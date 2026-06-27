@@ -16,6 +16,9 @@ PageType {
     id: root
 
     readonly property bool active: NvoApi.hasSubscription
+    // iOS App Store 3.1.3(f): никаких цен/кнопок/ссылок «купить/продлить/пополнить» внутри iOS.
+    // На iOS показываем ТОЛЬКО нейтральный статус подписки, без CTA на оплату и без слова «сайт».
+    readonly property bool isIos: Qt.platform.os === "ios"
 
     BackButtonType {
         id: backButton
@@ -56,12 +59,16 @@ PageType {
                     return qsTr("План «%1». Осталось %2 дн.").arg(NvoApi.subscriptionPlan).arg(NvoApi.subscriptionDaysRemaining)
                 if (root.active)
                     return qsTr("План «%1»").arg(NvoApi.subscriptionPlan)
+                // iOS (3.1.3(f)): нейтрально, без CTA на оплату и без упоминания сайта.
+                if (root.isIos)
+                    return qsTr("Сейчас нет активной подписки.")
                 return qsTr("Продлите подписку на сайте, чтобы снова пользоваться защитой. Это займёт минуту.")
             }
         }
 
         // Баланс (мультивалютный — форматирует бэкенд: «0 ₽» / «0 €»)
         CaptionTextType {
+            visible: !root.isIos   // 3.1.3(f): баланс/биллинг не показываем на iOS
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 8
             horizontalAlignment: Text.AlignHCenter
@@ -70,7 +77,9 @@ PageType {
         }
 
         // Основная кнопка: продлить (истекла) / управление (активна) — открывает залогиненный ЛК.
+        // 3.1.3(f): на iOS скрыта (ведёт на оплату в вебе).
         BasicButtonType {
+            visible: !root.isIos
             Layout.fillWidth: true
             Layout.topMargin: 16
             Layout.leftMargin: 24
@@ -83,7 +92,9 @@ PageType {
         }
 
         // Пополнить баланс — для авто-продления подписки с баланса (открывает страницу оплаты в ЛК).
+        // 3.1.3(f): на iOS скрыта (прямой CTA на оплату).
         BasicButtonType {
+            visible: !root.isIos
             Layout.fillWidth: true
             Layout.topMargin: 12
             Layout.leftMargin: 24

@@ -192,7 +192,8 @@ PageType {
             text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите, чтобы отключить")
                                                             : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
                                  : (root.busy ? qsTr("Подключаем…")
-                                              : (NvoApi.hasSubscription ? qsTr("Нажмите, чтобы включить")
+                                              // iOS (3.1.3(f)): без намёка на платную подписку/триал.
+                                              : ((NvoApi.hasSubscription || Qt.platform.os === "ios") ? qsTr("Нажмите, чтобы включить")
                                                                         : qsTr("Подключиться бесплатно (2 дня)")))
             color: root.connected ? AmneziaStyle.color.connectedGreen : AmneziaStyle.color.paleGray
             font.family: "PT Root UI VF"

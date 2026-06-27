@@ -19,11 +19,14 @@ PageType {
     property bool codeMode: false
     property bool showPassword: false
 
-    // Google-вход через polling (без deep-link) работает на всех платформах:
-    // браузер открывается, приложение опрашивает /auth/poll и получает токен в фоне.
-    readonly property bool googleAvailable: true
-    // Sign in with Apple — через тот же polling (/app/login/apple). На iOS обязателен при соц-входах.
-    readonly property bool appleAvailable: true
+    // iOS App Store, правило 3.1.3(f): companion-приложение к платному веб-сервису не должно
+    // содержать регистрацию/сторонние входы/ссылки на оплату. Поэтому на iOS — ТОЛЬКО email+пароль.
+    // (Нет сторонних соц-входов → Sign in with Apple по правилу 4.8 не требуется.)
+    readonly property bool isIos: Qt.platform.os === "ios"
+    // Google-вход через polling работает на всех платформах, КРОМЕ iOS (3.1.3(f)).
+    readonly property bool googleAvailable: !isIos
+    // Sign in with Apple — тоже скрыт на iOS (там вообще нет соц-входов, чистый email+пароль).
+    readonly property bool appleAvailable: !isIos
 
     Connections {
         target: NvoApi
@@ -277,6 +280,8 @@ PageType {
             }
 
             RowLayout {
+                // 3.1.3(f): на iOS НЕ показываем регистрацию/ссылку на сайт (там же и оплата).
+                visible: !root.isIos
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 32
                 Layout.bottomMargin: 24
