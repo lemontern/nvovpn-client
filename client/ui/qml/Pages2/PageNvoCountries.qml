@@ -143,7 +143,10 @@ PageType {
 
             MouseArea {
                 anchors.fill: parent
-                enabled: online
+                // Выбор разрешён даже для нод с health_status=unhealthy: бэкендовый healthcheck
+                // бывает ложным (France: unhealthy, но /connect 200 и нода реально работает).
+                // Притемнение (opacity) остаётся как подсказка; реальный обрыв обработает failover.
+                enabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.selectAndBack(serverId)
             }

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import Qt5Compat.GraphicalEffects
 
 import PageEnum 1.0
 import Style 1.0
@@ -145,13 +146,20 @@ PageType {
                     spacing: 6
 
                     // Лого NvoVPN когда отключено; галочка/крестик когда подключено.
+                    // Обрезано в круг (OpacityMask) — иначе квадратная иконка плохо смотрится в круглой кнопке.
                     Image {
                         Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: 104
+                        Layout.preferredHeight: 104
                         source: "qrc:/images/nvoAppIcon.png"
-                        sourceSize.width: 76
-                        sourceSize.height: 76
-                        fillMode: Image.PreserveAspectFit
+                        sourceSize.width: 104
+                        sourceSize.height: 104
+                        fillMode: Image.PreserveAspectCrop
                         visible: !root.busy && !root.connected
+                        layer.enabled: true
+                        layer.effect: OpacityMask {
+                            maskSource: Rectangle { width: 104; height: 104; radius: 52 }
+                        }
                     }
                     Text {
                         Layout.alignment: Qt.AlignHCenter
