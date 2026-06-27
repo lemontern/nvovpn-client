@@ -67,20 +67,15 @@ LanguageSettings::AvailableLanguageEnum LanguageUiController::getSystemLanguageE
 
 QString LanguageUiController::getCurrentSiteUrl(const QString &path) const
 {
-    auto locale = m_settingsController->getAppLanguage();
-    if (locale.language() == QLocale::Russian) {
-        return "https://storage.googleapis.com/amnezia/amnezia.org" + (path.isEmpty() ? "" : (QString("?m-path=/%1").arg(path)));
-    }
-    return QString("https://amnezia.org") + (path.isEmpty() ? "" : (QString("/%1").arg(path)));
+    // NvoVPN: всегда наш сайт (НЕ зеркало Amnezia/amnezia.org). Сайт сам редиректит на локаль.
+    return QString("https://nvovpn.com") + (path.isEmpty() ? "" : (QString("/%1").arg(path)));
 }
 
 QString LanguageUiController::getCurrentDocsUrl(const QString &path) const
 {
-    auto locale = m_settingsController->getAppLanguage();
-    if (locale.language() == QLocale::Russian) {
-        return "https://storage.googleapis.com/amnezia/docs" + (path.isEmpty() ? "" : (QString("?m-path=/%1").arg(path)));
-    }
-    return QString("https://docs.amnezia.org") + (path.isEmpty() ? "" : (QString("/%1").arg(path)));
+    Q_UNUSED(path)
+    // NvoVPN: отдельной docs-площадки нет — ведём на основной сайт (НЕ docs.amnezia.org).
+    return QString("https://nvovpn.com");
 }
 
 QString LanguageUiController::getLocalLanguageName(const LanguageSettings::AvailableLanguageEnum language) const

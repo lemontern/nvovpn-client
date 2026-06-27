@@ -2375,8 +2375,8 @@ Thank you for staying with us!</source>
     </message>
     <message>
         <location filename="../ui/qml/Pages2/PageSettingsApplication.qml" line="243"/>
-        <source>All settings will be reset to default. All installed AmneziaVPN services will still remain on the server.</source>
-        <translation>Все настройки будут сброшены до значений по умолчанию. Все установленные сервисы AmneziaVPN останутся на сервере.</translation>
+        <source>All settings will be reset to default.</source>
+        <translation>Все настройки будут сброшены до значений по умолчанию.</translation>
     </message>
     <message>
         <location filename="../ui/qml/Pages2/PageSettingsApplication.qml" line="244"/>

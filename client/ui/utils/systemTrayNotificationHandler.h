@@ -51,7 +51,7 @@ private:
     const QString ConnectedTrayIconName = "active.png";
     const QString DisconnectedTrayIconName = "default.png";
     const QString ErrorTrayIconName = "error.png";
-    QString  websiteUrl = "https://amnezia.org";
+    QString  websiteUrl = "https://nvovpn.com";  // NvoVPN: трей «Посетить сайт» ведёт на наш сайт
 };
 
 #endif  // SYSTEMTRAYNOTIFICATIONHANDLER_H
