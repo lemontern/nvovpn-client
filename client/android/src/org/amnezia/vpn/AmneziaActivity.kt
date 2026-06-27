@@ -56,6 +56,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import org.amnezia.vpn.protocol.ProtocolState
 import org.amnezia.vpn.protocol.getStatistics
 import org.amnezia.vpn.protocol.getStatus
 import org.amnezia.vpn.qt.QtAndroidController
@@ -277,7 +278,20 @@ class AmneziaActivity : QtActivity() {
         mainScope.launch {
             qtInitialized.await()
             vpnProto?.let { proto ->
-                if (AmneziaVpnService.isRunning(applicationContext, proto.processName)) {
+                // NvoVPN fix: на агрессивных прошивках (Huawei/EMUI, Xiaomi/MIUI) система «замораживает»
+                // foreground-сервис VPN — туннель продолжает работать, но процесс пропадает из
+                // runningAppProcesses или репортит importance выше FOREGROUND_SERVICE, и isRunning()
+                // ложно возвращает false. Тогда после перезапуска приложения (UI-процесс убит за пару
+                // дней в фоне) UI не привязывается к живому туннелю и показывает «подключитесь», хотя
+                // VPN работает. Поэтому биндимся также, если последнее сохранённое состояние было
+                // активным: BIND_AUTO_CREATE разбудит замороженный сервис и отдаст реальный статус
+                // (CONNECTED); если сервис реально мёртв — вернётся DISCONNECTED (корректно), туннель
+                // при этом не пересоздаётся.
+                val lastState = withContext(Dispatchers.IO) { VpnStateStore.getVpnState().protocolState }
+                val wasActive = lastState == ProtocolState.CONNECTED ||
+                        lastState == ProtocolState.CONNECTING ||
+                        lastState == ProtocolState.RECONNECTING
+                if (AmneziaVpnService.isRunning(applicationContext, proto.processName) || wasActive) {
                     doBindService()
                 }
             }
@@ -541,7 +555,11 @@ class AmneziaActivity : QtActivity() {
         Log.d(TAG, "Bind service")
         vpnProto?.let { proto ->
             Intent(this, proto.serviceClass).also {
-                bindService(it, serviceConnection, BIND_ABOVE_CLIENT and BIND_AUTO_CREATE)
+                // NvoVPN fix: было `and` (побитовое И → BIND_ABOVE_CLIENT(8) and BIND_AUTO_CREATE(1) = 0),
+                // т.е. bind шёл вообще без флагов. Без BIND_AUTO_CREATE привязка к «замороженному»
+                // системой foreground-сервису (EMUI/MIUI) не будит его и onServiceConnected не
+                // приходит → UI не узнаёт о живом туннеле. Нужно `or` (объединение флагов = 9).
+                bindService(it, serviceConnection, BIND_ABOVE_CLIENT or BIND_AUTO_CREATE)
             }
             isInBoundState = true
         }
