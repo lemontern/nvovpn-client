@@ -144,12 +144,21 @@ PageType {
                     anchors.centerIn: parent
                     spacing: 6
 
+                    // Лого NvoVPN когда отключено; галочка/крестик когда подключено.
+                    Image {
+                        Layout.alignment: Qt.AlignHCenter
+                        source: "qrc:/nvoAppIcon.png"
+                        sourceSize.width: 76
+                        sourceSize.height: 76
+                        fillMode: Image.PreserveAspectFit
+                        visible: !root.busy && !root.connected
+                    }
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: root.connected ? (knobMouse.containsMouse ? "✕" : "✓") : "🛡"
+                        text: knobMouse.containsMouse ? "✕" : "✓"
                         font.pixelSize: 56
-                        color: root.connected ? "white" : AmneziaStyle.color.mutedGray
-                        visible: !root.busy
+                        color: "white"
+                        visible: !root.busy && root.connected
                     }
 
                     BusyIndicator {

@@ -62,19 +62,12 @@ PageType {
                     anchors.centerIn: parent
                     spacing: 8
 
-                    Rectangle {
+                    Image {
                         Layout.alignment: Qt.AlignHCenter
-                        width: 72; height: 72; radius: 18
-                        gradient: Gradient {
-                            GradientStop { position: 0.0; color: AmneziaStyle.color.nvoGradientStart }
-                            GradientStop { position: 1.0; color: AmneziaStyle.color.nvoGradientEnd }
-                        }
-                        Text {
-                            anchors.centerIn: parent
-                            text: "🛡"
-                            font.pixelSize: 36
-                            color: "white"
-                        }
+                        source: "qrc:/nvoAppIcon.png"
+                        sourceSize.width: 88
+                        sourceSize.height: 88
+                        fillMode: Image.PreserveAspectFit
                     }
 
                     Text {
