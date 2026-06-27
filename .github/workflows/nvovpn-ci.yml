@@ -611,7 +611,8 @@ jobs:
             printf '%s\n' __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
               _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
               __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
-            ld -r -arch arm64 -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wg.o
+            SDKVER=$(xcrun --sdk iphoneos --show-sdk-version)
+            ld -r -arch arm64 -platform_version ios 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wg.o
             rm -f /tmp/wg-fixed.a; ar -crs /tmp/wg-fixed.a /tmp/wg.o; cp /tmp/wg-fixed.a "$WGGO"
             echo "✓ libwg-go.a пропатчен"
           else
@@ -761,7 +762,8 @@ jobs:
             printf '%s\n' __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
               _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
               __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
-            ld -r -arch arm64 -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wgsim.o
+            SDKVER=$(xcrun --sdk iphonesimulator --show-sdk-version)
+            ld -r -arch arm64 -platform_version ios-simulator 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wgsim.o
             rm -f /tmp/wgsim.a; ar -crs /tmp/wgsim.a /tmp/wgsim.o; cp /tmp/wgsim.a "$WGGO"
             echo "✓ patched"
           fi
