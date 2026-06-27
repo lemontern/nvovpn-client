@@ -678,3 +678,96 @@ jobs:
           xcrun altool --upload-app -t ios -f "$IPA" \
             --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER" \
             || echo "::warning::TestFlight upload не прошёл — вероятно ещё нет записи приложения в App Store Connect (создать запись → перезапустить job)."
+
+  # Сборка под iOS-СИМУЛЯТОР — только для снятия скриншотов (запускается локально в Simulator).
+  # continue-on-error: падение не должно валить весь прогон (device-билд и остальное важнее).
+  Build-iOS-Simulator:
+    runs-on: macos-14
+    continue-on-error: true
+    env:
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: 'Install Qt (host macos)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+      - name: 'Install Qt (ios target)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'ios'
+          arch: 'ios'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+      - name: 'Select Xcode'
+        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 'Install conan'
+        run: |
+          pip install "conan==2.28.0"
+          conan profile detect --force
+      - name: 'Configure (cmake, iOS Simulator arm64)'
+        run: |
+          set -e
+          QT_HOST="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
+          QT_IOS="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/ios 2>/dev/null | head -1)"
+          cmake -S . -B build-sim -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DQT_HOST_PATH="$QT_HOST" \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_IOS/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DDEPLOY=1 \
+            -DCMAKE_XCODE_GENERATE_SCHEME=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_IOS"
+      - name: 'Fix Go cgo symbol clash (sim)'
+        run: |
+          set -e
+          WGGO="$(find "$HOME/.conan2" -path '*awg*/p/lib/libwg-go.a' 2>/dev/null | head -1)"
+          echo "libwg-go.a: $WGGO"
+          if [ -n "$WGGO" ]; then
+            printf '%s\n' __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
+              _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
+              __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
+            ld -r -arch arm64 -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wgsim.o
+            rm -f /tmp/wgsim.a; ar -crs /tmp/wgsim.a /tmp/wgsim.o; cp /tmp/wgsim.a "$WGGO"
+            echo "✓ patched"
+          fi
+      - name: 'Build (simulator, unsigned)'
+        run: |
+          set -e
+          xcodebuild -project build-sim/NvoVPN.xcodeproj \
+            -scheme NvoVPN \
+            -sdk iphonesimulator -configuration Release \
+            -derivedDataPath build-sim/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+          APP="$(find build-sim/dd/Build/Products -name 'NvoVPN.app' -maxdepth 3 | head -1)"
+          echo "APP=$APP"; test -d "$APP"
+          cd "$(dirname "$APP")" && zip -qry "$RUNNER_TEMP/NvoVPN-sim.zip" "NvoVPN.app"
+          echo "zip done: $(ls -la "$RUNNER_TEMP/NvoVPN-sim.zip")"
+      - name: 'Upload simulator .app'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-ios-simulator-app
+          path: ${{ runner.temp }}/NvoVPN-sim.zip
