@@ -147,7 +147,7 @@ PageType {
                     // Лого NvoVPN когда отключено; галочка/крестик когда подключено.
                     Image {
                         Layout.alignment: Qt.AlignHCenter
-                        source: "qrc:/nvoAppIcon.png"
+                        source: "qrc:/images/nvoAppIcon.png"
                         sourceSize.width: 76
                         sourceSize.height: 76
                         fillMode: Image.PreserveAspectFit

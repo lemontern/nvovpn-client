@@ -64,7 +64,7 @@ PageType {
 
                     Image {
                         Layout.alignment: Qt.AlignHCenter
-                        source: "qrc:/nvoAppIcon.png"
+                        source: "qrc:/images/nvoAppIcon.png"
                         sourceSize.width: 88
                         sourceSize.height: 88
                         fillMode: Image.PreserveAspectFit
