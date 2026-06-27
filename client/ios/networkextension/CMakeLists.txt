@@ -35,8 +35,8 @@ if(DEPLOY)
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Distribution"
         XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY[variant=Debug] "Apple Development"
         XCODE_ATTRIBUTE_CODE_SIGN_STYLE Manual
-        XCODE_ATTRIBUTE_PROVISIONING_PROFILE_SPECIFIER "distr ios.com.nvovpn.app"
-        XCODE_ATTRIBUTE_PROVISIONING_PROFILE_SPECIFIER[variant=Debug] "dev ios.com.nvovpn.app"
+        XCODE_ATTRIBUTE_PROVISIONING_PROFILE_SPECIFIER "NvoVPN iOS AppStore NE"
+        XCODE_ATTRIBUTE_PROVISIONING_PROFILE_SPECIFIER[variant=Debug] "NvoVPN iOS AppStore NE"
     )
 else()
     set_target_properties(networkextension PROPERTIES

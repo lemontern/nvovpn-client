@@ -522,7 +522,7 @@ jobs:
           gh release create test-macos-1 NvoVPN.dmg -R "${{ github.repository }}" -t "NvoVPN macOS (.dmg)" -n "Developer ID signed + notarized"
 
   Build-iOS:
-    runs-on: macos-14
+    runs-on: macos-15   # нужен Xcode 26 (iOS 26 SDK) — Apple отклоняет билды со старым SDK (ITMS-90725)
     env:
       QT_VERSION: 6.10.1
       QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
@@ -564,8 +564,13 @@ jobs:
           py7zrversion: '==0.22.*'
           extra: '--base ${{ env.QT_MIRROR }}'
 
-      - name: 'Select Xcode'
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: 'Select Xcode (iOS 26 SDK)'
+        run: |
+          echo "Xcodes:"; ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting $XC"; sudo xcode-select -s "$XC"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
 
       - name: 'Setup python (conan)'
         uses: actions/setup-python@v5
@@ -634,15 +639,17 @@ jobs:
           echo "$PROF_NE_B64"  | base64 -d > "$HOME/Library/MobileDevice/Provisioning Profiles/nvo_ne.mobileprovision"
           echo "Signing identities:"; security find-identity -v -p codesigning "$KEYCHAIN"
 
-      - name: 'Archive (xcodebuild, unsigned — re-sign на export)'
+      - name: 'Archive (xcodebuild, signed — Apple Distribution + профили)'
         run: |
           set -e
+          # Подписываем на этапе archive (cmake: Apple Distribution + Manual + профили
+          # «NvoVPN iOS AppStore»/«…NE» + team Q9PKZ8C922) — чтобы entitlements
+          # (networkextension, app-groups) ЗАПЕКЛИСЬ в бандл. Unsigned-архив их терял (ITMS-90525).
           xcodebuild -project build/NvoVPN.xcodeproj \
             -scheme NvoVPN \
             -sdk iphoneos -configuration Release \
             -archivePath "$RUNNER_TEMP/NvoVPN.xcarchive" \
-            archive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER=""
+            archive
           echo "=== archive Applications ==="
           ls -la "$RUNNER_TEMP/NvoVPN.xcarchive/Products/Applications/" || true
           ls -la "$RUNNER_TEMP/NvoVPN.xcarchive/Products/Applications/NvoVPN.app/PlugIns/" || true
@@ -682,7 +689,7 @@ jobs:
   # Сборка под iOS-СИМУЛЯТОР — только для снятия скриншотов (запускается локально в Simulator).
   # continue-on-error: падение не должно валить весь прогон (device-билд и остальное важнее).
   Build-iOS-Simulator:
-    runs-on: macos-14
+    runs-on: macos-15   # Xcode 26 / iOS 26 SDK
     continue-on-error: true
     env:
       QT_VERSION: 6.10.1
@@ -714,8 +721,13 @@ jobs:
           dir: ${{ runner.temp }}
           py7zrversion: '==0.22.*'
           extra: '--base ${{ env.QT_MIRROR }}'
-      - name: 'Select Xcode'
-        run: sudo xcode-select -s /Applications/Xcode.app
+      - name: 'Select Xcode (iOS 26 SDK)'
+        run: |
+          echo "Xcodes:"; ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting $XC"; sudo xcode-select -s "$XC"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
       - name: 'Setup python (conan)'
         uses: actions/setup-python@v5
         with:
