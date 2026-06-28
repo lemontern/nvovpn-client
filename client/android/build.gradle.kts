@@ -29,8 +29,12 @@ android {
     }
 
     packaging {
-        // compress .so binary libraries
-        jniLibs.useLegacyPackaging = true
+        // NvoVPN: поддержка 16 КБ страниц памяти (требование Google Play для targetSDK 35).
+        // .so раздаём несжатыми и 16КБ-выровненными (mmap прямо из APK); сжатие ломало бы это.
+        jniLibs.useLegacyPackaging = false
+        // Xray не используется (NvoVPN = только AmneziaWG). Его Go-либа libgojni.so —
+        // единственная 4КБ-выровненная (0x1000), из-за неё Play отклонял 16КБ. Исключаем.
+        jniLibs.excludes += "**/libgojni.so"
     }
 
     defaultConfig {
