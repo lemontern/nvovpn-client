@@ -113,5 +113,51 @@ PageType {
                 NvoApi.openWebCabinet("billing")
             }
         }
+
+        // Промокод (кросс-промо «5 дней»): ввод → POST /promo/redeem.
+        // 3.1.3(f): на iOS скрыт (как платежи); вернём после аппрува App Store.
+        CaptionTextType {
+            visible: !root.isIos
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 24
+            horizontalAlignment: Text.AlignHCenter
+            color: AmneziaStyle.color.paleGray
+            text: qsTr("Есть промокод?")
+        }
+
+        TextFieldWithHeaderType {
+            id: promoField
+            visible: !root.isIos
+            Layout.fillWidth: true
+            Layout.leftMargin: 24
+            Layout.rightMargin: 24
+            textField.placeholderText: qsTr("Например, NVO12345")
+        }
+
+        BasicButtonType {
+            visible: !root.isIos
+            Layout.fillWidth: true
+            Layout.topMargin: 8
+            Layout.leftMargin: 24
+            Layout.rightMargin: 24
+            Layout.preferredHeight: 52
+            enabled: !NvoApi.isBusy && promoField.textField.text.trim().length > 0
+            text: NvoApi.isBusy ? qsTr("Активируем…") : qsTr("Активировать промокод")
+            clickedFunc: function() {
+                NvoApi.redeemPromo(promoField.textField.text)
+            }
+        }
+    }
+
+    // Результат активации промокода — тост + очистка поля; при успехе подписка обновится сама.
+    Connections {
+        target: NvoApi
+        function onPromoSucceeded(message, trialDays) {
+            promoField.textField.text = ""
+            PageController.showNotificationMessage(message)
+        }
+        function onPromoFailed(message, reason) {
+            PageController.showNotificationMessage(message)
+        }
     }
 }

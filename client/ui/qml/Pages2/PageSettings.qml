@@ -76,6 +76,29 @@ PageType {
         footer: ColumnLayout {
             width: listView.width
 
+            // NvoVPN: ввести промокод (кросс-промо «5 дней»). 3.1.3(f): скрыт на iOS.
+            LabelWithButtonType {
+                id: promoEntry
+
+                visible: NvoApi.isAuthenticated && Qt.platform.os !== "ios"
+                Layout.fillWidth: true
+
+                text: qsTr("Ввести промокод")
+                leftImageSource: "qrc:/images/controls/tag.svg"
+                isLeftImageHoverEnabled: false
+
+                clickedFunction: function() {
+                    PageController.goToPage(PageEnum.PageNvoSubscription)
+                }
+            }
+
+            DividerType {
+                visible: NvoApi.isAuthenticated && Qt.platform.os !== "ios"
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+            }
+
             // NvoVPN: аккаунт + выход
             LabelWithButtonType {
                 id: logout

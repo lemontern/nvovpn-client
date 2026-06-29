@@ -66,6 +66,7 @@ public slots:
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
     void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
+    void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
 
 signals:
     void authenticationChanged();
@@ -83,6 +84,11 @@ signals:
     void subscriptionRequired(const QString &message, const QString &reason);  // 403 — отказ /connect (email_unverified|ip_used|trial_used|no_plan|no_subscription)
     void sessionExpired();                      // 401 — токен отозван/истёк (вход на другом устройстве)
     void errorOccurred(const QString &message);
+
+    // Промокод (/promo/redeem): granted → успех; иначе показываем готовый message бэкенда
+    // (reason: already_active | code_invalid | code_used | code_empty | email_unverified | disposable).
+    void promoSucceeded(const QString &message, int trialDays);
+    void promoFailed(const QString &message, const QString &reason);
 
 private:
     QNetworkRequest makeRequest(const QString &path, bool auth) const;

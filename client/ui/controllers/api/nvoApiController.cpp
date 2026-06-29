@@ -299,6 +299,51 @@ void NvoApiController::refreshUser()
     });
 }
 
+void NvoApiController::redeemPromo(const QString &code)
+{
+    const QString trimmed = code.trimmed().toUpper();
+    if (trimmed.isEmpty()) {
+        emit promoFailed(tr("Введите промокод"), QStringLiteral("code_empty"));
+        return;
+    }
+    if (m_token.isEmpty()) {
+        emit sessionExpired();   // нет токена → сначала логин
+        return;
+    }
+    setBusy(true);
+    const QJsonObject body { { "code", trimmed } };
+    QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/promo/redeem"), true),
+                                       QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        setBusy(false);
+        const int status = httpStatus(reply);
+        if (status == 401) {
+            setToken(QString());
+            emit sessionExpired();
+            return;
+        }
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const QString reason = root.value(QStringLiteral("reason")).toString();
+        const QString message = root.value(QStringLiteral("message")).toString();
+
+        // Осмысленный ответ бэкенда (message приходит готовым на русском, показываем as-is).
+        if (!reason.isEmpty() || !message.isEmpty()) {
+            if (root.value(QStringLiteral("ok")).toBool() && reason == QStringLiteral("granted")) {
+                const int trialDays = root.value(QStringLiteral("trial_days")).toInt();
+                emit promoSucceeded(message.isEmpty() ? tr("Промокод активирован") : message, trialDays);
+                refreshUser();   // обновить статус подписки → разблокировать подключение
+            } else {
+                emit promoFailed(message.isEmpty() ? tr("Не удалось активировать промокод") : message, reason);
+            }
+            return;
+        }
+
+        // Нет ответа бэкенда — сетевая/неизвестная ошибка.
+        emit promoFailed(humanError(reply), QStringLiteral("network"));
+    });
+}
+
 void NvoApiController::requestConfig(int serverId)
 {
     if (m_token.isEmpty()) {
