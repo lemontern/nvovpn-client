@@ -17,7 +17,7 @@
 using namespace amnezia;
 
 namespace {
-    constexpr char gatewayEndpoint[] = "http://gw.amnezia.org:80/";
+    constexpr char gatewayEndpoint[] = "https://nvovpn.com/";
 }
 
 SecureAppSettingsRepository::SecureAppSettingsRepository(SecureQSettings* settings, QObject *parent)

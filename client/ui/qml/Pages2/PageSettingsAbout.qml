@@ -73,7 +73,7 @@ PageType {
                 height: 20
                 font.pixelSize: 14
 
-                text: qsTr("NvoVPN защищает ваш интернет. Основано на свободном ПО с открытым кодом (AmneziaWG, GPLv3).")
+                text: qsTr("NvoVPN защищает ваш интернет — быстро, безопасно и без ограничений.")
                 color: AmneziaStyle.color.paleGray
             }
 

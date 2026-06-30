@@ -247,16 +247,13 @@ bool ContainerUtils::isSupportedByCurrentPlatform(DockerContainer c)
     return true;
 
 #elif defined(Q_OS_IOS)
-    // Standard iOS build (without Network Extension limitations)
+    // NvoVPN: на iOS поддерживаем ТОЛЬКО AmneziaWG (наш единственный протокол).
+    // Остальные протоколы Amnezia (OpenVPN/Xray/SSXray/MtProxy/Telemt) скрыты —
+    // и из UX (приложение работает только с нашим сервисом), и чтобы бинарь не
+    // выглядел как универсальный клиент Amnezia (App Store Guideline 4.3).
     switch (c) {
-    case DockerContainer::WireGuard: return true;
-    case DockerContainer::OpenVpn: return true;
     case DockerContainer::Awg2: return true;
     case DockerContainer::Awg: return true;
-    case DockerContainer::Xray: return true;
-    case DockerContainer::SSXray: return true;
-    case DockerContainer::MtProxy: return true;
-    case DockerContainer::Telemt: return true;
     default:
         return false;
     }
