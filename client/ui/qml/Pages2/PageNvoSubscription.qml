@@ -115,9 +115,9 @@ PageType {
         }
 
         // Промокод (кросс-промо «5 дней»): ввод → POST /promo/redeem.
-        // 3.1.3(f): на iOS скрыт (как платежи); вернём после аппрува App Store.
+        // Показываем на всех платформах, включая iOS: это активация БЕСПЛАТНОГО кода
+        // (не покупка), поэтому 3.1.3 не нарушается — пользователь вводит код, а не платит.
         CaptionTextType {
-            visible: !root.isIos
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 24
             horizontalAlignment: Text.AlignHCenter
@@ -127,7 +127,6 @@ PageType {
 
         TextFieldWithHeaderType {
             id: promoField
-            visible: !root.isIos
             Layout.fillWidth: true
             Layout.leftMargin: 24
             Layout.rightMargin: 24
@@ -135,7 +134,6 @@ PageType {
         }
 
         BasicButtonType {
-            visible: !root.isIos
             Layout.fillWidth: true
             Layout.topMargin: 8
             Layout.leftMargin: 24

@@ -200,7 +200,8 @@ void NvoApiController::login(const QString &email, const QString &password)
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
-            emit loginFailed(status == 401 ? tr("Неверный email или пароль") : humanError(reply));
+            // 401 и 422 (Laravel "Invalid credentials") → человеческое «неверный логин/пароль».
+            emit loginFailed((status == 401 || status == 422) ? tr("Неверный email или пароль") : humanError(reply));
             return;
         }
         const QString token = root.value(QStringLiteral("token")).toString();
