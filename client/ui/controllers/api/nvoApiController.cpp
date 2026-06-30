@@ -31,6 +31,7 @@ namespace
     constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
+    constexpr char FAVORITES_KEY[] = "Conf/nvoFavoriteCountries";
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -73,6 +74,7 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
     if (m_settings) {
         m_token = QString::fromUtf8(m_settings->value(QString::fromLatin1(TOKEN_KEY)).toByteArray());
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
+        m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
     }
 }
 
@@ -89,6 +91,7 @@ QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt;
 int NvoApiController::subscriptionDaysRemaining() const { return m_subDaysRemaining; }
 int NvoApiController::selectedServerId() const { return m_selectedServerId; }
 bool NvoApiController::onboardingDone() const { return m_onboardingDone; }
+QStringList NvoApiController::favoriteCountries() const { return m_favoriteCountries; }
 QString NvoApiController::token() const { return m_token; }
 
 void NvoApiController::setOnboardingDone()
@@ -99,6 +102,20 @@ void NvoApiController::setOnboardingDone()
     if (m_settings)
         m_settings->setValue(QString::fromLatin1(ONBOARDING_KEY), true);
     emit onboardingChanged();
+}
+
+void NvoApiController::toggleFavoriteCountry(const QString &countryCode)
+{
+    const QString code = countryCode.trimmed().toUpper();
+    if (code.isEmpty())
+        return;
+    if (m_favoriteCountries.contains(code))
+        m_favoriteCountries.removeAll(code);
+    else
+        m_favoriteCountries.append(code);
+    if (m_settings)
+        m_settings->setValue(QString::fromLatin1(FAVORITES_KEY), m_favoriteCountries);
+    emit favoritesChanged();
 }
 
 void NvoApiController::setSelectedServerId(int serverId)

@@ -112,6 +112,7 @@ PageType {
                 anchors.leftMargin: 20
                 anchors.rightMargin: 20
                 spacing: 14
+                z: 1   // выше row-MouseArea, чтобы клик по звезде ловился отдельно от выбора строки
 
                 Image {
                     source: "qrc:/countriesFlags/images/flagKit/" + countryImageCode + ".svg"
@@ -135,6 +136,22 @@ PageType {
                     }
                 }
                 Item { Layout.fillWidth: true }
+
+                // Звезда «в избранное» — переключатель, сохраняется между запусками.
+                Text {
+                    readonly property bool fav: NvoApi.favoriteCountries.indexOf(countryImageCode.toUpperCase()) >= 0
+                    text: fav ? "★" : "☆"
+                    color: fav ? AmneziaStyle.color.nvoBlue : AmneziaStyle.color.slateGray
+                    font.pixelSize: 22
+                    Layout.preferredWidth: 30
+                    horizontalAlignment: Text.AlignHCenter
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: NvoApi.toggleFavoriteCountry(countryImageCode)
+                    }
+                }
+
                 Text {
                     text: NvoApi.selectedServerId === serverId ? "✓" : ""
                     color: AmneziaStyle.color.nvoBlue

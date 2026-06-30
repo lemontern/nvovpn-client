@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 #include <QList>
 #include <QNetworkRequest>
 
@@ -33,6 +34,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(int subscriptionDaysRemaining READ subscriptionDaysRemaining NOTIFY subscriptionChanged)
     Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
     Q_PROPERTY(bool onboardingDone READ onboardingDone NOTIFY onboardingChanged)
+    Q_PROPERTY(QStringList favoriteCountries READ favoriteCountries NOTIFY favoritesChanged)
 
 public:
     explicit NvoApiController(SecureQSettings *settings, NvoServersModel *serversModel, QObject *parent = nullptr);
@@ -50,6 +52,7 @@ public:
     int subscriptionDaysRemaining() const;
     int selectedServerId() const;               // -1 = Авто (лучший сервер)
     bool onboardingDone() const;                // показан ли обучающий экран (§12.8)
+    QStringList favoriteCountries() const;      // коды избранных стран (для подсветки/сортировки в UI)
 
 public slots:
     void setOnboardingDone();
@@ -67,6 +70,7 @@ public slots:
     void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
     void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
+    void toggleFavoriteCountry(const QString &countryCode);  // добавить/убрать страну из избранного (сохраняется)
 
 signals:
     void authenticationChanged();
@@ -75,6 +79,7 @@ signals:
     void subscriptionChanged();
     void selectedServerChanged();
     void onboardingChanged();
+    void favoritesChanged();
 
     void loginSucceeded();
     void loginFailed(const QString &message);
@@ -117,6 +122,7 @@ private:
     int m_selectedServerId = -1;
     bool m_busy = false;
     bool m_onboardingDone = false;
+    QStringList m_favoriteCountries;
 
     // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
     QList<int> m_failoverQueue;

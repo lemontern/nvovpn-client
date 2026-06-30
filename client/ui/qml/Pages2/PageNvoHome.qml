@@ -22,6 +22,25 @@ PageType {
     // §12.7: авто-подключение при запуске (один раз за сессию экрана), если включено в настройках.
     property bool autoConnectTried: false
 
+    // Таймер активной сессии: считаем время с момента подключения, сбрасываем при отключении.
+    property int sessionSeconds: 0
+    onConnectedChanged: sessionSeconds = 0
+
+    function formatDuration(s) {
+        function p(n) { return (n < 10 ? "0" : "") + n }
+        var h = Math.floor(s / 3600)
+        var m = Math.floor((s % 3600) / 60)
+        var sec = s % 60
+        return (h > 0 ? p(h) + ":" : "") + p(m) + ":" + p(sec)
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.connected
+        onTriggered: root.sessionSeconds++
+    }
+
     function currentCountryText() {
         if (NvoApi.selectedServerId < 0)
             return qsTr("Авто (лучший сервер)")
@@ -206,6 +225,17 @@ PageType {
             color: AmneziaStyle.color.mutedGray
             font.pixelSize: 13
             visible: root.connected
+        }
+
+        // Длительность активной сессии (live-таймер).
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            visible: root.connected
+            text: qsTr("На связи: %1").arg(root.formatDuration(root.sessionSeconds))
+            color: AmneziaStyle.color.connectedGreen
+            font.family: "PT Root UI VF"
+            font.weight: 700
+            font.pixelSize: 15
         }
 
         // ---- Выбор страны ----
