@@ -97,6 +97,39 @@ PageType {
                 visible: Qt.platform.os === "android" && !SettingsController.isNotificationPermissionGranted
             }
 
+            // NvoVPN: Kill Switch для мобильных (iOS/Android). На desktop он живёт на
+            // отдельной странице (Connection→KillSwitch), здесь — простой тумблер.
+            SwitcherType {
+                id: switcherKillSwitch
+
+                visible: GC.isMobile()
+
+                Layout.fillWidth: true
+                Layout.margins: 16
+
+                text: qsTr("Kill Switch")
+                descriptionText: qsTr("Блокировать интернет, если VPN отключился")
+
+                enabled: !ConnectionController.isConnected
+                opacity: enabled ? 1.0 : 0.5
+
+                checked: SettingsController.isKillSwitchEnabled
+                onToggled: function() {
+                    if (ConnectionController.isConnected) {
+                        checked = SettingsController.isKillSwitchEnabled
+                        PageController.showNotificationMessage(qsTr("Сначала отключитесь, чтобы изменить Kill Switch"))
+                        return
+                    }
+                    if (checked !== SettingsController.isKillSwitchEnabled) {
+                        SettingsController.isKillSwitchEnabled = checked
+                    }
+                }
+            }
+
+            DividerType {
+                visible: GC.isMobile()
+            }
+
             SwitcherType {
                 id: switcherAutoStart
 

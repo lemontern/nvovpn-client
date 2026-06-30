@@ -406,8 +406,23 @@ void IosController::disconnectVpn()
         return;
     }
 
-    if ([m_currentTunnel.connection isKindOfClass:[NETunnelProviderSession class]]) {
-        [(NETunnelProviderSession *)m_currentTunnel.connection stopTunnel];
+    NETunnelProviderManager *tunnel = m_currentTunnel;
+
+    // Если включён kill switch (on-demand), перед явным отключением снимаем on-demand —
+    // иначе iOS немедленно поднимет VPN заново и кнопка «отключить» не сработает.
+    if (tunnel.isOnDemandEnabled) {
+        tunnel.onDemandEnabled = NO;
+        [tunnel saveToPreferencesWithCompletionHandler:^(NSError *saveError) {
+            Q_UNUSED(saveError)
+            if ([tunnel.connection isKindOfClass:[NETunnelProviderSession class]]) {
+                [(NETunnelProviderSession *)tunnel.connection stopTunnel];
+            }
+        }];
+        return;
+    }
+
+    if ([tunnel.connection isKindOfClass:[NETunnelProviderSession class]]) {
+        [(NETunnelProviderSession *)tunnel.connection stopTunnel];
     }
 }
 
@@ -923,6 +938,22 @@ void IosController::startTunnel()
 
     NETunnelProviderManager *tunnel = m_currentTunnel;
     [tunnel setEnabled:YES];
+
+    // NvoVPN kill switch (iOS): on-demand держит VPN поднятым и блокирует трафик без туннеля.
+    // Состояние берём из конфига (configKey::killSwitchOption кладёт VpnConnection).
+    {
+        const bool killSwitch = (m_rawConfig.value(configKey::killSwitchOption).toString() == QStringLiteral("true"));
+        if (killSwitch) {
+            NEOnDemandRuleConnect *connectRule = [[NEOnDemandRuleConnect alloc] init];
+            connectRule.interfaceTypeMatch = NEOnDemandRuleInterfaceTypeAny;
+            tunnel.onDemandRules = @[ connectRule ];
+            tunnel.onDemandEnabled = YES;
+        } else {
+            tunnel.onDemandRules = @[];
+            tunnel.onDemandEnabled = NO;
+        }
+        qDebug() << "IosController::startTunnel : killSwitch on-demand =" << killSwitch;
+    }
 
     dispatch_async(dispatch_get_main_queue(), ^{
         [tunnel saveToPreferencesWithCompletionHandler:^(NSError *saveError) {
