@@ -75,6 +75,8 @@
 	<string>group.com.nvovpn.app</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>NvoVPN uses the camera only to scan QR codes when importing a configuration.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
