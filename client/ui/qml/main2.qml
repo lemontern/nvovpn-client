@@ -345,6 +345,9 @@ Window  {
         target: SubscriptionUiController
 
         function onSubscriptionExpiredOnServer() {
+            // iOS (3.1.3f): не показываем drawer «Renew» с внешней ссылкой на оплату.
+            if (Qt.platform.os === "ios")
+                return
             subscriptionExpiredDrawer.openTriggered()
         }
 
@@ -374,6 +377,9 @@ Window  {
         target: SubscriptionUiController
 
         function onRenewalLinkReceived(url) {
+            // iOS (3.1.3f): не открываем внешнюю ссылку оплаты/продления.
+            if (Qt.platform.os === "ios")
+                return
             Qt.openUrlExternally(url)
         }
     }

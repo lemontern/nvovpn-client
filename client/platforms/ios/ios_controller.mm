@@ -939,26 +939,11 @@ void IosController::startTunnel()
     NETunnelProviderManager *tunnel = m_currentTunnel;
     [tunnel setEnabled:YES];
 
-    // NvoVPN kill switch (iOS): on-demand держит VPN поднятым и блокирует трафик без туннеля.
-    // Состояние берём из конфига (configKey::killSwitchOption кладёт VpnConnection).
-    {
-        const QJsonValue ksVal = m_rawConfig.value(configKey::killSwitchOption);
-        const QString ksRaw = ksVal.toString();
-        // Устойчиво к типу: значение может прийти строкой "true" ИЛИ JSON-bool true.
-        const bool killSwitch = (ksRaw.compare(QStringLiteral("true"), Qt::CaseInsensitive) == 0)
-                                || ksVal.toBool(false);
-        if (killSwitch) {
-            NEOnDemandRuleConnect *connectRule = [[NEOnDemandRuleConnect alloc] init];
-            connectRule.interfaceTypeMatch = NEOnDemandRuleInterfaceTypeAny;
-            tunnel.onDemandRules = @[ connectRule ];
-            tunnel.onDemandEnabled = YES;
-        } else {
-            tunnel.onDemandRules = @[];
-            tunnel.onDemandEnabled = NO;
-        }
-        qWarning() << "IosController::startTunnel : KILLSWITCH raw=[" << ksRaw << "] applied onDemand=" << killSwitch
-                   << " hasKey=" << m_rawConfig.contains(configKey::killSwitchOption);
-    }
+    // NvoVPN: kill switch (on-demand) на iOS пока ОТКЛЮЧ�ён — реализация не доведена,
+    // тумблер скрыт. Принудительно снимаем on-demand, чтобы не было «залипшего» VPN
+    // от прежних билдов (101/102). Вернём, когда килл-свитч заработает (нужен device-лог).
+    tunnel.onDemandRules = @[];
+    tunnel.onDemandEnabled = NO;
 
     dispatch_async(dispatch_get_main_queue(), ^{
         [tunnel saveToPreferencesWithCompletionHandler:^(NSError *saveError) {

@@ -217,7 +217,8 @@ PageType {
 
         property string title: qsTr("Dev console")
         readonly property string leftImagePath: "qrc:/images/controls/bug.svg"
-        property bool isVisible: SettingsController.isDevModeEnabled
+        // Скрыто на iOS — dev-консоль показывает gateway-endpoint (инфра), риск App Store 2.1.
+        property bool isVisible: SettingsController.isDevModeEnabled && Qt.platform.os !== "ios"
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageDevMenu)
         }

@@ -75,8 +75,6 @@
 	<string>group.com.nvovpn.app</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>NvoVPN needs access to the camera for reading QR-codes.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
@@ -88,117 +86,5 @@
         <dict/>
         <key>CFBundleIcons~ipad</key>
         <dict/>
-	<key>UTImportedTypeDeclarations</key>
-	<array>
-		<dict>
-			<key>UTTypeConformsTo</key>
-			<array>
-				<string>public.data</string>
-			</array>
-			<key>UTTypeDescription</key>
-			<string>NvoVPN config</string>
-			<key>UTTypeIconFiles</key>
-			<array/>
-			<key>UTTypeIdentifier</key>
-			<string>com.nvovpn.app.nvo-config</string>
-			<key>UTTypeTagSpecification</key>
-			<dict>
-				<key>public.filename-extension</key>
-				<array>
-					<string>vpn</string>
-				</array>
-				<key>public.mime-type</key>
-				<array>
-					<string>text/plain</string>
-				</array>
-			</dict>
-		</dict>
-                <dict>
-                        <key>UTTypeConformsTo</key>
-                        <array>
-                                <string>public.data</string>
-                        </array>
-                        <key>UTTypeDescription</key>
-                        <string>WireGuard config</string>
-                        <key>UTTypeIconFiles</key>
-                        <array/>
-                        <key>UTTypeIdentifier</key>
-                        <string>com.nvovpn.app.wireguard-config</string>
-                        <key>UTTypeTagSpecification</key>
-                        <dict>
-                                <key>public.filename-extension</key>
-                                <array>
-                                        <string>conf</string>
-                                        <string>cfg</string>
-                                </array>
-                                <key>public.mime-type</key>
-                                <array>
-                                        <string>text/plain</string>
-                                </array>
-                        </dict>
-                </dict>
-                <dict>
-                        <key>UTTypeConformsTo</key>
-                        <array>
-                                <string>public.data</string>
-                        </array>
-                        <key>UTTypeDescription</key>
-                        <string>OpenVPN config</string>
-                        <key>UTTypeIconFiles</key>
-                        <array/>
-                        <key>UTTypeIdentifier</key>
-                        <string>com.nvovpn.app.openvpn-config</string>
-                        <key>UTTypeTagSpecification</key>
-                        <dict>
-                                <key>public.filename-extension</key>
-                                <array>
-                                        <string>ovpn</string>
-                                </array>
-                                <key>public.mime-type</key>
-                                <array>
-                                        <string>text/plain</string>
-                                </array>
-                        </dict>
-                </dict>
-                <dict>
-                        <key>UTTypeConformsTo</key>
-                        <array>
-                                <string>public.data</string>
-                        </array>
-                        <key>UTTypeDescription</key>
-                        <string>AmneziaVPN backup file</string>
-                        <key>UTTypeIconFiles</key>
-                        <array/>
-                        <key>UTTypeIdentifier</key>
-                        <string>com.nvovpn.app.backup-config</string>
-                        <key>UTTypeTagSpecification</key>
-                        <dict>
-                                <key>public.filename-extension</key>
-                                <array>
-                                        <string>backup</string>
-                                </array>
-                                <key>public.mime-type</key>
-                                <array>
-                                        <string>text/plain</string>
-                                </array>
-                        </dict>
-                </dict>
-	</array>
-        <key>CFBundleDocumentTypes</key>
-        <array>
-                <dict>
-                        <key>CFBundleTypeName</key>
-                        <string>NvoVPN config</string>
-                        <key>LSHandlerRank</key>
-                        <string>Alternate</string>
-                        <key>LSItemContentTypes</key>
-                        <array>
-                                <string>com.nvovpn.app.nvo-config</string>
-                                <string>com.nvovpn.app.wireguard-config</string>
-                                <string>com.nvovpn.app.openvpn-config</string>
-                                <string>com.nvovpn.app.backup-config</string>
-                        </array>
-                </dict>
-        </array>
 </dict>
 </plist>

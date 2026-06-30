@@ -123,6 +123,9 @@ PageType {
                     property int clickCount: 0
                     anchors.fill: parent
                     onClicked: {
+                        // Dev-режим недоступен на iOS: скрытое меню с gateway-URL = риск App Store 2.1.
+                        if (Qt.platform.os === "ios")
+                            return
                         if (clickCount > 10) {
                             SettingsController.enableDevMode()
                         } else {

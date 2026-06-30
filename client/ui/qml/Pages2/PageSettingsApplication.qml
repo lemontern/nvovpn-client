@@ -97,12 +97,13 @@ PageType {
                 visible: Qt.platform.os === "android" && !SettingsController.isNotificationPermissionGranted
             }
 
-            // NvoVPN: Kill Switch для мобильных (iOS/Android). На desktop он живёт на
-            // отдельной странице (Connection→KillSwitch), здесь — простой тумблер.
+            // NvoVPN: Kill Switch на мобильных пока СКРЫТ — реализация на iOS не доведена
+            // (on-demand не применялся), нерабочий тумблер = риск отказа App Store 2.1.
+            // Вернём, когда заработает (нужен device-лог для отладки).
             SwitcherType {
                 id: switcherKillSwitch
 
-                visible: GC.isMobile()
+                visible: false
 
                 Layout.fillWidth: true
                 Layout.margins: 16
@@ -127,7 +128,7 @@ PageType {
             }
 
             DividerType {
-                visible: GC.isMobile()
+                visible: false
             }
 
             SwitcherType {
