@@ -1,6 +1,7 @@
 #include "gatewayController.h"
 
 #include <algorithm>
+#include <exception>
 #include <functional>
 #include <random>
 
@@ -146,7 +147,12 @@ GatewayController::DecryptionResult GatewayController::tryDecryptResponseBody(co
         QSimpleCrypto::QBlockCipher blockCipher;
         result.decryptedBody = blockCipher.decryptAesBlockCipher(encryptedResponseBody, key, iv, "", salt);
         result.isDecryptionSuccessful = true;
+    } catch (const std::exception &e) {
+        qWarning() << "GatewayController::tryDecryptResponseBody: decryption failed:" << e.what();
+        result.decryptedBody = encryptedResponseBody;
+        result.isDecryptionSuccessful = false;
     } catch (...) {
+        qWarning() << "GatewayController::tryDecryptResponseBody: decryption failed with unknown error";
         result.decryptedBody = encryptedResponseBody;
         result.isDecryptionSuccessful = false;
     }
@@ -265,7 +271,6 @@ QFuture<QPair<ErrorCode, QByteArray>> GatewayController::postAsync(const QString
             }
 
             if (!decryptionResult.isDecryptionSuccessful) {
-                Utils::logException();
                 qCritical() << "error when decrypting the request body";
                 promise->addResult(qMakePair(ErrorCode::ApiConfigDecryptionError, QByteArray()));
                 promise->finish();
