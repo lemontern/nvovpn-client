@@ -19,6 +19,7 @@
 #include "core/utils/constants/protocolConstants.h"
 #include "core/models/containerConfig.h"
 #include "core/models/protocols/xrayProtocolConfig.h"
+#include "core/utils/jsonRangeUtils.h"
 
 namespace {
     Logger logger("XrayConfigurator");
@@ -83,21 +84,6 @@ namespace {
             || t.compare(QLatin1String("Zero"), Qt::CaseInsensitive) == 0)
             return QStringLiteral("repeat-x");
         return t.toLower();
-    }
-
-    void putIntRangeIfAny(QJsonObject &obj, const char *key, QString minV, QString maxV, const char *fallbackMin,
-                          const char *fallbackMax)
-    {
-        if (minV.isEmpty() && maxV.isEmpty())
-            return;
-        if (minV.isEmpty())
-            minV = QString::fromLatin1(fallbackMin);
-        if (maxV.isEmpty())
-            maxV = QString::fromLatin1(fallbackMax);
-        QJsonObject r;
-        r[QStringLiteral("from")] = minV.toInt();
-        r[QStringLiteral("to")] = maxV.toInt();
-        obj[QString::fromUtf8(key)] = r;
     }
 
     // Desktop applies this in XrayProtocol::start(); iOS/Android pass JSON straight to libxray — same fixes here.
@@ -551,11 +537,11 @@ QJsonObject XrayConfigurator::buildStreamSettings(const XrayServerConfig &srv, c
         if (!xhttp.scMaxBufferedPosts.isEmpty())
             xo[QStringLiteral("scMaxBufferedPosts")] = xhttp.scMaxBufferedPosts.toLongLong();
 
-        putIntRangeIfAny(xo, "scMaxEachPostBytes", xhttp.scMaxEachPostBytesMin, xhttp.scMaxEachPostBytesMax,
+        JsonRangeUtils::writeIntRange(xo, "scMaxEachPostBytes", xhttp.scMaxEachPostBytesMin, xhttp.scMaxEachPostBytesMax,
                          px::defaultXhttpScMaxEachPostBytesMin, px::defaultXhttpScMaxEachPostBytesMax);
-        putIntRangeIfAny(xo, "scMinPostsIntervalMs", xhttp.scMinPostsIntervalMsMin, xhttp.scMinPostsIntervalMsMax,
+        JsonRangeUtils::writeIntRange(xo, "scMinPostsIntervalMs", xhttp.scMinPostsIntervalMsMin, xhttp.scMinPostsIntervalMsMax,
                          px::defaultXhttpScMinPostsIntervalMsMin, px::defaultXhttpScMinPostsIntervalMsMax);
-        putIntRangeIfAny(xo, "scStreamUpServerSecs", xhttp.scStreamUpServerSecsMin, xhttp.scStreamUpServerSecsMax,
+        JsonRangeUtils::writeIntRange(xo, "scStreamUpServerSecs", xhttp.scStreamUpServerSecsMin, xhttp.scStreamUpServerSecsMax,
                          px::defaultXhttpScStreamUpServerSecsMin, px::defaultXhttpScStreamUpServerSecsMax);
 
         const auto &pad = xhttp.xPadding;
@@ -579,19 +565,11 @@ QJsonObject XrayConfigurator::buildStreamSettings(const XrayServerConfig &srv, c
         // xmux: Xray has no "enabled" flag; omit object when UI disables multiplex tuning.
         if (xhttp.xmux.enabled) {
             QJsonObject mux;
-            auto addMuxRange = [&](const char *key, const QString &a, const QString &b) {
-                if (a.isEmpty() && b.isEmpty())
-                    return;
-                QJsonObject r;
-                r[QStringLiteral("from")] = a.isEmpty() ? 0 : a.toInt();
-                r[QStringLiteral("to")] = b.isEmpty() ? 0 : b.toInt();
-                mux[QString::fromUtf8(key)] = r;
-            };
-            addMuxRange("maxConcurrency", xhttp.xmux.maxConcurrencyMin, xhttp.xmux.maxConcurrencyMax);
-            addMuxRange("maxConnections", xhttp.xmux.maxConnectionsMin, xhttp.xmux.maxConnectionsMax);
-            addMuxRange("cMaxReuseTimes", xhttp.xmux.cMaxReuseTimesMin, xhttp.xmux.cMaxReuseTimesMax);
-            addMuxRange("hMaxRequestTimes", xhttp.xmux.hMaxRequestTimesMin, xhttp.xmux.hMaxRequestTimesMax);
-            addMuxRange("hMaxReusableSecs", xhttp.xmux.hMaxReusableSecsMin, xhttp.xmux.hMaxReusableSecsMax);
+            JsonRangeUtils::writeIntRange(mux, "maxConcurrency", xhttp.xmux.maxConcurrencyMin, xhttp.xmux.maxConcurrencyMax);
+            JsonRangeUtils::writeIntRange(mux, "maxConnections", xhttp.xmux.maxConnectionsMin, xhttp.xmux.maxConnectionsMax);
+            JsonRangeUtils::writeIntRange(mux, "cMaxReuseTimes", xhttp.xmux.cMaxReuseTimesMin, xhttp.xmux.cMaxReuseTimesMax);
+            JsonRangeUtils::writeIntRange(mux, "hMaxRequestTimes", xhttp.xmux.hMaxRequestTimesMin, xhttp.xmux.hMaxRequestTimesMax);
+            JsonRangeUtils::writeIntRange(mux, "hMaxReusableSecs", xhttp.xmux.hMaxReusableSecsMin, xhttp.xmux.hMaxReusableSecsMax);
             if (!xhttp.xmux.hKeepAlivePeriod.isEmpty())
                 mux[QStringLiteral("hKeepAlivePeriod")] = xhttp.xmux.hKeepAlivePeriod.toLongLong();
             if (!mux.isEmpty())
