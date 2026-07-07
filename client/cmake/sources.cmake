@@ -58,6 +58,9 @@ set(HEADERS ${HEADERS}
     ${CLIENT_ROOT_DIR}/core/utils/networkUtilities.h
     ${CLIENT_ROOT_DIR}/core/utils/serialization/serialization.h
     ${CLIENT_ROOT_DIR}/core/utils/serialization/transfer.h
+    ${CLIENT_ROOT_DIR}/core/utils/serialization/streamSettingsUtils.h
+    ${CLIENT_ROOT_DIR}/core/utils/configFileParser.h
+    ${CLIENT_ROOT_DIR}/core/utils/jsonRangeUtils.h
     ${CLIENT_ROOT_DIR}/../common/logger/logger.h
     ${CLIENT_ROOT_DIR}/ui/utils/qmlUtils.h
     ${CLIENT_ROOT_DIR}/core/utils/api/apiUtils.h
@@ -138,6 +141,9 @@ set(SOURCES ${SOURCES}
     ${CLIENT_ROOT_DIR}/core/utils/serialization/trojan.cpp
     ${CLIENT_ROOT_DIR}/core/utils/serialization/vmess.cpp
     ${CLIENT_ROOT_DIR}/core/utils/serialization/vmess_new.cpp
+    ${CLIENT_ROOT_DIR}/core/utils/serialization/streamSettingsUtils.cpp
+    ${CLIENT_ROOT_DIR}/core/utils/configFileParser.cpp
+    ${CLIENT_ROOT_DIR}/core/utils/jsonRangeUtils.cpp
     ${CLIENT_ROOT_DIR}/../common/logger/logger.cpp
     ${CLIENT_ROOT_DIR}/ui/utils/qmlUtils.cpp
     ${CLIENT_ROOT_DIR}/core/utils/api/apiUtils.cpp
