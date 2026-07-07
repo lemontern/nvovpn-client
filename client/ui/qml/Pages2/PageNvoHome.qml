@@ -42,11 +42,13 @@ PageType {
     }
 
     function currentCountryText() {
+        // Google Play Metadata policy: слова «лучший/best» в UI трактуются как
+        // рейтинговое утверждение (отказ 2026-07-07) — формулировки нейтральные.
         if (NvoApi.selectedServerId < 0)
-            return qsTr("Авто (лучший сервер)")
+            return qsTr("Авто (подбор сервера)")
         var idx = NvoServersModel.indexOfServerId(NvoApi.selectedServerId)
         var name = NvoServersModel.nameAt(idx)
-        return name === "" ? qsTr("Авто (лучший сервер)") : name
+        return name === "" ? qsTr("Авто (подбор сервера)") : name
     }
 
     function currentCountryCode() {

@@ -77,7 +77,7 @@ PageType {
                         font.pixelSize: 18; font.weight: 700
                     }
                     Text {
-                        text: qsTr("Лучший сервер автоматически")
+                        text: qsTr("Сервер подберётся автоматически")
                         color: AmneziaStyle.color.mutedGray
                         font.pixelSize: 13
                     }
