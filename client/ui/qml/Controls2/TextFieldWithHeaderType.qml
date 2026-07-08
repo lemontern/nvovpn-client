@@ -11,8 +11,8 @@ Item {
 
     property string headerText
     property string subtitleText // optional line under header (e.g. default value hint)
-    property string headerTextDisabledColor: AmneziaStyle.color.charcoalGray
-    property string headerTextColor: AmneziaStyle.color.mutedGray
+    property string headerTextDisabledColor: NvoStyle.color.charcoalGray
+    property string headerTextColor: NvoStyle.color.mutedGray
 
     property alias errorText: errorField.text
     property bool checkEmptyText: false
@@ -23,17 +23,17 @@ Item {
     property var clickedFunc
 
     property alias textField: textField
-    property string textFieldTextColor: AmneziaStyle.color.paleGray
-    property string textFieldTextDisabledColor: AmneziaStyle.color.mutedGray
+    property string textFieldTextColor: NvoStyle.color.paleGray
+    property string textFieldTextDisabledColor: NvoStyle.color.mutedGray
 
     property bool textFieldEditable: true
 
-    property string borderColor: AmneziaStyle.color.slateGray
-    property string borderFocusedColor: AmneziaStyle.color.paleGray
+    property string borderColor: NvoStyle.color.slateGray
+    property string borderFocusedColor: NvoStyle.color.paleGray
 
-    property string backgroundColor: AmneziaStyle.color.onyxBlack
-    property string backgroundDisabledColor: AmneziaStyle.color.transparent
-    property string bgBorderHoveredColor: AmneziaStyle.color.charcoalGray
+    property string backgroundColor: NvoStyle.color.onyxBlack
+    property string backgroundDisabledColor: NvoStyle.color.transparent
+    property string bgBorderHoveredColor: NvoStyle.color.charcoalGray
 
     implicitWidth: content.implicitWidth
     implicitHeight: content.implicitHeight
@@ -88,7 +88,7 @@ Item {
                     SmallTextType {
                         text: root.subtitleText
                         visible: root.subtitleText !== ""
-                        color: AmneziaStyle.color.charcoalGray
+                        color: NvoStyle.color.charcoalGray
                         font.pixelSize: 13
                         Layout.fillWidth: true
                         Layout.topMargin: visible ? 2 : 0
@@ -112,10 +112,10 @@ Item {
 
                         inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText
 
-                        placeholderTextColor: AmneziaStyle.color.charcoalGray
+                        placeholderTextColor: NvoStyle.color.charcoalGray
 
-                        selectionColor:  AmneziaStyle.color.richBrown
-                        selectedTextColor: AmneziaStyle.color.paleGray
+                        selectionColor:  NvoStyle.color.richBrown
+                        selectedTextColor: NvoStyle.color.paleGray
 
                         font.pixelSize: 16
                         font.weight: 400
@@ -162,7 +162,7 @@ Item {
 
             text: root.errorText
             visible: root.errorText !== ""
-            color: AmneziaStyle.color.vibrantRed
+            color: NvoStyle.color.vibrantRed
 
             Layout.fillWidth: true
         }

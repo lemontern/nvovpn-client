@@ -3,7 +3,10 @@ import NetworkExtension
 import Network
 import os
 import Darwin
+// NvoVPN: OpenVPN есть только на macOS NE; на iOS адаптер не линкуется (AmneziaWG-only, App Store 4.3).
+#if canImport(OpenVPNAdapter)
 import OpenVPNAdapter
+#endif
 
 enum TunnelProtoType: String {
   case wireguard, openvpn, xray
@@ -38,8 +41,10 @@ struct Constants {
 
 class PacketTunnelProvider: NEPacketTunnelProvider {
     var wgAdapter: WireGuardAdapter?
+#if canImport(OpenVPNAdapter)
     var ovpnAdapter: OpenVPNAdapter?
     private lazy var openVPNPacketFlowAdapter = PacketTunnelFlowAdapter(flow: packetFlow)
+#endif
     private let pathMonitorQueue = DispatchQueue(label: Constants.processQueueName + ".path-monitor")
     private let networkChangeQueue = DispatchQueue(label: Constants.processQueueName + ".network-change")
     private let pathMonitor = NWPathMonitor()
@@ -49,10 +54,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     private var pendingOpenVPNReconnectWorkItem: DispatchWorkItem?
     private var pendingNetworkChangeWorkItem: DispatchWorkItem?
     private var isApplyingNetworkChange = false
+#if canImport(OpenVPNAdapter)
     private var lastOpenVPNReachabilityStatus: OpenVPNReachabilityStatus?
+#endif
 
     var splitTunnelType: Int?
     var splitTunnelSites: [String]?
+#if canImport(OpenVPNAdapter)
     var openVpnDnsServers: [String] = []
     var openVpnRemoteAddress: String?
     var openVpnRedirectGatewayDef1 = false
@@ -63,16 +71,19 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     var lastOpenVPNStatsLogTime = Date.distantPast
 
     let vpnReachability = OpenVPNReachability()
+#endif
 
     var startHandler: ((Error?) -> Void)?
     var stopHandler: (() -> Void)?
     var protoType: TunnelProtoType?
-    
+
     var activeIfaceIdx: UInt32 = 0
 
+#if canImport(OpenVPNAdapter)
     func openVPNPacketFlow() -> OpenVPNAdapterPacketFlow {
         openVPNPacketFlowAdapter
     }
+#endif
 
     override init() {
         super.init()
@@ -96,10 +107,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 return
             }
 
+#if canImport(OpenVPNAdapter)
             if proto == .openvpn {
                 self.scheduleOpenVPNReconnect(reason: "NWPath changed")
                 return
             }
+#endif
 
             if self.isApplyingNetworkChange || self.reasserting {
                 xrayLog(.debug, message: "Ignoring path change while xray restart is in progress")
@@ -346,6 +359,7 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         networkChangeQueue.asyncAfter(deadline: .now() + 1.0, execute: workItem)
     }
 
+#if canImport(OpenVPNAdapter)
     private func scheduleOpenVPNReconnect(reason: String) {
         guard protoType == .openvpn else { return }
 
@@ -396,11 +410,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             break
         }
     }
+#endif
 
     private func cancelPendingOpenVPNReconnect() {
         pendingOpenVPNReconnectWorkItem?.cancel()
         pendingOpenVPNReconnectWorkItem = nil
+#if canImport(OpenVPNAdapter)
         lastOpenVPNReachabilityStatus = nil
+#endif
     }
 
     private func cancelPendingNetworkChangeHandling() {
@@ -472,6 +489,7 @@ extension WireGuardLogLevel {
   }
 }
 
+#if canImport(OpenVPNAdapter)
 final class PacketTunnelFlowAdapter: NSObject, OpenVPNAdapterPacketFlow {
   private let flow: NEPacketTunnelFlow
   private var readLogCounter = 0
@@ -575,6 +593,7 @@ final class PacketTunnelFlowAdapter: NSObject, OpenVPNAdapterPacketFlow {
 }
 
 extension NEPacketTunnelFlow: OpenVPNAdapterPacketFlow {}
+#endif
 
 extension NEProviderStopReason {
   var amneziaDescription: String {

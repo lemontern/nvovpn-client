@@ -73,7 +73,7 @@ PageType {
                 Layout.topMargin: 8
                 visible: !listView.enabled
                 wrapMode: Text.WordWrap
-                color: AmneziaStyle.color.paleGray
+                color: NvoStyle.color.paleGray
                 font.pixelSize: 14
                 text: qsTr("You have read-only access to this server. XRay settings cannot be edited.")
             }
@@ -96,7 +96,7 @@ PageType {
                     implicitWidth: 40
                     implicitHeight: 40
                     image: "qrc:/images/controls/more-vertical.svg"
-                    imageColor: AmneziaStyle.color.paleGray
+                    imageColor: NvoStyle.color.paleGray
                     onClicked: PageController.goToPage(PageEnum.PageProtocolXraySnapshots)
                 }
             }
@@ -227,7 +227,7 @@ PageType {
             LabelWithButtonType {
                 Layout.fillWidth: true
                 text: qsTr("Reset settings")
-                textColor: AmneziaStyle.color.vibrantRed
+                textColor: NvoStyle.color.vibrantRed
                 visible: listView.enabled
                 clickedFunction: function() {
                     var yesButtonFunction = function() {

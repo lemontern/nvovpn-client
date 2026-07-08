@@ -15,7 +15,7 @@ ParagraphTextType {
 
     horizontalAlignment: Text.AlignHCenter
     textFormat: Text.RichText
-    color: AmneziaStyle.color.mutedGray
+    color: NvoStyle.color.mutedGray
     font.pixelSize: 12
     lineHeight: 1.35
     lineHeightMode: Text.ProportionalHeight
@@ -23,7 +23,7 @@ ParagraphTextType {
     text: qsTr("By continuing, you agree to the <a href=\"%1\" style=\"color: %3;\">Terms of Use</a> and <a href=\"%2\" style=\"color: %3;\">Privacy Policy</a>")
             .arg(root.termsUrl)
             .arg(root.privacyUrl)
-            .arg(AmneziaStyle.color.goldenApricotString)
+            .arg(NvoStyle.color.goldenApricotString)
 
     onLinkActivated: function(link) {
         Qt.openUrlExternally(link)

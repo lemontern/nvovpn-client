@@ -108,7 +108,7 @@ PageType {
 
         Text {
             text: "NvoVPN"
-            color: AmneziaStyle.color.paleGray
+            color: NvoStyle.color.paleGray
             font.family: "PT Root UI VF"
             font.weight: 800
             font.pixelSize: 20
@@ -118,7 +118,7 @@ PageType {
 
         ImageButtonType {
             image: "qrc:/images/controls/settings.svg"
-            imageColor: AmneziaStyle.color.paleGray
+            imageColor: NvoStyle.color.paleGray
             implicitWidth: 40
             implicitHeight: 40
             onClicked: PageController.goToPageSettings()
@@ -140,11 +140,11 @@ PageType {
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                color: AmneziaStyle.color.transparent
+                color: NvoStyle.color.transparent
                 border.width: 3
-                border.color: root.connected ? AmneziaStyle.color.connectedGreen
-                                              : (root.busy ? AmneziaStyle.color.nvoBlue
-                                                           : AmneziaStyle.color.charcoalGray)
+                border.color: root.connected ? NvoStyle.color.connectedGreen
+                                              : (root.busy ? NvoStyle.color.nvoBlue
+                                                           : NvoStyle.color.charcoalGray)
             }
 
             // Тело кнопки
@@ -154,8 +154,8 @@ PageType {
                 width: 200; height: 200
                 radius: width / 2
                 // Подключено: зелёная; при наведении — красноватый намёк, что нажатие отключит.
-                color: root.connected ? (knobMouse.containsMouse ? "#C7493F" : AmneziaStyle.color.connectedGreen)
-                                      : AmneziaStyle.color.onyxBlack
+                color: root.connected ? (knobMouse.containsMouse ? "#C7493F" : NvoStyle.color.connectedGreen)
+                                      : NvoStyle.color.onyxBlack
 
                 Behavior on color { ColorAnimation { duration: 250 } }
                 scale: knobMouse.pressed ? 0.96 : 1.0
@@ -216,7 +216,7 @@ PageType {
                                               // iOS (3.1.3(f)): без намёка на платную подписку/триал.
                                               : ((NvoApi.hasSubscription || Qt.platform.os === "ios") ? qsTr("Нажмите, чтобы включить")
                                                                         : qsTr("Подключиться бесплатно (2 дня)")))
-            color: root.connected ? AmneziaStyle.color.connectedGreen : AmneziaStyle.color.paleGray
+            color: root.connected ? NvoStyle.color.connectedGreen : NvoStyle.color.paleGray
             font.family: "PT Root UI VF"
             font.weight: 800
             font.pixelSize: 20
@@ -224,7 +224,7 @@ PageType {
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Ваш интернет защищён, IP скрыт")
-            color: AmneziaStyle.color.mutedGray
+            color: NvoStyle.color.mutedGray
             font.pixelSize: 13
             visible: root.connected
         }
@@ -234,7 +234,7 @@ PageType {
             Layout.alignment: Qt.AlignHCenter
             visible: root.connected
             text: qsTr("На связи: %1").arg(root.formatDuration(root.sessionSeconds))
-            color: AmneziaStyle.color.connectedGreen
+            color: NvoStyle.color.connectedGreen
             font.family: "PT Root UI VF"
             font.weight: 700
             font.pixelSize: 15
@@ -247,9 +247,9 @@ PageType {
             implicitWidth: countryRow.implicitWidth + 40
             implicitHeight: 56
             radius: 28
-            color: AmneziaStyle.color.onyxBlack
+            color: NvoStyle.color.onyxBlack
             border.width: 1
-            border.color: AmneziaStyle.color.slateGray
+            border.color: NvoStyle.color.slateGray
 
             RowLayout {
                 id: countryRow
@@ -273,12 +273,12 @@ PageType {
 
                 Text {
                     text: root.currentCountryText()
-                    color: AmneziaStyle.color.paleGray
+                    color: NvoStyle.color.paleGray
                     font.pixelSize: 16
                     font.weight: 600
                 }
 
-                Text { text: "›"; color: AmneziaStyle.color.mutedGray; font.pixelSize: 22 }
+                Text { text: "›"; color: NvoStyle.color.mutedGray; font.pixelSize: 22 }
             }
 
             MouseArea {
@@ -328,7 +328,7 @@ PageType {
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: qsTr("Нажмите в любом месте, чтобы продолжить")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
                 font.pixelSize: 15
             }
         }
@@ -340,7 +340,7 @@ PageType {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 24 + PageController.safeAreaBottomMargin
         horizontalAlignment: Text.AlignHCenter
-        color: AmneziaStyle.color.mutedGray
+        color: NvoStyle.color.mutedGray
         font.pixelSize: 13
         text: {
             if (!NvoApi.hasSubscription)

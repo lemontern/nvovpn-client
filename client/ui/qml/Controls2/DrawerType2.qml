@@ -18,8 +18,8 @@ Item {
     property Component collapsedStateContent
     property Component expandedStateContent
 
-    property string defaultColor: AmneziaStyle.color.onyxBlack
-    property string borderColor: AmneziaStyle.color.slateGray
+    property string defaultColor: NvoStyle.color.onyxBlack
+    property string borderColor: NvoStyle.color.slateGray
 
     property real expandedHeight
     property real collapsedHeight: 0
@@ -192,7 +192,7 @@ Item {
         id: background
 
         anchors.fill: parent
-        color: root.isCollapsedStateActive() ? AmneziaStyle.color.transparent : AmneziaStyle.color.translucentMidnightBlack
+        color: root.isCollapsedStateActive() ? NvoStyle.color.transparent : NvoStyle.color.translucentMidnightBlack
 
         Behavior on color {
             PropertyAnimation { duration: 200 }
@@ -292,7 +292,7 @@ Item {
                 }
                 PropertyChanges {
                     target: background
-                    color: AmneziaStyle.color.transparent
+                    color: NvoStyle.color.transparent
                 }
                 PropertyChanges {
                     target: dragArea

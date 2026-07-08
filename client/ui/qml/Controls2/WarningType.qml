@@ -10,9 +10,9 @@ import "TextTypes"
 Rectangle {
     id: root
 
-    property string textColor: AmneziaStyle.color.paleGray
-    property string backGroundColor: AmneziaStyle.color.onyxBlack
-    property string imageColor: AmneziaStyle.color.paleGray
+    property string textColor: NvoStyle.color.paleGray
+    property string backGroundColor: NvoStyle.color.onyxBlack
+    property string imageColor: NvoStyle.color.paleGray
     property string textString
     property int textFormat: Text.PlainText
 

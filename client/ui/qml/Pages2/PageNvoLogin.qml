@@ -76,7 +76,7 @@ PageType {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: "NvoVPN"
-                        color: AmneziaStyle.color.paleGray
+                        color: NvoStyle.color.paleGray
                         font.family: "PT Root UI VF"
                         font.weight: 800
                         font.pixelSize: 28
@@ -85,7 +85,7 @@ PageType {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Безопасный интернет")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         font.pixelSize: 15
                     }
                 }
@@ -123,7 +123,7 @@ PageType {
                 visible: !root.codeMode
                 Layout.leftMargin: 24
                 Layout.topMargin: 8
-                color: AmneziaStyle.color.nvoBlue
+                color: NvoStyle.color.nvoBlue
                 text: root.showPassword ? qsTr("Скрыть пароль") : qsTr("Показать пароль")
 
                 MouseArea {
@@ -157,7 +157,7 @@ PageType {
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24
                 Layout.topMargin: 16
-                color: AmneziaStyle.color.vibrantRed
+                color: NvoStyle.color.vibrantRed
                 wrapMode: Text.WordWrap
                 visible: text !== ""
             }
@@ -206,7 +206,7 @@ PageType {
                 visible: !root.codeMode && root.googleAvailable
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 16
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
                 text: qsTr("или")
             }
 
@@ -219,11 +219,11 @@ PageType {
                 Layout.rightMargin: 24
                 Layout.preferredHeight: 56
 
-                defaultColor: AmneziaStyle.color.transparent
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.paleGray
-                borderColor: AmneziaStyle.color.slateGray
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.paleGray
+                borderColor: NvoStyle.color.slateGray
                 borderWidth: 1
 
                 enabled: !NvoApi.isBusy
@@ -245,11 +245,11 @@ PageType {
                 Layout.rightMargin: 24
                 Layout.preferredHeight: 56
 
-                defaultColor: AmneziaStyle.color.transparent
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.paleGray
-                borderColor: AmneziaStyle.color.slateGray
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.paleGray
+                borderColor: NvoStyle.color.slateGray
                 borderWidth: 1
 
                 enabled: !NvoApi.isBusy
@@ -266,7 +266,7 @@ PageType {
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 20
                 horizontalAlignment: Text.AlignHCenter
-                color: AmneziaStyle.color.nvoBlue
+                color: NvoStyle.color.nvoBlue
                 text: root.codeMode ? qsTr("Войти по email и паролю") : qsTr("У меня есть код для входа")
 
                 MouseArea {
@@ -288,12 +288,12 @@ PageType {
                 spacing: 6
 
                 CaptionTextType {
-                    color: AmneziaStyle.color.mutedGray
+                    color: NvoStyle.color.mutedGray
                     text: qsTr("Нет аккаунта?")
                 }
 
                 CaptionTextType {
-                    color: AmneziaStyle.color.nvoBlue
+                    color: NvoStyle.color.nvoBlue
                     font.weight: 700
                     text: qsTr("Зарегистрироваться")
 

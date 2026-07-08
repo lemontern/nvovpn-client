@@ -52,7 +52,7 @@ PageType {
                 Layout.rightMargin: 16
                 Layout.bottomMargin: 8
                 text: qsTr("Range")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
             }
 
             MinMaxRowType {

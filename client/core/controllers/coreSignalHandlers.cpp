@@ -48,7 +48,7 @@
 
 #ifdef Q_OS_IOS
     #include "platforms/ios/ios_controller.h"
-    #include <AmneziaVPN-Swift.h>
+    #include <NvoVPN-Swift.h>
 #endif
 
 CoreSignalHandlers::CoreSignalHandlers(CoreController* coreController, QObject* parent)
@@ -415,7 +415,7 @@ void CoreSignalHandlers::initIosImportHandler()
 void CoreSignalHandlers::initIosSettingsHandler()
 {
 #ifdef Q_OS_IOS
-    connect(m_coreController->m_appSettingsRepository, &SecureAppSettingsRepository::screenshotsEnabledChanged, [](bool enabled) { AmneziaVPN::toggleScreenshots(enabled); });
+    connect(m_coreController->m_appSettingsRepository, &SecureAppSettingsRepository::screenshotsEnabledChanged, [](bool enabled) { NvoVPN::toggleScreenshots(enabled); });
 #endif
 }
 

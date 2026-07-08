@@ -101,7 +101,7 @@ PageType {
                 Layout.bottomMargin: 12
 
                 text: qsTr("Premium features")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
                 font.pixelSize: 13
             }
 
@@ -126,7 +126,7 @@ PageType {
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                     textFormat: Text.PlainText
-                    color: AmneziaStyle.color.mutedGray
+                    color: NvoStyle.color.mutedGray
                     font.pixelSize: 12
 
                     text: qsTr("Charged to your Apple ID at confirmation. Renews automatically unless auto-renew is turned off at least 24 hours before period end. Manage in Apple ID settings.")

@@ -74,7 +74,7 @@ PageType {
                 font.pixelSize: 14
 
                 text: qsTr("NvoVPN защищает ваш интернет — быстро, безопасно и без ограничений.")
-                color: AmneziaStyle.color.paleGray
+                color: NvoStyle.color.paleGray
             }
 
             ParagraphTextType {
@@ -117,7 +117,7 @@ PageType {
                 horizontalAlignment: Text.AlignHCenter
 
                 text: qsTr("Software version: %1").arg(SettingsController.getAppVersion())
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
 
                 MouseArea {
                     property int clickCount: 0
@@ -144,11 +144,11 @@ PageType {
                 Layout.bottomMargin: 16
                 implicitHeight: 32
 
-                defaultColor: AmneziaStyle.color.transparent
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                disabledColor: AmneziaStyle.color.mutedGray
-                textColor: AmneziaStyle.color.goldenApricot
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                disabledColor: NvoStyle.color.mutedGray
+                textColor: NvoStyle.color.goldenApricot
 
                 text: qsTr("Проверить обновления")
 
@@ -165,11 +165,11 @@ PageType {
                 Layout.topMargin: -15
                 implicitHeight: 25
 
-                defaultColor: AmneziaStyle.color.transparent
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                disabledColor: AmneziaStyle.color.mutedGray
-                textColor: AmneziaStyle.color.goldenApricot
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                disabledColor: NvoStyle.color.mutedGray
+                textColor: NvoStyle.color.goldenApricot
 
                 text: qsTr("Privacy Policy")
 

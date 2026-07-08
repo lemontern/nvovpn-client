@@ -92,7 +92,7 @@ PageType {
                 Layout.topMargin: 8
 
                 visible: title === qsTr("Password or SSH private key")
-                backGroundColor: AmneziaStyle.color.translucentWhite
+                backGroundColor: NvoStyle.color.translucentWhite
                 iconPath: "qrc:/images/controls/alert-circle.svg"
                 textString: qsTr("SSH key requirements: supported key types are ED25519 and RSA in PEM format. Paste the private key, including the BEGIN/END lines. If your key doesn’t work, generate a compatible one")
             }

@@ -138,7 +138,7 @@ PageType {
                 Layout.topMargin: 24
                 Layout.bottomMargin: 8
                 text: qsTr("Configurations")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
                 visible: listView.count > 0
             }
         }
@@ -158,7 +158,7 @@ PageType {
                 Layout.leftMargin: 16
                 Layout.rightMargin: 16
                 text: qsTr("No saved configurations yet.\nCreate one from the current settings.")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
             }
@@ -264,7 +264,7 @@ PageType {
             LabelWithButtonType {
                 Layout.fillWidth: true
                 text: qsTr("Delete configuration")
-                textColor: AmneziaStyle.color.vibrantRed
+                textColor: NvoStyle.color.vibrantRed
                 clickedFunction: function () {
                     configActionsDrawer.closeTriggered()
                     var yesButtonFunction = function () {

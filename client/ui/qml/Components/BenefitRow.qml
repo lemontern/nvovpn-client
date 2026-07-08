@@ -34,7 +34,7 @@ RowLayout {
         LabelTextType {
             Layout.fillWidth: true
             text: root.titleText
-            color: AmneziaStyle.color.paleGray
+            color: NvoStyle.color.paleGray
             font.pixelSize: 16
             font.weight: Font.DemiBold
             wrapMode: Text.Wrap
@@ -48,7 +48,7 @@ RowLayout {
                 id: bodyLabel
                 width: parent.width
                 text: root.bodyLineText
-                color: root.link ? AmneziaStyle.color.goldenApricot : AmneziaStyle.color.mutedGray
+                color: root.link ? NvoStyle.color.goldenApricot : NvoStyle.color.mutedGray
                 font.pixelSize: 14
                 wrapMode: Text.Wrap
             }

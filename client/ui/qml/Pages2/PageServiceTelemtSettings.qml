@@ -391,7 +391,7 @@ PageType {
             Layout.topMargin: 8
             visible: root.telemtNetworkBlocked
             text: qsTr("No internet connection. Connect to the internet to change Telemt settings.")
-            color: AmneziaStyle.color.mutedGray
+            color: NvoStyle.color.mutedGray
             wrapMode: Text.WordWrap
             font.pixelSize: 14
         }
@@ -405,12 +405,12 @@ PageType {
         width: parent.width
 
         background: Rectangle {
-            color: AmneziaStyle.color.transparent
+            color: NvoStyle.color.transparent
             Rectangle {
                 width: parent.width
                 height: 1
                 anchors.bottom: parent.bottom
-                color: AmneziaStyle.color.slateGray
+                color: NvoStyle.color.slateGray
             }
         }
 
@@ -470,7 +470,7 @@ PageType {
                     Layout.rightMargin: 16
                     Layout.bottomMargin: 8
                     text: qsTr("Use Telegram connection link")
-                    color: AmneziaStyle.color.mutedGray
+                    color: NvoStyle.color.mutedGray
                 }
 
                 Rectangle {
@@ -479,9 +479,9 @@ PageType {
                     Layout.rightMargin: 16
                     Layout.bottomMargin: 16
                     implicitHeight: linkRow.implicitHeight + 16
-                    color: AmneziaStyle.color.onyxBlack
+                    color: NvoStyle.color.onyxBlack
                     radius: 8
-                    border.color: AmneziaStyle.color.slateGray
+                    border.color: NvoStyle.color.slateGray
                     border.width: 1
 
                     RowLayout {
@@ -496,7 +496,7 @@ PageType {
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: secret !== "" ? tmeLink() : qsTr("Deploy Telemt first")
-                            color: secret !== "" ? AmneziaStyle.color.goldenApricot : AmneziaStyle.color.mutedGray
+                            color: secret !== "" ? NvoStyle.color.goldenApricot : NvoStyle.color.mutedGray
                             elide: Text.ElideRight
                             maximumLineCount: 1
                             font.pixelSize: 13
@@ -507,7 +507,7 @@ PageType {
                             implicitHeight: 36
                             hoverEnabled: true
                             image: "qrc:/images/controls/qr-code.svg"
-                            imageColor: AmneziaStyle.color.paleGray
+                            imageColor: NvoStyle.color.paleGray
                             visible: secret !== ""
                             onClicked: {
                                 ExportController.generateQrFromString(tmeLink())
@@ -523,7 +523,7 @@ PageType {
                             implicitHeight: 36
                             hoverEnabled: true
                             image: "qrc:/images/controls/copy.svg"
-                            imageColor: AmneziaStyle.color.paleGray
+                            imageColor: NvoStyle.color.paleGray
                             visible: secret !== ""
                             onClicked: {
                                 GC.copyToClipBoard(tmeLink())
@@ -539,9 +539,9 @@ PageType {
                     Layout.rightMargin: 16
                     Layout.bottomMargin: 16
                     implicitHeight: tgLinkRow.implicitHeight + 16
-                    color: AmneziaStyle.color.onyxBlack
+                    color: NvoStyle.color.onyxBlack
                     radius: 8
-                    border.color: AmneziaStyle.color.slateGray
+                    border.color: NvoStyle.color.slateGray
                     border.width: 1
                     visible: secret !== ""
 
@@ -557,7 +557,7 @@ PageType {
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: tgLink()
-                            color: AmneziaStyle.color.goldenApricot
+                            color: NvoStyle.color.goldenApricot
                             elide: Text.ElideRight
                             maximumLineCount: 1
                             font.pixelSize: 13
@@ -568,7 +568,7 @@ PageType {
                             implicitHeight: 36
                             hoverEnabled: true
                             image: "qrc:/images/controls/qr-code.svg"
-                            imageColor: AmneziaStyle.color.paleGray
+                            imageColor: NvoStyle.color.paleGray
                             onClicked: {
                                 ExportController.generateQrFromString(tgLink())
                                 PageController.goToShareConnectionPage(
@@ -583,7 +583,7 @@ PageType {
                             implicitHeight: 36
                             hoverEnabled: true
                             image: "qrc:/images/controls/copy.svg"
-                            imageColor: AmneziaStyle.color.paleGray
+                            imageColor: NvoStyle.color.paleGray
                             onClicked: {
                                 GC.copyToClipBoard(tgLink())
                                 PageController.showNotificationMessage(qsTr("Copied"))
@@ -601,13 +601,13 @@ PageType {
 
                     CaptionTextType {
                         text: qsTr("Or enter the proxy details manually.")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                     }
 
                     CaptionTextType {
                         Layout.fillWidth: true
                         text: qsTr("How to do it")
-                        color: AmneziaStyle.color.goldenApricot
+                        color: NvoStyle.color.goldenApricot
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
@@ -626,9 +626,9 @@ PageType {
                     Layout.rightMargin: 16
                     Layout.bottomMargin: 32
                     implicitHeight: manualCol.implicitHeight + 8
-                    color: AmneziaStyle.color.onyxBlack
+                    color: NvoStyle.color.onyxBlack
                     radius: 8
-                    border.color: AmneziaStyle.color.slateGray
+                    border.color: NvoStyle.color.slateGray
                     border.width: 1
 
                     ColumnLayout {
@@ -649,13 +649,13 @@ PageType {
                                 spacing: 2
                                 CaptionTextType {
                                     text: qsTr("Host")
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     font.pixelSize: 12
                                 }
                                 CaptionTextType {
                                     Layout.fillWidth: true
                                     text: effectiveHost()
-                                    color: AmneziaStyle.color.paleGray
+                                    color: NvoStyle.color.paleGray
                                     elide: Text.ElideRight
                                 }
                             }
@@ -664,7 +664,7 @@ PageType {
                                 implicitHeight: 36
                                 hoverEnabled: true
                                 image: "qrc:/images/controls/copy.svg"
-                                imageColor: AmneziaStyle.color.paleGray
+                                imageColor: NvoStyle.color.paleGray
                                 onClicked: { GC.copyToClipBoard(effectiveHost())
                                     PageController.showNotificationMessage(qsTr("Copied")) }
                             }
@@ -685,13 +685,13 @@ PageType {
                                 spacing: 2
                                 CaptionTextType {
                                     text: qsTr("Port")
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     font.pixelSize: 12
                                 }
                                 CaptionTextType {
                                     Layout.fillWidth: true
                                     text: port
-                                    color: AmneziaStyle.color.paleGray
+                                    color: NvoStyle.color.paleGray
                                 }
                             }
                             ImageButtonType {
@@ -699,7 +699,7 @@ PageType {
                                 implicitHeight: 36
                                 hoverEnabled: true
                                 image: "qrc:/images/controls/copy.svg"
-                                imageColor: AmneziaStyle.color.paleGray
+                                imageColor: NvoStyle.color.paleGray
                                 onClicked: { GC.copyToClipBoard(port)
                                     PageController.showNotificationMessage(qsTr("Copied")) }
                             }
@@ -724,13 +724,13 @@ PageType {
                                 spacing: 2
                                 CaptionTextType {
                                     text: qsTr("Secret")
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     font.pixelSize: 12
                                 }
                                 CaptionTextType {
                                     Layout.fillWidth: true
                                     text: activeSecret()
-                                    color: AmneziaStyle.color.paleGray
+                                    color: NvoStyle.color.paleGray
                                     wrapMode: Text.WrapAnywhere
                                     font.pixelSize: 13
                                 }
@@ -740,7 +740,7 @@ PageType {
                                 implicitHeight: 36
                                 hoverEnabled: true
                                 image: "qrc:/images/controls/copy.svg"
-                                imageColor: AmneziaStyle.color.paleGray
+                                imageColor: NvoStyle.color.paleGray
                                 onClicked: { GC.copyToClipBoard(activeSecret())
                                     PageController.showNotificationMessage(qsTr("Copied")) }
                             }
@@ -756,7 +756,7 @@ PageType {
                     Layout.rightMargin: 16
                     visible: ServersUiController.isProcessedServerHasWriteAccess()
                     text: qsTr("Delete Telemt")
-                    textColor: AmneziaStyle.color.vibrantRed
+                    textColor: NvoStyle.color.vibrantRed
                     clickedFunction: function () {
                         var headerText = qsTr("Remove %1 from server?").arg(ContainersModel.getProcessedContainerName())
                         var descriptionText = qsTr("The proxy will be stopped and all users will lose access.")
@@ -830,7 +830,7 @@ PageType {
 
                     CaptionTextType {
                         text: qsTr("Base secret")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         font.pixelSize: 12
                     }
 
@@ -841,7 +841,7 @@ PageType {
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: secret !== "" ? telemtActiveSecretForBaseHex(secret) : qsTr("Not generated")
-                            color: secret !== "" ? AmneziaStyle.color.paleGray : AmneziaStyle.color.mutedGray
+                            color: secret !== "" ? NvoStyle.color.paleGray : NvoStyle.color.mutedGray
                             wrapMode: Text.WrapAnywhere
                             font.pixelSize: 14
                         }
@@ -852,7 +852,7 @@ PageType {
                             implicitHeight: 36
                             hoverEnabled: true
                             image: "qrc:/images/controls/refresh-cw.svg"
-                            imageColor: AmneziaStyle.color.paleGray
+                            imageColor: NvoStyle.color.paleGray
                             visible: ServersUiController.isProcessedServerHasWriteAccess()
                             onClicked: {
                                 var secretSnapshot = secret
@@ -905,7 +905,7 @@ PageType {
                     Layout.bottomMargin: 4
                     visible: publicHostTextField.textField.text === ""
                     text: qsTr("Leave empty to use server IP automatically")
-                    color: AmneziaStyle.color.mutedGray
+                    color: NvoStyle.color.mutedGray
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
@@ -918,7 +918,7 @@ PageType {
                     visible: publicHostTextField.textField.text !== "" &&
                         publicHostTextField.textField.text !== ServersUiController.serverHostName(ServersUiController.processedServerId)
                     text: qsTr("⚠ This overrides the server IP in connection links. Make sure this host/domain points to your server.")
-                    color: AmneziaStyle.color.goldenApricot
+                    color: NvoStyle.color.goldenApricot
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
@@ -957,7 +957,7 @@ PageType {
                     Layout.bottomMargin: 12
                     visible: transportMode === "faketls" && portTextField.textField.text !== "443" && portTextField.textField.text !== ""
                     text: qsTr("FakeTLS may not work on ports other than 443")
-                    color: AmneziaStyle.color.goldenApricot
+                    color: NvoStyle.color.goldenApricot
                     font.pixelSize: 12
                     wrapMode: Text.WordWrap
                 }
@@ -990,12 +990,12 @@ PageType {
 
                     CaptionTextType {
                         text: qsTr("Get a tag from")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         font.pixelSize: 12
                     }
                     CaptionTextType {
                         text: "@MTProxyBot"
-                        color: AmneziaStyle.color.goldenApricot
+                        color: NvoStyle.color.goldenApricot
                         font.pixelSize: 12
                         MouseArea {
                             anchors.fill: parent
@@ -1029,7 +1029,7 @@ PageType {
                                         (index === 1 && transportMode === "faketls")
                                     return isCurrent ? "qrc:/images/controls/check.svg" : ""
                                 }
-                                rightImageColor: AmneziaStyle.color.goldenApricot
+                                rightImageColor: NvoStyle.color.goldenApricot
                                 clickedFunction: function () {
                                     transportMode = (index === 0) ? "standard" : "faketls"
                                     TelemtConfigModel.setTransportMode(transportMode)
@@ -1075,14 +1075,14 @@ PageType {
                     CaptionTextType {
                         Layout.fillWidth: true
                         text: qsTr("The domain is encoded into the FakeTLS client secret (ee + base_secret + hex(domain)). It must support HTTPS / TLS 1.3.")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         wrapMode: Text.WordWrap
                         font.pixelSize: 12
                     }
                     CaptionTextType {
                         Layout.fillWidth: true
                         text: qsTr("\u26a0 Changing the domain will invalidate all previously issued FakeTLS connection links.")
-                        color: AmneziaStyle.color.goldenApricot
+                        color: NvoStyle.color.goldenApricot
                         wrapMode: Text.WordWrap
                         font.pixelSize: 12
                     }
@@ -1098,7 +1098,7 @@ PageType {
                     rightImageSource: expanded
                         ? "qrc:/images/controls/chevron-up.svg"
                         : "qrc:/images/controls/chevron-down.svg"
-                    rightImageColor: AmneziaStyle.color.mutedGray
+                    rightImageColor: NvoStyle.color.mutedGray
                     clickedFunction: function () {
                         expanded = !expanded
                     }
@@ -1116,7 +1116,7 @@ PageType {
                         Layout.topMargin: 8
                         Layout.bottomMargin: 4
                         text: qsTr("Additional secrets")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                     }
                     CaptionTextType {
                         Layout.fillWidth: true
@@ -1124,7 +1124,7 @@ PageType {
                         Layout.rightMargin: 16
                         Layout.bottomMargin: 8
                         text: qsTr("Add extra secrets to allow gradual migration without disconnecting existing users.")
-                        color: AmneziaStyle.color.charcoalGray
+                        color: NvoStyle.color.charcoalGray
                         wrapMode: Text.WordWrap
                         font.pixelSize: 12
                     }
@@ -1140,7 +1140,7 @@ PageType {
                             CaptionTextType {
                                 Layout.fillWidth: true
                                 text: modelData
-                                color: AmneziaStyle.color.paleGray
+                                color: NvoStyle.color.paleGray
                                 elide: Text.ElideMiddle
                                 font.pixelSize: 13
                             }
@@ -1149,7 +1149,7 @@ PageType {
                                 implicitHeight: 32
                                 hoverEnabled: true
                                 image: "qrc:/images/controls/copy.svg"
-                                imageColor: AmneziaStyle.color.mutedGray
+                                imageColor: NvoStyle.color.mutedGray
                                 onClicked: { GC.copyToClipBoard(modelData)
                                     PageController.showNotificationMessage(qsTr("Copied")) }
                             }
@@ -1158,7 +1158,7 @@ PageType {
                                 implicitHeight: 32
                                 hoverEnabled: true
                                 image: "qrc:/images/controls/trash.svg"
-                                imageColor: AmneziaStyle.color.vibrantRed
+                                imageColor: NvoStyle.color.vibrantRed
                                 onClicked: {
                                     TelemtConfigModel.removeAdditionalSecret(index)
                                     root.telemtScheduleUpdate(false)
@@ -1228,7 +1228,7 @@ PageType {
                         Layout.bottomMargin: 8
                         visible: transportMode === "faketls"
                         text: qsTr("Workers are set to 0 automatically for FakeTLS mode.")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         font.pixelSize: 12
                         wrapMode: Text.WordWrap
                     }
@@ -1343,7 +1343,7 @@ PageType {
                             implicitWidth: 32
                             implicitHeight: 32
                             image: "qrc:/images/controls/refresh-cw.svg"
-                            imageColor: diagLoading ? AmneziaStyle.color.mutedGray : AmneziaStyle.color.paleGray
+                            imageColor: diagLoading ? NvoStyle.color.mutedGray : NvoStyle.color.paleGray
                             hoverEnabled: !diagLoading
                             enabled: !diagLoading
                             onClicked: {
@@ -1360,16 +1360,16 @@ PageType {
                             width: 8
                             height: 8
                             radius: 4
-                            color: diagClientsConnected >= 0 ? (diagPortReachable ? AmneziaStyle.color.paleGray : AmneziaStyle.color.vibrantRed) : AmneziaStyle.color.mutedGray
+                            color: diagClientsConnected >= 0 ? (diagPortReachable ? NvoStyle.color.paleGray : NvoStyle.color.vibrantRed) : NvoStyle.color.mutedGray
                         }
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: qsTr("Public port reachable")
-                            color: AmneziaStyle.color.paleGray
+                            color: NvoStyle.color.paleGray
                         }
                         CaptionTextType {
                             text: diagClientsConnected < 0 ? qsTr("—") : (diagPortReachable ? qsTr("Yes") : qsTr("No"))
-                            color: diagClientsConnected >= 0 ? (diagPortReachable ? AmneziaStyle.color.paleGray : AmneziaStyle.color.vibrantRed) : AmneziaStyle.color.mutedGray
+                            color: diagClientsConnected >= 0 ? (diagPortReachable ? NvoStyle.color.paleGray : NvoStyle.color.vibrantRed) : NvoStyle.color.mutedGray
                         }
                     }
 
@@ -1380,16 +1380,16 @@ PageType {
                             width: 8
                             height: 8
                             radius: 4
-                            color: diagClientsConnected >= 0 ? (diagTelegramReachable ? AmneziaStyle.color.paleGray : AmneziaStyle.color.vibrantRed) : AmneziaStyle.color.mutedGray
+                            color: diagClientsConnected >= 0 ? (diagTelegramReachable ? NvoStyle.color.paleGray : NvoStyle.color.vibrantRed) : NvoStyle.color.mutedGray
                         }
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: qsTr("Telegram upstream reachable")
-                            color: AmneziaStyle.color.paleGray
+                            color: NvoStyle.color.paleGray
                         }
                         CaptionTextType {
                             text: diagClientsConnected < 0 ? qsTr("—") : (diagTelegramReachable ? qsTr("Yes") : qsTr("No"))
-                            color: diagClientsConnected >= 0 ? (diagTelegramReachable ? AmneziaStyle.color.paleGray : AmneziaStyle.color.vibrantRed) : AmneziaStyle.color.mutedGray
+                            color: diagClientsConnected >= 0 ? (diagTelegramReachable ? NvoStyle.color.paleGray : NvoStyle.color.vibrantRed) : NvoStyle.color.mutedGray
                         }
                     }
 
@@ -1400,16 +1400,16 @@ PageType {
                             width: 8
                             height: 8
                             radius: 4
-                            color: diagClientsConnected >= 0 ? AmneziaStyle.color.goldenApricot : AmneziaStyle.color.mutedGray
+                            color: diagClientsConnected >= 0 ? NvoStyle.color.goldenApricot : NvoStyle.color.mutedGray
                         }
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: qsTr("Clients connected")
-                            color: AmneziaStyle.color.paleGray
+                            color: NvoStyle.color.paleGray
                         }
                         CaptionTextType {
                             text: diagClientsConnected < 0 ? qsTr("—") : diagClientsConnected.toString()
-                            color: AmneziaStyle.color.paleGray
+                            color: NvoStyle.color.paleGray
                         }
                     }
 
@@ -1420,16 +1420,16 @@ PageType {
                             width: 8
                             height: 8
                             radius: 4
-                            color: AmneziaStyle.color.mutedGray
+                            color: NvoStyle.color.mutedGray
                         }
                         CaptionTextType {
                             Layout.fillWidth: true
                             text: qsTr("Last config refresh")
-                            color: AmneziaStyle.color.paleGray
+                            color: NvoStyle.color.paleGray
                         }
                         CaptionTextType {
                             text: diagLastConfigRefresh !== "" ? diagLastConfigRefresh : qsTr("—")
-                            color: AmneziaStyle.color.mutedGray
+                            color: NvoStyle.color.mutedGray
                         }
                     }
 
@@ -1441,7 +1441,7 @@ PageType {
                         descriptionText: diagStatsEndpoint
                         descriptionOnTop: true
                         rightImageSource: "qrc:/images/controls/copy.svg"
-                        rightImageColor: AmneziaStyle.color.paleGray
+                        rightImageColor: NvoStyle.color.paleGray
                         clickedFunction: function () {
                             GC.copyToClipBoard(diagStatsEndpoint)
                             PageController.showNotificationMessage(qsTr("Copied"))
@@ -1451,7 +1451,7 @@ PageType {
                     CaptionTextType {
                         Layout.fillWidth: true
                         text: diagLoading ? qsTr("Refreshing…") : qsTr("Tap ↻ to refresh diagnostics")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         visible: diagClientsConnected < 0
                     }
                 }
@@ -1463,7 +1463,7 @@ PageType {
                     Layout.topMargin: 16 * 2
                     Layout.bottomMargin: 24
                     text: qsTr("If you change the settings, the proxy connection link will change. The old link will stop working.")
-                    color: AmneziaStyle.color.mutedGray
+                    color: NvoStyle.color.mutedGray
                     wrapMode: Text.WordWrap
                     font.pixelSize: 12
                 }

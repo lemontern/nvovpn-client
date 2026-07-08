@@ -32,7 +32,7 @@
 
 #if defined(Q_OS_IOS) || defined(MACOS_NE)
     #include "platforms/ios/ios_controller.h"
-    #include <AmneziaVPN-Swift.h>
+    #include <NvoVPN-Swift.h>
 #endif
 
 using namespace amnezia;
@@ -681,7 +681,7 @@ void SubscriptionController::removeApiConfig(const QString &serverId)
                                .arg(hostName)
                                .arg("");
 
-    AmneziaVPN::removeVPNC(vpncName.toStdString());
+    NvoVPN::removeVPNC(vpncName.toStdString());
 #endif
 
     apiV2->dns1.clear();

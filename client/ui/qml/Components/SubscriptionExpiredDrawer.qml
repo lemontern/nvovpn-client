@@ -70,10 +70,10 @@ DrawerType2 {
 
             text: qsTr("Renew")
 
-            defaultColor: AmneziaStyle.color.paleGray
-            hoveredColor: AmneziaStyle.color.lightGray
-            pressedColor: AmneziaStyle.color.mutedGray
-            textColor: AmneziaStyle.color.midnightBlack
+            defaultColor: NvoStyle.color.paleGray
+            hoveredColor: NvoStyle.color.lightGray
+            pressedColor: NvoStyle.color.mutedGray
+            textColor: NvoStyle.color.midnightBlack
 
             clickedFunc: function() {
                 SubscriptionUiController.getRenewalLink(ServersUiController.defaultServerId)
@@ -87,10 +87,10 @@ DrawerType2 {
 
             implicitHeight: 25
 
-            defaultColor: AmneziaStyle.color.transparent
-            hoveredColor: AmneziaStyle.color.translucentWhite
-            pressedColor: AmneziaStyle.color.sheerWhite
-            textColor: AmneziaStyle.color.goldenApricot
+            defaultColor: NvoStyle.color.transparent
+            hoveredColor: NvoStyle.color.translucentWhite
+            pressedColor: NvoStyle.color.sheerWhite
+            textColor: NvoStyle.color.goldenApricot
 
             text: qsTr("Support")
 

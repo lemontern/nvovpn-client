@@ -128,7 +128,7 @@ PageType {
                               root.pageSettingsServerData : root.pageSettingsServerProtocols
 
             background: Rectangle {
-                color: AmneziaStyle.color.transparent
+                color: NvoStyle.color.transparent
             }
 
 

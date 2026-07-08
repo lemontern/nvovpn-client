@@ -52,7 +52,7 @@ PageType {
             Layout.leftMargin: 24
             Layout.rightMargin: 24
             horizontalAlignment: Text.AlignHCenter
-            color: AmneziaStyle.color.mutedGray
+            color: NvoStyle.color.mutedGray
             wrapMode: Text.WordWrap
             text: {
                 if (root.active && NvoApi.subscriptionDaysRemaining > 0)
@@ -72,7 +72,7 @@ PageType {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 8
             horizontalAlignment: Text.AlignHCenter
-            color: AmneziaStyle.color.paleGray
+            color: NvoStyle.color.paleGray
             text: qsTr("Баланс: %1").arg(NvoApi.balanceFormatted !== "" ? NvoApi.balanceFormatted : "—")
         }
 
@@ -101,11 +101,11 @@ PageType {
             Layout.rightMargin: 24
             Layout.preferredHeight: 56
 
-            defaultColor: AmneziaStyle.color.transparent
-            hoveredColor: AmneziaStyle.color.translucentWhite
-            pressedColor: AmneziaStyle.color.sheerWhite
-            textColor: AmneziaStyle.color.paleGray
-            borderColor: AmneziaStyle.color.slateGray
+            defaultColor: NvoStyle.color.transparent
+            hoveredColor: NvoStyle.color.translucentWhite
+            pressedColor: NvoStyle.color.sheerWhite
+            textColor: NvoStyle.color.paleGray
+            borderColor: NvoStyle.color.slateGray
             borderWidth: 1
 
             text: qsTr("Пополнить баланс")
@@ -121,7 +121,7 @@ PageType {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 24
             horizontalAlignment: Text.AlignHCenter
-            color: AmneziaStyle.color.paleGray
+            color: NvoStyle.color.paleGray
             text: qsTr("Есть промокод?")
         }
 

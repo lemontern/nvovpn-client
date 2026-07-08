@@ -14,19 +14,19 @@ RadioButton {
     property int textElide: Qt.ElideRight
     property string descriptionText
 
-    property string hoveredColor: AmneziaStyle.color.barelyTranslucentWhite
-    property string defaultColor: AmneziaStyle.color.transparent
-    property string disabledColor: AmneziaStyle.color.transparent
-    property string selectedColor: AmneziaStyle.color.transparent
+    property string hoveredColor: NvoStyle.color.barelyTranslucentWhite
+    property string defaultColor: NvoStyle.color.transparent
+    property string disabledColor: NvoStyle.color.transparent
+    property string selectedColor: NvoStyle.color.transparent
 
-    property string textColor: AmneziaStyle.color.paleGray
-    property string textDisabledColor: AmneziaStyle.color.mutedGray
-    property string selectedTextColor: AmneziaStyle.color.goldenApricot
-    property string selectedTextDisabledColor: AmneziaStyle.color.burntOrange
-    property string descriptionColor: AmneziaStyle.color.mutedGray
-    property string descriptionDisabledColor: AmneziaStyle.color.charcoalGray
+    property string textColor: NvoStyle.color.paleGray
+    property string textDisabledColor: NvoStyle.color.mutedGray
+    property string selectedTextColor: NvoStyle.color.goldenApricot
+    property string selectedTextDisabledColor: NvoStyle.color.burntOrange
+    property string descriptionColor: NvoStyle.color.mutedGray
+    property string descriptionDisabledColor: NvoStyle.color.charcoalGray
 
-    property string borderFocusedColor: AmneziaStyle.color.paleGray
+    property string borderFocusedColor: NvoStyle.color.paleGray
     property int borderFocusedWidth: 1
 
     property string imageSource
@@ -71,7 +71,7 @@ RadioButton {
 
         anchors.verticalCenter: parent.verticalCenter
 
-        border.color: root.focus ? root.borderFocusedColor : AmneziaStyle.color.transparent
+        border.color: root.focus ? root.borderFocusedColor : NvoStyle.color.transparent
         border.width: root.focus ? root.borderFocusedWidth : 0
 
         implicitWidth: 56

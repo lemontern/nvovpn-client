@@ -57,9 +57,9 @@ PageType {
             width: list.width
             height: 72
             radius: 16
-            color: AmneziaStyle.color.onyxBlack
+            color: NvoStyle.color.onyxBlack
             border.width: NvoApi.selectedServerId < 0 ? 2 : 1
-            border.color: NvoApi.selectedServerId < 0 ? AmneziaStyle.color.nvoBlue : AmneziaStyle.color.slateGray
+            border.color: NvoApi.selectedServerId < 0 ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray
 
             RowLayout {
                 anchors.fill: parent
@@ -73,19 +73,19 @@ PageType {
                     spacing: 2
                     Text {
                         text: qsTr("Авто")
-                        color: AmneziaStyle.color.paleGray
+                        color: NvoStyle.color.paleGray
                         font.pixelSize: 18; font.weight: 700
                     }
                     Text {
                         text: qsTr("Сервер подберётся автоматически")
-                        color: AmneziaStyle.color.mutedGray
+                        color: NvoStyle.color.mutedGray
                         font.pixelSize: 13
                     }
                 }
                 Item { Layout.fillWidth: true }
                 Text {
                     text: NvoApi.selectedServerId < 0 ? "✓" : ""
-                    color: AmneziaStyle.color.nvoBlue
+                    color: NvoStyle.color.nvoBlue
                     font.pixelSize: 22
                 }
             }
@@ -101,9 +101,9 @@ PageType {
             width: list.width
             height: 72
             radius: 16
-            color: AmneziaStyle.color.onyxBlack
+            color: NvoStyle.color.onyxBlack
             border.width: NvoApi.selectedServerId === serverId ? 2 : 1
-            border.color: NvoApi.selectedServerId === serverId ? AmneziaStyle.color.nvoBlue : AmneziaStyle.color.slateGray
+            border.color: NvoApi.selectedServerId === serverId ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray
             // Не притемняем по health_status — он бывает ложным (France: unhealthy, но работает).
             opacity: 1.0
 
@@ -126,12 +126,12 @@ PageType {
                     spacing: 2
                     Text {
                         text: name
-                        color: AmneziaStyle.color.paleGray
+                        color: NvoStyle.color.paleGray
                         font.pixelSize: 18; font.weight: 700
                     }
                     Text {
                         text: city + (recommended ? qsTr(" · рекомендуем") : "")
-                        color: recommended ? AmneziaStyle.color.connectedGreen : AmneziaStyle.color.mutedGray
+                        color: recommended ? NvoStyle.color.connectedGreen : NvoStyle.color.mutedGray
                         font.pixelSize: 13
                     }
                 }
@@ -141,7 +141,7 @@ PageType {
                 Text {
                     readonly property bool fav: NvoApi.favoriteCountries.indexOf(countryImageCode.toUpperCase()) >= 0
                     text: fav ? "★" : "☆"
-                    color: fav ? AmneziaStyle.color.nvoBlue : AmneziaStyle.color.slateGray
+                    color: fav ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray
                     font.pixelSize: 22
                     Layout.preferredWidth: 30
                     horizontalAlignment: Text.AlignHCenter
@@ -154,7 +154,7 @@ PageType {
 
                 Text {
                     text: NvoApi.selectedServerId === serverId ? "✓" : ""
-                    color: AmneziaStyle.color.nvoBlue
+                    color: NvoStyle.color.nvoBlue
                     font.pixelSize: 22
                 }
             }

@@ -33,8 +33,12 @@ class AmneziaVPN(ConanFile):
 
         if has_ne:
             self.requires("awg-apple/2.0.1")
-            self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
-            self.requires("openvpnadapter/1.0.0")
+            # NvoVPN: iOS NE — ТОЛЬКО AmneziaWG (App Store 4.3: чужие движки Xray/OpenVPN
+            # вырезаны — их бинарные блобы идентичны AmneziaVPN и другим форкам).
+            # hev-socks5-tunnel (Go-Xray) убран совсем (macOS его тоже не линкует).
+            # openvpnadapter остаётся только на macOS NE (там OpenVPN-код ещё компилируется).
+            if os == "Macos":
+                self.requires("openvpnadapter/1.0.0")
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.0")

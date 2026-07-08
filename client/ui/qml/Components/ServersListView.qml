@@ -70,8 +70,8 @@ ListViewType {
                         ? (isSubscriptionExpired ? qsTr("Subscription expired. Please renew") : qsTr("Subscription expiring soon"))
                         : serverDescription
                     descriptionColor: isServerFromGatewayApi && (isSubscriptionExpired || isSubscriptionExpiringSoon)
-                        ? (isSubscriptionExpired ? AmneziaStyle.color.vibrantRed : AmneziaStyle.color.goldenApricot)
-                        : AmneziaStyle.color.mutedGray
+                        ? (isSubscriptionExpired ? NvoStyle.color.vibrantRed : NvoStyle.color.goldenApricot)
+                        : NvoStyle.color.mutedGray
 
                     checked: index === root.selectedIndex
                     checkable: !ConnectionController.isConnected
@@ -98,7 +98,7 @@ ListViewType {
                     objectName: "serverInfoButton"
 
                     image: "qrc:/images/controls/settings.svg"
-                    imageColor: AmneziaStyle.color.paleGray
+                    imageColor: NvoStyle.color.paleGray
 
                     implicitWidth: 56
                     implicitHeight: 56

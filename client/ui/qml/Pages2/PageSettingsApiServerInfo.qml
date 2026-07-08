@@ -159,8 +159,8 @@ PageType {
                     : qsTr("Subscription expiring soon")
 
                 color: root.isSubscriptionExpired
-                    ? AmneziaStyle.color.vibrantRed
-                    : AmneziaStyle.color.goldenApricot
+                    ? NvoStyle.color.vibrantRed
+                    : NvoStyle.color.goldenApricot
             }
 
             ParagraphTextType {
@@ -173,7 +173,7 @@ PageType {
                 Layout.bottomMargin: root.isSubscriptionExpired || root.isSubscriptionExpiringSoon ? 0 : 10
 
                 text: ApiAccountInfoModel.data("serviceDescription")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
             }
 
             BasicButtonType {
@@ -188,10 +188,10 @@ PageType {
 
                 text: qsTr("Renew subscription")
 
-                defaultColor: AmneziaStyle.color.paleGray
-                hoveredColor: AmneziaStyle.color.lightGray
-                pressedColor: AmneziaStyle.color.mutedGray
-                textColor: AmneziaStyle.color.midnightBlack
+                defaultColor: NvoStyle.color.paleGray
+                hoveredColor: NvoStyle.color.lightGray
+                pressedColor: NvoStyle.color.mutedGray
+                textColor: NvoStyle.color.midnightBlack
 
                 clickedFunc: function() {
                     SubscriptionUiController.getRenewalLink(ServersUiController.processedServerId)
@@ -244,12 +244,12 @@ PageType {
 
                 implicitHeight: 25
 
-                defaultColor: AmneziaStyle.color.transparent
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.goldenApricot
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.goldenApricot
                 leftImageSource: "qrc:/images/controls/refresh-cw.svg"
-                leftImageColor: AmneziaStyle.color.goldenApricot
+                leftImageColor: NvoStyle.color.goldenApricot
 
                 text: qsTr("Renew subscription")
 
@@ -304,7 +304,7 @@ PageType {
                 Layout.leftMargin: 16
                 Layout.fillWidth: true
 
-                backGroundColor: AmneziaStyle.color.translucentRichBrown
+                backGroundColor: NvoStyle.color.translucentRichBrown
 
                 textString: qsTr("Configurations have been updated for some countries. Download and install the updated configuration files")
 
@@ -424,9 +424,9 @@ PageType {
                 implicitHeight: 32
 
                 defaultColor: "transparent"
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.vibrantRed
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.vibrantRed
 
                 text: qsTr("Reload API config")
 
@@ -461,9 +461,9 @@ PageType {
                 visible: footer.isVisibleForAmneziaFree
 
                 defaultColor: "transparent"
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.vibrantRed
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.vibrantRed
 
                 text: qsTr("Unlink this device")
 
@@ -499,9 +499,9 @@ PageType {
                 implicitHeight: 32
 
                 defaultColor: "transparent"
-                hoveredColor: AmneziaStyle.color.translucentWhite
-                pressedColor: AmneziaStyle.color.sheerWhite
-                textColor: AmneziaStyle.color.vibrantRed
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.vibrantRed
 
                 text: qsTr("Remove from application")
 

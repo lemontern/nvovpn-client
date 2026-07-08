@@ -216,7 +216,7 @@ PageType {
                 implicitWidth: accessTypeSelectorContent.implicitWidth
                 implicitHeight: accessTypeSelectorContent.implicitHeight
 
-                color: AmneziaStyle.color.onyxBlack
+                color: NvoStyle.color.onyxBlack
                 radius: 16
 
                 RowLayout {
@@ -268,7 +268,7 @@ PageType {
                 visible: accessTypeSelector.currentIndex === 0
 
                 text: qsTr("Share VPN access without the ability to manage the server")
-                color: AmneziaStyle.color.mutedGray
+                color: NvoStyle.color.mutedGray
             }
 
             TextFieldWithHeaderType {
@@ -592,7 +592,7 @@ PageType {
                 ImageButtonType {
                     id: closeSearchButton
                     image: "qrc:/images/controls/close.svg"
-                    imageColor: AmneziaStyle.color.paleGray
+                    imageColor: NvoStyle.color.paleGray
 
                     function clickedFunc() {
                         searchTextField.textField.text = ""
@@ -692,7 +692,7 @@ PageType {
                                 }
 
                                 ParagraphTextType {
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     visible: creationDate
                                     Layout.maximumWidth: parent.width
 
@@ -704,7 +704,7 @@ PageType {
                                 }
 
                                 ParagraphTextType {
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     visible: latestHandshake
                                     Layout.maximumWidth: parent.width
 
@@ -716,7 +716,7 @@ PageType {
                                 }
 
                                 ParagraphTextType {
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     visible: dataReceived
                                     Layout.maximumWidth: parent.width
 
@@ -728,7 +728,7 @@ PageType {
                                 }
 
                                 ParagraphTextType {
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     visible: dataSent
                                     Layout.maximumWidth: parent.width
 
@@ -740,7 +740,7 @@ PageType {
                                 }
 
                                 ParagraphTextType {
-                                    color: AmneziaStyle.color.mutedGray
+                                    color: NvoStyle.color.mutedGray
                                     visible: allowedIps
                                     Layout.maximumWidth: parent.width
 
@@ -754,11 +754,11 @@ PageType {
                                     Layout.fillWidth: true
                                     Layout.topMargin: 24
 
-                                    defaultColor: AmneziaStyle.color.transparent
-                                    hoveredColor: AmneziaStyle.color.translucentWhite
-                                    pressedColor: AmneziaStyle.color.sheerWhite
-                                    disabledColor: AmneziaStyle.color.mutedGray
-                                    textColor: AmneziaStyle.color.paleGray
+                                    defaultColor: NvoStyle.color.transparent
+                                    hoveredColor: NvoStyle.color.translucentWhite
+                                    pressedColor: NvoStyle.color.sheerWhite
+                                    disabledColor: NvoStyle.color.mutedGray
+                                    textColor: NvoStyle.color.paleGray
                                     borderWidth: 1
 
                                     text: qsTr("Rename")
@@ -826,11 +826,11 @@ PageType {
                                     Layout.fillWidth: true
                                     Layout.topMargin: 8
 
-                                    defaultColor: AmneziaStyle.color.transparent
-                                    hoveredColor: AmneziaStyle.color.translucentWhite
-                                    pressedColor: AmneziaStyle.color.sheerWhite
-                                    disabledColor: AmneziaStyle.color.mutedGray
-                                    textColor: AmneziaStyle.color.paleGray
+                                    defaultColor: NvoStyle.color.transparent
+                                    hoveredColor: NvoStyle.color.translucentWhite
+                                    pressedColor: NvoStyle.color.sheerWhite
+                                    disabledColor: NvoStyle.color.mutedGray
+                                    textColor: NvoStyle.color.paleGray
                                     borderWidth: 1
 
                                     text: qsTr("Revoke")

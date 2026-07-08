@@ -9,19 +9,19 @@ import "TextTypes"
 RadioButton {
     id: root
 
-    property string hoveredColor: AmneziaStyle.color.barelyTranslucentWhite
-    property string defaultColor: AmneziaStyle.color.transparent
-    property string checkedColor: AmneziaStyle.color.transparent
-    property string disabledColor: AmneziaStyle.color.transparent
+    property string hoveredColor: NvoStyle.color.barelyTranslucentWhite
+    property string defaultColor: NvoStyle.color.transparent
+    property string checkedColor: NvoStyle.color.transparent
+    property string disabledColor: NvoStyle.color.transparent
 
-    property string textColor: AmneziaStyle.color.paleGray
-    property string textDisabledColor: AmneziaStyle.color.mutedGray
+    property string textColor: NvoStyle.color.paleGray
+    property string textDisabledColor: NvoStyle.color.mutedGray
 
-    property string pressedBorderColor: AmneziaStyle.color.charcoalGray
-    property string checkedBorderColor: AmneziaStyle.color.goldenApricot
-    property string defaultBodredColor: AmneziaStyle.color.transparent
-    property string checkedDisabledBorderColor: AmneziaStyle.color.mutedBrown
-    property string borderFocusedColor: AmneziaStyle.color.paleGray
+    property string pressedBorderColor: NvoStyle.color.charcoalGray
+    property string checkedBorderColor: NvoStyle.color.goldenApricot
+    property string defaultBodredColor: NvoStyle.color.transparent
+    property string checkedDisabledBorderColor: NvoStyle.color.mutedBrown
+    property string borderFocusedColor: NvoStyle.color.paleGray
     property int borderWidth: 0
 
     implicitWidth: content.implicitWidth

@@ -96,11 +96,11 @@ set_target_properties(${PROJECT} PROPERTIES
     XCODE_ATTRIBUTE_SWIFT_VERSION "5.0"
     XCODE_ATTRIBUTE_CLANG_ENABLE_MODULES "YES"
     XCODE_ATTRIBUTE_SWIFT_PRECOMPILE_BRIDGING_HEADER "NO"
-    XCODE_ATTRIBUTE_SWIFT_OBJC_INTERFACE_HEADER_NAME "AmneziaVPN-Swift.h"
-    # NvoVPN: имя Swift-модуля держим AmneziaVPN (отдельно от PRODUCT_NAME=NvoVPN для .app/Mach-O),
-    # т.к. C++ код импортит <AmneziaVPN-Swift.h> и обращается к namespace AmneziaVPN:: (6+ мест).
-    # Та же схема, что на macOS (см. macos_ne.cmake) — проверенная, сборку не ломает.
-    XCODE_ATTRIBUTE_PRODUCT_MODULE_NAME "AmneziaVPN"
+    # NvoVPN: Swift-модуль тоже NvoVPN (App Store 4.3 — mangled-символы Swift содержат имя модуля,
+    # "AmneziaVPN" в символах бинаря палил происхождение). C++ код переведён на <NvoVPN-Swift.h>
+    # и namespace NvoVPN:: (синхронно с macos_ne.cmake — модуль общий для C++ обеих платформ).
+    XCODE_ATTRIBUTE_SWIFT_OBJC_INTERFACE_HEADER_NAME "NvoVPN-Swift.h"
+    XCODE_ATTRIBUTE_PRODUCT_MODULE_NAME "NvoVPN"
     XCODE_ATTRIBUTE_SWIFT_OBJC_INTEROP_MODE "objcxx"
 )
 set_target_properties(${PROJECT} PROPERTIES

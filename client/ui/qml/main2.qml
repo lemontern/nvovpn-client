@@ -61,7 +61,7 @@ Window  {
     maximumWidth: 600
     maximumHeight: 800
 
-    color: AmneziaStyle.color.midnightBlack
+    color: NvoStyle.color.midnightBlack
 
     onClosing: function(close) {
         close.accepted = false
@@ -290,11 +290,11 @@ Window  {
 
                     Layout.fillWidth: true
 
-                    defaultColor: AmneziaStyle.color.transparent
-                    hoveredColor: AmneziaStyle.color.translucentWhite
-                    pressedColor: AmneziaStyle.color.sheerWhite
-                    disabledColor: AmneziaStyle.color.mutedGray
-                    textColor: AmneziaStyle.color.paleGray
+                    defaultColor: NvoStyle.color.transparent
+                    hoveredColor: NvoStyle.color.translucentWhite
+                    pressedColor: NvoStyle.color.sheerWhite
+                    disabledColor: NvoStyle.color.mutedGray
+                    textColor: NvoStyle.color.paleGray
                     borderWidth: 1
 
                     text: qsTr("Save")
