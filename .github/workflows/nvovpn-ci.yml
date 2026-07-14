@@ -8,6 +8,11 @@ name: 'NvoVPN CI'
 
 on:
   workflow_dispatch:
+    inputs:
+      macos_qt_version:
+        description: 'Qt для macOS-сборки (6.8.3 = поддержка Monterey/macOS 12; дефолт 6.10.1 = публичная)'
+        default: '6.10.1'
+        required: false
   push:
     branches:
       - '**'
@@ -249,7 +254,9 @@ jobs:
   Build-macOS:
     runs-on: macos-14
     env:
-      QT_VERSION: 6.10.1
+      # Дефолт 6.10.1 (публичная сборка, macOS 13+). Через workflow_dispatch можно
+      # запустить с 6.8.3 для приватной сборки под Monterey (macOS 12). Push не затрагивается.
+      QT_VERSION: ${{ github.event.inputs.macos_qt_version || '6.10.1' }}
       QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
       PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
       PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
