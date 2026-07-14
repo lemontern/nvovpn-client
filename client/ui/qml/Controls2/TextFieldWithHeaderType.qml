@@ -166,7 +166,7 @@ Item {
 
     MouseArea {
         anchors.fill: root
-        cursorShape: contextMenu.opened ? Qt.ArrowCursor : Qt.IBeamCursor
+        cursorShape: Qt.IBeamCursor
 
         hoverEnabled: true
 
