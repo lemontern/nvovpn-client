@@ -308,6 +308,7 @@ jobs:
           echo "QT_ROOT=$QT_ROOT"
           cmake -S . -B build -G Xcode \
             -DMACOS_NE=TRUE \
+            -DCMAKE_OSX_SYSROOT="$(xcrun --sdk macosx --show-sdk-path)" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$QT_ROOT"
 
