@@ -144,11 +144,7 @@ Item {
                             }
                         }
 
-                        ContextMenu.menu: ContextMenuType {
-                            id: contextMenu
-                            textObj: textField
-                        }
-
+                        // ContextMenu (Qt 6.9+) недоступен в Qt 6.8 (Monterey-сборка) — убрано.
                         onFocusChanged: {
                             backgroud.border.color = getBackgroundBorderColor(root.borderColor)
                         }

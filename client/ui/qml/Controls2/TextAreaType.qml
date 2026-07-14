@@ -93,11 +93,7 @@ Rectangle {
 
                 wrapMode: Text.Wrap
 
-                ContextMenu.menu: ContextMenuType {
-                    id: contextMenu
-                    textObj: textArea
-                }
-
+                // ContextMenu (Qt 6.9+) недоступен в Qt 6.8 (Monterey-сборка) — убрано.
                 onFocusChanged: {
                     root.border.color = getBorderColor(borderNormalColor)
                 }
