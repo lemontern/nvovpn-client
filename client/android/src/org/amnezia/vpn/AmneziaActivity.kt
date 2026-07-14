@@ -1058,6 +1058,29 @@ class AmneziaActivity : QtActivity() {
     @Suppress("unused")
     fun isNotificationPermissionGranted(): Boolean = applicationContext.isNotificationPermissionGranted()
 
+    // NvoVPN: официальный Google Play In-App Review (окно оценки). Вызывается из C++
+    // (NvoApiController) после N успешных подключений. Google сам решает, показать ли
+    // диалог (внутренняя квота), поэтому вызов безопасен и не может «зациклить» юзера.
+    @Suppress("unused")
+    fun requestInAppReview() {
+        Log.v(TAG, "Request in-app review")
+        runOnUiThread {
+            try {
+                val manager = com.google.android.play.core.review.ReviewManagerFactory.create(this)
+                manager.requestReviewFlow().addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        manager.launchReviewFlow(this, task.result)
+                    } else {
+                        Log.w(TAG, "In-app review unavailable: ${task.exception}")
+                    }
+                }
+            } catch (e: Throwable) {
+                // Никогда не роняем приложение из-за отзыва (нет Play Services и т.п.)
+                Log.w(TAG, "In-app review failed: $e")
+            }
+        }
+    }
+
     @Suppress("unused")
     fun requestNotificationPermission() {
         val shouldShowPreRequest = shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)

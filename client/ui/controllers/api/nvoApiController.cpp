@@ -15,6 +15,7 @@
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
+    #include "platforms/android/android_utils.h"
 #endif
 
 #include "secureQSettings.h"
@@ -32,6 +33,8 @@ namespace
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
     constexpr char FAVORITES_KEY[] = "Conf/nvoFavoriteCountries";
+    constexpr char CONNECT_COUNT_KEY[] = "Conf/nvoConnectCount";
+    constexpr char REVIEW_ASKED_KEY[] = "Conf/nvoReviewAsked";
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -102,6 +105,29 @@ void NvoApiController::setOnboardingDone()
     if (m_settings)
         m_settings->setValue(QString::fromLatin1(ONBOARDING_KEY), true);
     emit onboardingChanged();
+}
+
+void NvoApiController::registerSuccessfulConnection()
+{
+    // In-App Review (только Android): официальное окно оценки Google Play после 3-го
+    // успешного подключения, один раз. Google сам лимитирует показ — спама не будет.
+    // На остальных платформах — no-op (ничего не делает, ничего не ломает).
+#ifdef Q_OS_ANDROID
+    if (!m_settings)
+        return;
+    if (m_settings->value(QString::fromLatin1(REVIEW_ASKED_KEY), false).toBool())
+        return;
+    const int n = m_settings->value(QString::fromLatin1(CONNECT_COUNT_KEY), 0).toInt() + 1;
+    m_settings->setValue(QString::fromLatin1(CONNECT_COUNT_KEY), n);
+    if (n < 3)
+        return;
+    m_settings->setValue(QString::fromLatin1(REVIEW_ASKED_KEY), true);
+    AndroidUtils::runOnAndroidThreadAsync([]() {
+        QJniObject activity = AndroidUtils::getActivity();
+        if (activity.isValid())
+            activity.callMethod<void>("requestInAppReview");
+    });
+#endif
 }
 
 void NvoApiController::toggleFavoriteCountry(const QString &countryCode)

@@ -24,7 +24,13 @@ PageType {
 
     // Таймер активной сессии: считаем время с момента подключения, сбрасываем при отключении.
     property int sessionSeconds: 0
-    onConnectedChanged: sessionSeconds = 0
+    onConnectedChanged: {
+        sessionSeconds = 0
+        // In-App Review (Android): считаем успешные подключения; на 3-м NvoApi покажет
+        // официальное окно оценки Google. На iOS/desktop вызов — no-op.
+        if (connected)
+            NvoApi.registerSuccessfulConnection()
+    }
 
     function formatDuration(s) {
         function p(n) { return (n < 10 ? "0" : "") + n }

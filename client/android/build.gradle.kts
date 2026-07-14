@@ -91,4 +91,6 @@ dependencies {
     implementation(libs.google.mlkit)
     implementation(libs.androidx.datastore)
     implementation(libs.androidx.biometric)
+    // NvoVPN: Google Play In-App Review (окно оценки в приложении)
+    implementation("com.google.android.play:review:2.0.2")
 }

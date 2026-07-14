@@ -71,6 +71,7 @@ public slots:
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
     void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
     void toggleFavoriteCountry(const QString &countryCode);  // добавить/убрать страну из избранного (сохраняется)
+    void registerSuccessfulConnection();  // счётчик успешных коннектов; на 3-м — In-App Review (Android)
 
 signals:
     void authenticationChanged();
