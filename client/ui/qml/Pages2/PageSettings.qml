@@ -76,12 +76,13 @@ PageType {
         footer: ColumnLayout {
             width: listView.width
 
-            // NvoVPN: ввести промокод (кросс-промо «5 дней»). Активация бесплатного кода —
-            // не покупка, поэтому показываем и на iOS (3.1.3 не нарушается).
+            // NvoVPN: ввести промокод (кросс-промо «5 дней»).
+            // СКРЫТО на iOS: App Store 3.1.1 запрещает разблокировку подписки промокодом
+            // в обход In-App Purchase (отказ ревью 2026-07-15). На Win/Android/macOS остаётся.
             LabelWithButtonType {
                 id: promoEntry
 
-                visible: NvoApi.isAuthenticated
+                visible: NvoApi.isAuthenticated && Qt.platform.os !== "ios"
                 Layout.fillWidth: true
 
                 text: qsTr("Ввести промокод")
@@ -94,7 +95,7 @@ PageType {
             }
 
             DividerType {
-                visible: NvoApi.isAuthenticated
+                visible: NvoApi.isAuthenticated && Qt.platform.os !== "ios"
                 Layout.fillWidth: true
                 Layout.leftMargin: 16
                 Layout.rightMargin: 16
