@@ -20,6 +20,11 @@ PageType {
     // На iOS показываем ТОЛЬКО нейтральный статус подписки, без CTA на оплату и без слова «сайт».
     readonly property bool isIos: Qt.platform.os === "ios"
 
+    Component.onCompleted: {
+        if (root.isIos)
+            NvoApi.fetchIapProducts()   // подтянуть цены StoreKit для кнопок покупки
+    }
+
     BackButtonType {
         id: backButton
         anchors.top: parent.top
@@ -63,6 +68,77 @@ PageType {
                 if (root.isIos)
                     return qsTr("Сейчас нет активной подписки.")
                 return qsTr("Продлите подписку на сайте, чтобы снова пользоваться защитой. Это займёт минуту.")
+            }
+        }
+
+        // ---- iOS: покупка подписки через In-App Purchase (App Store 3.1.1) ----
+        // На iOS оплата ТОЛЬКО через Apple IAP (иначе отказ 3.1.1). Веб-оплата — на других платформах.
+        ColumnLayout {
+            Layout.fillWidth: true
+            Layout.leftMargin: 24
+            Layout.rightMargin: 24
+            Layout.topMargin: 8
+            spacing: 12
+            visible: root.isIos && !root.active
+
+            CaptionTextType {
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                color: NvoStyle.color.paleGray
+                text: qsTr("Оформить подписку")
+            }
+
+            // Год — сверху (выгоднее)
+            BasicButtonType {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 60
+                enabled: !NvoApi.isBusy && NvoApi.iapPrice1y.length > 0
+                text: NvoApi.iapPrice1y.length > 0
+                      ? qsTr("1 год — %1").arg(NvoApi.iapPrice1y)
+                        + (NvoApi.iapPricePerMonth1y.length > 0 ? qsTr(" (%1/мес)").arg(NvoApi.iapPricePerMonth1y) : "")
+                      : qsTr("1 год")
+                clickedFunc: function() { NvoApi.purchaseIap("com.nvovpn.app.premium.1y") }
+            }
+
+            // Месяц
+            BasicButtonType {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 56
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                textColor: NvoStyle.color.paleGray
+                borderColor: NvoStyle.color.slateGray
+                borderWidth: 1
+                enabled: !NvoApi.isBusy && NvoApi.iapPrice1m.length > 0
+                text: NvoApi.iapPrice1m.length > 0 ? qsTr("1 месяц — %1").arg(NvoApi.iapPrice1m) : qsTr("1 месяц")
+                clickedFunc: function() { NvoApi.purchaseIap("com.nvovpn.app.premium.1m") }
+            }
+
+            // Восстановить покупки — обязательный пункт для App Store.
+            CaptionTextType {
+                Layout.alignment: Qt.AlignHCenter
+                Layout.topMargin: 4
+                horizontalAlignment: Text.AlignHCenter
+                color: NvoStyle.color.mutedGray
+                text: qsTr("Восстановить покупки")
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: !NvoApi.isBusy
+                    onClicked: NvoApi.restoreIap()
+                }
+            }
+
+            // Обязательная формулировка Apple про авто-продление.
+            SmallTextType {
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: NvoStyle.color.mutedGray
+                font.pixelSize: 11
+                text: qsTr("Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.")
             }
         }
 
@@ -115,9 +191,10 @@ PageType {
         }
 
         // Промокод (кросс-промо «5 дней»): ввод → POST /promo/redeem.
-        // Показываем на всех платформах, включая iOS: это активация БЕСПЛАТНОГО кода
-        // (не покупка), поэтому 3.1.3 не нарушается — пользователь вводит код, а не платит.
+        // СКРЫТО на iOS: App Store Guideline 3.1.1 запрещает разблокировку подписки промокодом
+        // в обход In-App Purchase (отказ ревью 2026-07-15). На Win/Android/macOS остаётся.
         CaptionTextType {
+            visible: !root.isIos
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 24
             horizontalAlignment: Text.AlignHCenter
@@ -127,6 +204,7 @@ PageType {
 
         TextFieldWithHeaderType {
             id: promoField
+            visible: !root.isIos
             Layout.fillWidth: true
             Layout.leftMargin: 24
             Layout.rightMargin: 24
@@ -134,6 +212,7 @@ PageType {
         }
 
         BasicButtonType {
+            visible: !root.isIos
             Layout.fillWidth: true
             Layout.topMargin: 8
             Layout.leftMargin: 24
@@ -155,6 +234,14 @@ PageType {
             PageController.showNotificationMessage(message)
         }
         function onPromoFailed(message, reason) {
+            PageController.showNotificationMessage(message)
+        }
+        // IAP (iOS): результат покупки/восстановления. При успехе экран сам покажет
+        // «Подписка активна» (root.active станет true после refreshUser).
+        function onIapPurchaseSucceeded(message) {
+            PageController.showNotificationMessage(message)
+        }
+        function onIapPurchaseFailed(message) {
             PageController.showNotificationMessage(message)
         }
     }

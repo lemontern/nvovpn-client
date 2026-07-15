@@ -32,6 +32,11 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString subscriptionStatus READ subscriptionStatus NOTIFY subscriptionChanged)
     Q_PROPERTY(QString subscriptionExpiresAt READ subscriptionExpiresAt NOTIFY subscriptionChanged)
     Q_PROPERTY(int subscriptionDaysRemaining READ subscriptionDaysRemaining NOTIFY subscriptionChanged)
+    // In-App Purchase (только iOS, App Store 3.1.1): цены тянутся из StoreKit.
+    Q_PROPERTY(bool iapReady READ iapReady NOTIFY iapProductsUpdated)
+    Q_PROPERTY(QString iapPrice1m READ iapPrice1m NOTIFY iapProductsUpdated)
+    Q_PROPERTY(QString iapPrice1y READ iapPrice1y NOTIFY iapProductsUpdated)
+    Q_PROPERTY(QString iapPricePerMonth1y READ iapPricePerMonth1y NOTIFY iapProductsUpdated)
     Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
     Q_PROPERTY(bool onboardingDone READ onboardingDone NOTIFY onboardingChanged)
     Q_PROPERTY(QStringList favoriteCountries READ favoriteCountries NOTIFY favoritesChanged)
@@ -50,6 +55,10 @@ public:
     QString subscriptionStatus() const;
     QString subscriptionExpiresAt() const;
     int subscriptionDaysRemaining() const;
+    bool iapReady() const;                       // цены StoreKit загружены (iOS)
+    QString iapPrice1m() const;                  // отображаемая цена 1 мес ("$3.99")
+    QString iapPrice1y() const;                  // отображаемая цена 1 год
+    QString iapPricePerMonth1y() const;          // цена/мес для годового (для «выгоднее»)
     int selectedServerId() const;               // -1 = Авто (лучший сервер)
     bool onboardingDone() const;                // показан ли обучающий экран (§12.8)
     QStringList favoriteCountries() const;      // коды избранных стран (для подсветки/сортировки в UI)
@@ -73,6 +82,11 @@ public slots:
     void toggleFavoriteCountry(const QString &countryCode);  // добавить/убрать страну из избранного (сохраняется)
     void registerSuccessfulConnection();  // счётчик успешных коннектов; на 3-м — In-App Review (Android)
 
+    // ---- In-App Purchase (iOS, App Store 3.1.1) ----
+    void fetchIapProducts();                     // подтянуть цены 1m/1y из StoreKit (iOS; no-op иначе)
+    void purchaseIap(const QString &productId);  // купить продукт → чек в бэкенд → активация подписки
+    void restoreIap();                           // «Восстановить покупки» → чеки в бэкенд
+
 signals:
     void authenticationChanged();
     void busyChanged();
@@ -81,6 +95,9 @@ signals:
     void selectedServerChanged();
     void onboardingChanged();
     void favoritesChanged();
+    void iapProductsUpdated();                   // цены StoreKit подгрузились
+    void iapPurchaseSucceeded(const QString &message);  // покупка активирована на бэкенде
+    void iapPurchaseFailed(const QString &message);     // отмена/ошибка покупки или активации
 
     void loginSucceeded();
     void loginFailed(const QString &message);
@@ -105,6 +122,7 @@ private:
     QString humanError(QNetworkReply *reply) const;
     void pollGoogleLogin();                      // один тик опроса /auth/poll?ds=...
     void stopGooglePolling();
+    void sendAppleReceipt(const QString &originalTransactionId, const QString &productId);  // POST /app/iap/apple
 
     QNetworkAccessManager *m_nam;
     SecureQSettings *m_settings;
@@ -124,6 +142,12 @@ private:
     bool m_busy = false;
     bool m_onboardingDone = false;
     QStringList m_favoriteCountries;
+
+    // In-App Purchase (iOS): цены из StoreKit.
+    bool m_iapReady = false;
+    QString m_iapPrice1m;
+    QString m_iapPrice1y;
+    QString m_iapPricePerMonth1y;
 
     // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
     QList<int> m_failoverQueue;

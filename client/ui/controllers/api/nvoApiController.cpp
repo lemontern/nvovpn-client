@@ -18,6 +18,16 @@
     #include "platforms/android/android_utils.h"
 #endif
 
+#if defined(Q_OS_IOS)
+    #include "platforms/ios/ios_controller.h"
+#endif
+
+// In-App Purchase product identifiers (App Store Connect: группа NvoVPN Premium).
+namespace {
+    const QString kIapProduct1m = QStringLiteral("com.nvovpn.app.premium.1m");
+    const QString kIapProduct1y = QStringLiteral("com.nvovpn.app.premium.1y");
+}
+
 #include "secureQSettings.h"
 #include "ui/models/api/nvoServersModel.h"
 #include "logger.h"
@@ -670,4 +680,104 @@ QString NvoApiController::humanError(QNetworkReply *reply) const
     default:
         return tr("Что-то пошло не так, попробуйте ещё раз");
     }
+}
+
+// ==================== In-App Purchase (iOS, App Store 3.1.1) ====================
+// Покупка идёт через StoreKit (IosController — уже готовый мост к StoreKit2Helper),
+// затем чек Apple отправляется на НАШ бэкенд (/app/iap/apple), который проверяет его
+// у Apple и активирует подписку на аккаунте. На не-iOS все методы — no-op.
+
+bool NvoApiController::iapReady() const { return m_iapReady; }
+QString NvoApiController::iapPrice1m() const { return m_iapPrice1m; }
+QString NvoApiController::iapPrice1y() const { return m_iapPrice1y; }
+QString NvoApiController::iapPricePerMonth1y() const { return m_iapPricePerMonth1y; }
+
+void NvoApiController::fetchIapProducts()
+{
+#if defined(Q_OS_IOS)
+    IosController::Instance()->fetchProducts(QStringList { kIapProduct1m, kIapProduct1y },
+        [this](const QList<QVariantMap> &products, const QStringList &invalidIds, const QString &errorString) {
+            Q_UNUSED(invalidIds)
+            Q_UNUSED(errorString)
+            for (const QVariantMap &p : products) {
+                const QString pid = p.value(QStringLiteral("productId")).toString();
+                const QString displayPrice = p.value(QStringLiteral("displayPrice")).toString();
+                if (pid == kIapProduct1m) {
+                    m_iapPrice1m = displayPrice;
+                } else if (pid == kIapProduct1y) {
+                    m_iapPrice1y = displayPrice;
+                    m_iapPricePerMonth1y = p.value(QStringLiteral("displayPricePerMonth")).toString();
+                }
+            }
+            m_iapReady = !m_iapPrice1m.isEmpty() || !m_iapPrice1y.isEmpty();
+            emit iapProductsUpdated();
+        });
+#endif
+}
+
+void NvoApiController::purchaseIap(const QString &productId)
+{
+#if defined(Q_OS_IOS)
+    if (m_token.isEmpty()) { emit sessionExpired(); return; }
+    setBusy(true);
+    IosController::Instance()->purchaseProduct(productId,
+        [this](bool success, const QString &transactionId, const QString &purchasedProductId,
+               const QString &originalTransactionId, const QString &errorString) {
+            Q_UNUSED(transactionId)
+            if (!success) {
+                setBusy(false);
+                emit iapPurchaseFailed(errorString.isEmpty() ? tr("Покупка не завершена") : errorString);
+                return;
+            }
+            // StoreKit подтвердил покупку → чек на бэкенд для активации подписки.
+            sendAppleReceipt(originalTransactionId, purchasedProductId);
+        });
+#else
+    Q_UNUSED(productId)
+#endif
+}
+
+void NvoApiController::restoreIap()
+{
+#if defined(Q_OS_IOS)
+    if (m_token.isEmpty()) { emit sessionExpired(); return; }
+    setBusy(true);
+    IosController::Instance()->restorePurchases(
+        [this](bool success, const QList<QVariantMap> &transactions, const QString &errorString) {
+            if (!success || transactions.isEmpty()) {
+                setBusy(false);
+                emit iapPurchaseFailed(errorString.isEmpty() ? tr("Активных покупок не найдено") : errorString);
+                return;
+            }
+            const QVariantMap t = transactions.first();  // StoreKit отдаёт отсортированные по дате
+            sendAppleReceipt(t.value(QStringLiteral("originalTransactionId")).toString(),
+                             t.value(QStringLiteral("productId")).toString());
+        });
+#endif
+}
+
+void NvoApiController::sendAppleReceipt(const QString &originalTransactionId, const QString &productId)
+{
+    if (m_token.isEmpty()) { setBusy(false); emit sessionExpired(); return; }
+    const QJsonObject body {
+        { QStringLiteral("transaction_id"), originalTransactionId },
+        { QStringLiteral("product_id"), productId }
+    };
+    QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/app/iap/apple"), true),
+                                       QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        setBusy(false);
+        const int status = httpStatus(reply);
+        if (status == 401) { setToken(QString()); emit sessionExpired(); return; }
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        const bool ok = (status >= 200 && status < 300) && root.value(QStringLiteral("success")).toBool(true);
+        const QString message = root.value(QStringLiteral("message")).toString();
+        if (ok) {
+            emit iapPurchaseSucceeded(message.isEmpty() ? tr("Подписка активирована") : message);
+            refreshUser();   // обновить статус подписки → разблокировать подключение
+        } else {
+            emit iapPurchaseFailed(message.isEmpty() ? tr("Не удалось активировать подписку") : message);
+        }
+    });
 }
