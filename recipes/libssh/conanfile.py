@@ -64,8 +64,12 @@ class LibSSHRecipe(ConanFile):
             raise ConanInvalidConfiguration(f"{self.ref} requires '-o mbedtls/*:enable_threading=True' when using '-o libssh/*:crypto_backend=mbedtls'")
 
     def source(self):
-        get(self, "https://www.libssh.org/files/0.11/libssh-0.11.3.tar.xz",
-            sha256="7d8a1361bb094ec3f511964e78a5a4dba689b5986e112afabe4f4d0d6c6125c3", strip_root=True
+        # libssh.org — единственный upstream и периодически лежит, валя весь CI (2026-07-15: недоступен часами).
+        # Берём git-архив тега libssh-0.11.3, захостенный в нашем GitHub Release (неизменяемый ассет → hash стабилен),
+        # с GitLab-зеркалом как fallback. Тот же исходник (CMake сам генерит libssh_version.h) — сборка идентична.
+        get(self, ["https://github.com/lemontern/nvovpn-client/releases/download/deps-mirror/libssh-0.11.3.tar.gz",
+                   "https://gitlab.com/libssh/libssh-mirror/-/archive/libssh-0.11.3/libssh-mirror-libssh-0.11.3.tar.gz"],
+            sha256="16f4a54ee1e2d115931204fd45b87589dd8852dbfe48901c5c2dbc0b4b71da9a", strip_root=True
         )
 
     def generate(self):
