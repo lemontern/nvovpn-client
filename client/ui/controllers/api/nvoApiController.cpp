@@ -45,6 +45,7 @@ namespace
     constexpr char FAVORITES_KEY[] = "Conf/nvoFavoriteCountries";
     constexpr char CONNECT_COUNT_KEY[] = "Conf/nvoConnectCount";
     constexpr char REVIEW_ASKED_KEY[] = "Conf/nvoReviewAsked";
+    constexpr char STEALTH_MODE_KEY[] = "Conf/nvoStealthMode";
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -88,11 +89,16 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
         m_token = QString::fromUtf8(m_settings->value(QString::fromLatin1(TOKEN_KEY)).toByteArray());
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
+        m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
     }
 }
 
 bool NvoApiController::isAuthenticated() const { return !m_token.isEmpty(); }
 bool NvoApiController::isBusy() const { return m_busy; }
+int NvoApiController::stealthMode() const { return m_stealthMode; }
+bool NvoApiController::lastConnectViaStealth() const { return m_lastConnectViaStealth; }
+int NvoApiController::lastConnectServerId() const { return m_lastConnectServerId; }
+QString NvoApiController::lastProtocol() const { return m_lastProtocol; }
 QString NvoApiController::userName() const { return m_userName; }
 QString NvoApiController::userEmail() const { return m_userEmail; }
 bool NvoApiController::hasSubscription() const { return m_hasSubscription; }
@@ -162,13 +168,43 @@ void NvoApiController::setSelectedServerId(int serverId)
     }
 }
 
+void NvoApiController::setStealthMode(int mode)
+{
+    // 0=выкл, 1=авто, 2=всегда. Любое иное значение приводим к «авто».
+    if (mode < 0 || mode > 2) {
+        mode = 1;
+    }
+    if (m_stealthMode != mode) {
+        m_stealthMode = mode;
+        if (m_settings) {
+            m_settings->setValue(QString::fromLatin1(STEALTH_MODE_KEY), mode);
+        }
+        emit stealthModeChanged();
+    }
+}
+
+void NvoApiController::connectViaStealthFallback()
+{
+    // Вызывается оркестратором, когда AWG не поднялся за таймаут. Перезапрашиваем тот же
+    // сервер по VLESS. Тот же путь configReady → import → openConnection поднимет xray-туннель.
+    if (m_lastConnectServerId < 0 || m_stealthMode == 0) {
+        return;
+    }
+    if (m_lastProtocol == QStringLiteral("vless")) {
+        return; // уже на VLESS — второго фолбека нет
+    }
+    requestConfig(m_lastConnectServerId, QStringLiteral("vless"));
+}
+
 void NvoApiController::connectToSelected()
 {
+    // «Всегда Stealth» (mode 2) — сразу VLESS, минуя AWG. Иначе основной AWG (фолбек — по таймауту).
+    const QString proto = (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg");
     if (m_selectedServerId >= 0) {
         // Явный выбор страны — без failover (юзер хочет именно её).
         m_inFailover = false;
         m_failoverQueue.clear();
-        requestConfig(m_selectedServerId);
+        requestConfig(m_selectedServerId, proto);
         return;
     }
 
@@ -186,7 +222,7 @@ void NvoApiController::tryNextFailover()
         return;
     }
     const int id = m_failoverQueue.takeFirst();
-    requestConfig(id);
+    requestConfig(id, (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg"));
 }
 
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const
@@ -398,14 +434,22 @@ void NvoApiController::redeemPromo(const QString &code)
     });
 }
 
-void NvoApiController::requestConfig(int serverId)
+void NvoApiController::requestConfig(int serverId, const QString &protocol)
 {
     if (m_token.isEmpty()) {
         emit errorOccurred(tr("Сначала войдите в аккаунт"));
         return;
     }
+    // Запоминаем параметры последнего запроса — нужно оркестратору для VLESS-фолбека по таймауту.
+    m_lastConnectServerId = serverId;
+    m_lastProtocol = protocol;
+    const bool viaStealth = (protocol == QStringLiteral("vless"));
+    if (m_lastConnectViaStealth != viaStealth) {
+        m_lastConnectViaStealth = viaStealth;
+        emit lastConnectViaStealthChanged();
+    }
     setBusy(true);
-    const QJsonObject body { { "server_id", serverId }, { "protocol", QStringLiteral("amneziawg") },
+    const QJsonObject body { { "server_id", serverId }, { "protocol", protocol },
                              { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/connect"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));

@@ -199,6 +199,43 @@ PageType {
                 }
             }
 
+            DividerType {}
+
+            // Маскировка (VLESS/Reality stealth-фолбек). Индекс списка = режим NvoApi.stealthMode: 0=выкл,1=авто,2=всегда.
+            DropDownType {
+                id: stealthModeDropDown
+
+                Layout.fillWidth: true
+                Layout.margins: 16
+
+                drawerParent: root
+
+                property var stealthTexts: [qsTr("Off"), qsTr("Auto (on block)"), qsTr("Always on")]
+
+                text: stealthTexts[NvoApi.stealthMode]
+                descriptionText: qsTr("Backup VLESS protocol that looks like regular HTTPS — turns on when the main protocol is throttled (RU/DPI).")
+                headerText: qsTr("Stealth mode")
+
+                listView: ListViewWithRadioButtonType {
+                    rootWidth: root.width
+                    model: ListModel {
+                        Component.onCompleted: {
+                            append({ name: qsTr("Off") })
+                            append({ name: qsTr("Auto (on block)") })
+                            append({ name: qsTr("Always on") })
+                        }
+                    }
+                    clickedFunction: function () {
+                        NvoApi.setStealthMode(selectedIndex)
+                        stealthModeDropDown.text = selectedText
+                        stealthModeDropDown.closeTriggered()
+                    }
+                    Component.onCompleted: {
+                        selectedIndex = NvoApi.stealthMode
+                    }
+                }
+            }
+
             DividerType {
                 visible: !GC.isMobile() && ServersUiController.hasServersFromGatewayApi
             }

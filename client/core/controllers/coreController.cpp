@@ -238,16 +238,42 @@ void CoreController::initControllers()
     m_nvoApiController = new NvoApiController(m_settings, m_nvoServersModel, this);
     setQmlContextProperty("NvoApi", m_nvoApiController);
 
-    // NvoVPN connect-оркестрация: готовый awg .conf из POST /connect → движок коннекта Amnezia.
-    // Держим ровно один сервер: удаляем прежние, импортируем свежий (станет default), подключаем.
+    // Маскировка (VLESS-фолбек): watchdog handshake AWG. Штатный AmneziaWG-handshake проходит за 1-2 сек;
+    // если за 10 сек нет перехода в Connected (DPI режет UDP) — тихо пробуем VLESS того же сервера.
+    // Не стартует для не-AWG и в режиме «выкл»; гасится при первом же успешном/ошибочном исходе — то есть
+    // на рабочем AWG ведёт себя ровно как раньше.
+    m_stealthWatchdog = new QTimer(this);
+    m_stealthWatchdog->setSingleShot(true);
+    m_stealthWatchdog->setInterval(10000);
+    connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
+        // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
+        if (!m_connectionUiController->isConnected()) {
+            m_nvoApiController->connectViaStealthFallback();
+        }
+    });
+    // Успех/ошибка подключения — снимаем watchdog (handshake прошёл или явный сбой; таймаут больше не нужен).
+    connect(m_connectionUiController, &ConnectionUiController::connectionStateChanged, this, [this]() {
+        if (m_connectionUiController->isConnected() || !m_connectionUiController->isConnectionInProgress()) {
+            m_stealthWatchdog->stop();
+        }
+    });
+
+    // NvoVPN connect-оркестрация: готовый awg .conf (или vless:// при фолбеке/Stealth) из POST /connect →
+    // движок коннекта Amnezia. Держим ровно один сервер: удаляем прежние, импортируем свежий, подключаем.
     connect(m_nvoApiController, &NvoApiController::configReady, this,
             [this](const QString &config, int, const QString &, const QString &, const QString &) {
+                m_stealthWatchdog->stop();
                 while (m_serversController->getServersCount() > 0) {
                     m_serversController->removeServer(m_serversController->getServerId(0));
                 }
                 if (m_importController->extractConfigFromData(config)) {
                     m_importController->importConfig();
                     m_connectionUiController->openConnection();
+                    // Только для AWG в режиме «авто» сторожим handshake — иначе (VLESS/always/выкл) watchdog не нужен.
+                    if (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg")
+                            && m_nvoApiController->stealthMode() == 1) {
+                        m_stealthWatchdog->start();
+                    }
                 }
             });
 }

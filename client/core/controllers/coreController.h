@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QQmlContext>
 #include <QThread>
+#include <QTimer>
 
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS)
     #include "ui/utils/systemTrayNotificationHandler.h"
@@ -231,6 +232,9 @@ private:
     TelemtConfigModel* m_telemtConfigModel;
 
     CoreSignalHandlers* m_signalHandlers;
+
+    // Маскировка: watchdog AWG→VLESS. Если AWG не поднялся (нет handshake) за таймаут — фолбек на VLESS.
+    QTimer* m_stealthWatchdog = nullptr;
 };
 
 #endif // CORECONTROLLER_H
