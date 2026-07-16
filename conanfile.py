@@ -8,7 +8,10 @@ class AmneziaVPN(ConanFile):
         "macos_ne": [True, False]
     }
     default_options = {
-        "macos_ne": False
+        "macos_ne": False,
+        # libssh на Android использует mbedTLS-backend (см. requirements); он требует threading.
+        # На других платформах mbedtls в граф не входит — опция там безвредно игнорируется.
+        "mbedtls/*:enable_threading": True,
     }
 
     def requirements(self):
@@ -50,8 +53,8 @@ class AmneziaVPN(ConanFile):
         # платформах OpenSSL резолвится штатно) — переключаем libssh на mbedTLS (чистый C, портируемый).
         # libssh нужен только self-hosted-флоу (SSH внутрь сервера); боевой NvoVPN-путь его не вызывает.
         if os == "Android":
+            # mbedtls затянется транзитивно (libssh crypto_backend=mbedtls); enable_threading задан в default_options.
             self.requires("libssh/0.11.3@amnezia", options={"crypto_backend": "mbedtls"})
-            self.requires("mbedtls/3.6.0", options={"enable_threading": True})
         else:
             self.requires("libssh/0.11.3@amnezia")
         self.requires("openssl/3.6.2")
