@@ -145,3 +145,6 @@ DeveloperIdApplicationCertificate.p12
 DeveloperIdInstallerCertificate.p12
 
 VPN.dc.html
+
+# Apple ключи (IAP/StoreKit) — секреты, не коммитить
+*.p8
