@@ -46,6 +46,13 @@ class AmneziaVPN(ConanFile):
             self.requires("openvpn-pt-android/1.0.0")
 
         # expicitly use libssh@amnezia to prevent it from being downloaded from conan-center
-        self.requires("libssh/0.11.3@amnezia")
+        # На Android OpenSSL-backend libssh не находит библиотеку 'ssl' при сборке (на других
+        # платформах OpenSSL резолвится штатно) — переключаем libssh на mbedTLS (чистый C, портируемый).
+        # libssh нужен только self-hosted-флоу (SSH внутрь сервера); боевой NvoVPN-путь его не вызывает.
+        if os == "Android":
+            self.requires("libssh/0.11.3@amnezia", options={"crypto_backend": "mbedtls"})
+            self.requires("mbedtls/3.6.0", options={"enable_threading": True})
+        else:
+            self.requires("libssh/0.11.3@amnezia")
         self.requires("openssl/3.6.2")
         self.requires("zlib/1.3.2")
