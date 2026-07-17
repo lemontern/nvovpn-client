@@ -66,6 +66,17 @@ set(CLIENT_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 target_link_libraries(AmneziaVPNNetworkExtension PRIVATE ${FW_LIBRESOLV})
 
+# SPIKE (macOS VLESS): диагностический тест ГЛАВНОГО блокера — уживаются ли два Go-рантайма
+# (libwg-go внутри awg-apple + libamnezia_xray, движок xray) в одном бинаре extension.
+# Swift-обвязка пока заглушка (XrayStub) и НЕ ссылается на символы xray, поэтому без -force_load
+# линкер выкинул бы объекты xray (dead-strip) и конфликт не всплыл бы — тест был бы ложно-зелёным.
+# -force_load вытягивает ВСЕ объекты libamnezia_xray → дублирующиеся cgo-символы с libwg-go
+# всплывают на линковке, если конфликт реален. Фикс (локализация символов) — следующим шагом,
+# по точному списку из лога CI. hev здесь намеренно НЕ линкуется (C, не влияет на Go-вопрос).
+find_package(amnezia-xray-bindings REQUIRED)
+target_link_libraries(AmneziaVPNNetworkExtension PRIVATE amnezia::xray-bindings)
+target_link_options(AmneziaVPNNetworkExtension PRIVATE "-Wl,-force_load,$<TARGET_FILE:amnezia::xray-bindings>")
+
 target_compile_options(AmneziaVPNNetworkExtension PRIVATE -DGROUP_ID=\"${BUILD_IOS_GROUP_IDENTIFIER}\")
 target_compile_options(AmneziaVPNNetworkExtension PRIVATE -DNETWORK_EXTENSION=1)
 

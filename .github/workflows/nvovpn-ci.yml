@@ -352,6 +352,50 @@ jobs:
           fi
           echo "✓ libwg-go.a пропатчен (cgo-символы локализованы)"
 
+      - name: 'Fix Go cgo symbol clash in libamnezia_xray.a (SPIKE macOS VLESS)'
+        # SPIKE: libamnezia_xray.a — ТРЕТИЙ Go-архив (движок xray для VLESS-фолбека), рядом с
+        # libwg-go (AmneziaWG) и OpenVPNAdapter в одном бинаре NE. Его cgo-символы глобальные →
+        # дублируют глобальные cgo-символы OpenVPNAdapter → "duplicate cgo symbols" на линковке.
+        # Тот же проверенный фикс, что и для libwg-go выше: локализуем cgo-символы в xray-либе
+        # (ld -r -unexported_symbols_list) → глобальными остаются только копии OpenVPNAdapter,
+        # каждый Go-рантайм зовёт СВОИ (локальные) cgo-интринсики. Только для VLESS-фолбека активен
+        # ровно один Go-рантайм за раз (AWG ИЛИ xray), так что рантайм-состояния не пересекаются.
+        run: |
+          set -e
+          XRAY="$(find "$HOME/.conan2" -path '*xray-bindings*/p/lib/*.a' 2>/dev/null | head -1)"
+          echo "libamnezia_xray.a: $XRAY"
+          test -n "$XRAY" || { echo "libamnezia_xray.a не найден"; exit 1; }
+          printf '%s\n' \
+            __cgo_set_stacklo \
+            __cgo_get_context_function \
+            _x_cgo_notify_runtime_init_done \
+            _x_cgo_sys_thread_create \
+            _x_cgo_bindm \
+            _x_cgo_pthread_key_created \
+            __cgo_wait_runtime_init_done \
+            __cgo_try_pthread_create \
+            _x_crosscall2_ptr > /tmp/cgo_hidden_xray.txt
+          ARCHS="$(lipo -archs "$XRAY" 2>/dev/null || echo "arm64")"
+          echo "Архитектуры: $ARCHS"
+          FIXED=()
+          for arch in $ARCHS; do
+            if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+              lipo "$XRAY" -thin "$arch" -output "/tmp/xray-$arch.a"
+            else
+              cp "$XRAY" "/tmp/xray-$arch.a"
+            fi
+            ld -r -arch "$arch" -all_load -unexported_symbols_list /tmp/cgo_hidden_xray.txt "/tmp/xray-$arch.a" -o "/tmp/xray-$arch.o"
+            rm -f "/tmp/xray-$arch-fixed.a"
+            ar -crs "/tmp/xray-$arch-fixed.a" "/tmp/xray-$arch.o"
+            FIXED+=("/tmp/xray-$arch-fixed.a")
+          done
+          if [ "${#FIXED[@]}" -gt 1 ]; then
+            lipo -create "${FIXED[@]}" -output "$XRAY"
+          else
+            cp "${FIXED[0]}" "$XRAY"
+          fi
+          echo "✓ libamnezia_xray.a пропатчен (cgo-символы локализованы)"
+
       - name: 'Build macOS app (unsigned)'
         run: |
           cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
