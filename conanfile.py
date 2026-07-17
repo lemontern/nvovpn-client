@@ -46,7 +46,10 @@ class AmneziaVPN(ConanFile):
                 # Движок xray (Go) + hev (C, мост SOCKS→packetFlow). Go-конфликт xray↔wg-go решён
                 # локализацией cgo-символов в CI (см. .github/workflows/nvovpn-ci.yml).
                 self.requires("amnezia-xray-bindings/1.1.0")
-                self.requires("hev-socks5-tunnel/2.15.0")
+                # as_framework=True — hev упаковывается как HevSocks5Tunnel.xcframework через
+                # package_framework/location (рабочий путь линковки; ветка as_framework=False
+                # в recipe битая — cpp_info.libraries вместо .libs). Так же требовал оригинал.
+                self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.0")
