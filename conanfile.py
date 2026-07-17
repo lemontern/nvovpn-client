@@ -42,14 +42,11 @@ class AmneziaVPN(ConanFile):
             # openvpnadapter остаётся только на macOS NE (там OpenVPN-код ещё компилируется).
             if os == "Macos":
                 self.requires("openvpnadapter/1.0.0")
-                # SPIKE (macOS VLESS): macOS раздаётся с сайта (.dmg), не App Store → 4.3 не применяется.
-                # ГЛАВНЫЙ вопрос спайка — линкуются ли ДВА Go-рантайма в одном бинаре extension:
-                # libwg-go (внутри awg-apple/WireGuardKit) + libamnezia_xray (движок xray, тоже Go).
-                # Историю (коммит 16e8151) диагностировали как «Go-конфликт»; проверяем это напрямую,
-                # force_load'ом вытягивая все объекты xray, чтобы дублирующиеся cgo-символы всплыли на линковке.
-                # hev (C, мост SOCKS→packetFlow) НЕ добавляем на этом шаге — он не создаёт Go-конфликта,
-                # это лишняя переменная; вернём, когда вопрос двух Go-рантаймов будет закрыт.
+                # NvoVPN: VLESS/xray на macOS (раздаётся с сайта .dmg, не App Store → 4.3 не применяется).
+                # Движок xray (Go) + hev (C, мост SOCKS→packetFlow). Go-конфликт xray↔wg-go решён
+                # локализацией cgo-символов в CI (см. .github/workflows/nvovpn-ci.yml).
                 self.requires("amnezia-xray-bindings/1.1.0")
+                self.requires("hev-socks5-tunnel/2.15.0")
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.0")
