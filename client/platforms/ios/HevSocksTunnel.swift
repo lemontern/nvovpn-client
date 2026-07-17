@@ -1,4 +1,7 @@
-import HevSocks5Tunnel
+// NvoVPN: hev_socks5_tunnel_main/_quit берём из bridging header (WireGuardNetworkExtension-Bridging-Header.h),
+// а не из Swift-модуля HevSocks5Tunnel — framework-модуль hev не попадает в путь поиска Swift-компилятора
+// (линкуется, но не импортируется как модуль). Darwin даёт системные вызовы обёртки (ctl_info/ioctl/…).
+import Darwin
 import NetworkExtension
 
 public enum Socks5Tunnel {
