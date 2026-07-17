@@ -365,6 +365,9 @@ jobs:
           XRAY="$(find "$HOME/.conan2" -path '*/p/lib/libamnezia_xray.a' 2>/dev/null | head -1)"
           echo "libamnezia_xray.a: $XRAY"
           test -n "$XRAY" || { echo "libamnezia_xray.a не найден"; exit 1; }
+          # Полный набор cgo-интринсиков (27): 9 из фикса libwg-go + 18, которые линкер
+          # реально показал дублирующимися между libamnezia_xray.a и libwg-go.a (оба Go).
+          # Локализуем ВСЕ в xray → wg-go остаётся единственным глобальным носителем, коллизий 0.
           printf '%s\n' \
             __cgo_set_stacklo \
             __cgo_get_context_function \
@@ -374,7 +377,25 @@ jobs:
             _x_cgo_pthread_key_created \
             __cgo_wait_runtime_init_done \
             __cgo_try_pthread_create \
-            _x_crosscall2_ptr > /tmp/cgo_hidden_xray.txt
+            _x_crosscall2_ptr \
+            __cgo_get_traceback_function \
+            __cgo_topofstack \
+            _crosscall2 \
+            __cgo_panic \
+            __cgo_sys_thread_start \
+            _x_cgo_set_traceback_functions \
+            __cgo_yield \
+            _crosscall1 \
+            _x_cgo_call_traceback_function \
+            __cgo_release_context \
+            _x_cgo_init \
+            _x_cgo_getstackbound \
+            _x_cgo_thread_start \
+            _x_cgo_unsetenv \
+            _x_cgo_setenv \
+            _x_cgo_call_symbolizer_function \
+            _x_cgo_callers \
+            __cgo_get_symbolizer_function > /tmp/cgo_hidden_xray.txt
           ARCHS="$(lipo -archs "$XRAY" 2>/dev/null || echo "arm64")"
           echo "Архитектуры: $ARCHS"
           FIXED=()
