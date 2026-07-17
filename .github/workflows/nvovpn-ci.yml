@@ -362,7 +362,7 @@ jobs:
         # ровно один Go-рантайм за раз (AWG ИЛИ xray), так что рантайм-состояния не пересекаются.
         run: |
           set -e
-          XRAY="$(find "$HOME/.conan2" -path '*xray-bindings*/p/lib/*.a' 2>/dev/null | head -1)"
+          XRAY="$(find "$HOME/.conan2" -path '*/p/lib/libamnezia_xray.a' 2>/dev/null | head -1)"
           echo "libamnezia_xray.a: $XRAY"
           test -n "$XRAY" || { echo "libamnezia_xray.a не найден"; exit 1; }
           printf '%s\n' \
