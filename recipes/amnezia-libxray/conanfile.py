@@ -44,13 +44,6 @@ class AmneziaLibxray(ConanFile):
         env.vars(self).save_script("conan_provide_androidhome")
 
     def _patch_sources(self):
-        # ВНИМАНИЕ (16КБ/Google Play): пытались добавить -extldflags=-Wl,-z,max-page-size=16384
-        # в build.sh для 16КБ-выравнивания libgojni.so — но это ФОРСИРУЕТ сборку из исходников
-        # (меняет ревизию recipe → нет готового бинаря в conan-remote), а source-сборка upstream
-        # СЛОМАНА: amnezia-xray-core@v1.260710 сменил module-path на github.com/xtls/xray-core,
-        # `go mod tidy` (свежий, без pinning в build.sh) падает. Пока берём готовый 4КБ-бинарь.
-        # TODO(16КБ): либо дождаться 16КБ-prebuilt от amnezia, либо пропатчить build.sh с
-        # pinning go-модулей (go.mod/replace) + -extldflags. См. deploy/check_16kb.py (гейт).
         build_path = os.path.join(self.build_folder, "build.sh")
         build_stat = os.stat(build_path)
         os.chmod(build_path, build_stat.st_mode | stat.S_IEXEC)
