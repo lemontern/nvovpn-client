@@ -44,21 +44,14 @@ class AmneziaLibxray(ConanFile):
         env.vars(self).save_script("conan_provide_androidhome")
 
     def _patch_sources(self):
+        # ВНИМАНИЕ (16КБ/Google Play): пытались добавить -extldflags=-Wl,-z,max-page-size=16384
+        # в build.sh для 16КБ-выравнивания libgojni.so — но это ФОРСИРУЕТ сборку из исходников
+        # (меняет ревизию recipe → нет готового бинаря в conan-remote), а source-сборка upstream
+        # СЛОМАНА: amnezia-xray-core@v1.260710 сменил module-path на github.com/xtls/xray-core,
+        # `go mod tidy` (свежий, без pinning в build.sh) падает. Пока берём готовый 4КБ-бинарь.
+        # TODO(16КБ): либо дождаться 16КБ-prebuilt от amnezia, либо пропатчить build.sh с
+        # pinning go-модулей (go.mod/replace) + -extldflags. См. deploy/check_16kb.py (гейт).
         build_path = os.path.join(self.build_folder, "build.sh")
-        # NvoVPN: 16КБ-выравнивание libgojni.so для Google Play (targetSdk 35 → AAB требует
-        # 16КБ page size у всех .so). gomobile bind линкует внешним NDK-ld с дефолтом 4КБ;
-        # добавляем -extldflags=-Wl,-z,max-page-size=16384. Остальные .so (Qt/openvpn/wg-go)
-        # уже 16КБ (NDK r27). Проверено: в APK 4КБ была только libgojni.
-        with open(build_path) as f:
-            content = f.read()
-        old = '-ldflags="-w -s -buildid="'
-        new = '-ldflags="-w -s -buildid= -extldflags=-Wl,-z,max-page-size=16384"'
-        if old in content:
-            content = content.replace(old, new)
-            with open(build_path, "w") as f:
-                f.write(content)
-        else:
-            self.output.warning("amnezia-libxray build.sh: -ldflags anchor not found, 16KB align NOT applied")
         build_stat = os.stat(build_path)
         os.chmod(build_path, build_stat.st_mode | stat.S_IEXEC)
 
