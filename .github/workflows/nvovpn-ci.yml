@@ -227,6 +227,22 @@ jobs:
           echo "AAB: $AAB"
           [ -n "$AAB" ] && cp "$AAB" deploy/build/NvoVPN.aab && echo "→ deploy/build/NvoVPN.aab" || echo "AAB не найден"
 
+      - name: 'Подписать AAB (jarsigner) — Qt AAB не подписывает сам'
+        # Play отклоняет неподписанные AAB («must be signed using jarsigner»). QT_ANDROID_SIGN_AAB
+        # не проставляет подпись. Подписываем тем же upload-keystore, что и APK. Пароль из секрета
+        # через :env (не светится в командной строке; GitHub маскирует секреты в логах).
+        env:
+          KSPASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+        run: |
+          set -e
+          test -f deploy/build/NvoVPN.aab || { echo "AAB не найден — пропуск подписи"; exit 0; }
+          jarsigner -keystore "$GITHUB_WORKSPACE/nvovpn.keystore" \
+            -storepass:env KSPASS -keypass:env KSPASS \
+            -sigalg SHA256withRSA -digestalg SHA-256 \
+            deploy/build/NvoVPN.aab "${{ secrets.ANDROID_KEYSTORE_ALIAS }}"
+          jarsigner -verify deploy/build/NvoVPN.aab | tail -1
+          echo "✓ AAB подписан"
+
       - name: 'Проверка 16КБ-выравнивания .so (Google Play, targetSdk 35)'
         # ПОКА предупреждение, не блокер: libgojni.so 4КБ (source-сборка amnezia-libxray сломана
         # upstream — см. recipes/amnezia-libxray/conanfile.py). targetSdk 35 письмо это НЕ трогает.
