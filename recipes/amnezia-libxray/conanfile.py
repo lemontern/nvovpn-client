@@ -45,6 +45,20 @@ class AmneziaLibxray(ConanFile):
 
     def _patch_sources(self):
         build_path = os.path.join(self.build_folder, "build.sh")
+        # NvoVPN: 16КБ-выравнивание libgojni.so для Google Play (targetSdk 35 → AAB требует
+        # 16КБ page size у всех .so). gomobile bind линкует внешним NDK-ld с дефолтом 4КБ;
+        # добавляем -extldflags=-Wl,-z,max-page-size=16384. Остальные .so (Qt/openvpn/wg-go)
+        # уже 16КБ (NDK r27). Проверено: в APK 4КБ была только libgojni.
+        with open(build_path) as f:
+            content = f.read()
+        old = '-ldflags="-w -s -buildid="'
+        new = '-ldflags="-w -s -buildid= -extldflags=-Wl,-z,max-page-size=16384"'
+        if old in content:
+            content = content.replace(old, new)
+            with open(build_path, "w") as f:
+                f.write(content)
+        else:
+            self.output.warning("amnezia-libxray build.sh: -ldflags anchor not found, 16KB align NOT applied")
         build_stat = os.stat(build_path)
         os.chmod(build_path, build_stat.st_mode | stat.S_IEXEC)
 
