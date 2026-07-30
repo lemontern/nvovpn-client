@@ -782,9 +782,9 @@ jobs:
           path: ${{ runner.temp }}/export/*.ipa
 
       - name: 'Upload to TestFlight (App Store Connect)'
-        # Временно разрешён и feat/vless-stealth-fallback — для ре-сабмита iOS после фиксов
-        # (2.1: убран код-логин + правильный демо-аккаунт). Вернуть на только-main после мержа.
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/vless-stealth-fallback'
+        # Только main: пока iOS-версия на ревью в App Store, лишние билды в App Store Connect
+        # не заливаем (билд 148 уже отправлен). Временно включалось для ре-сабмита — выключено обратно.
+        if: github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           ASC_KEY_B64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}

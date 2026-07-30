@@ -45,6 +45,11 @@ public slots:
     bool isLoggingEnabled();
     void toggleLogging(bool enable);
 
+    // NvoVPN: KillSwitch на Android — это системный Always-on VPN («Блокировать соединения без
+    // VPN»). Приложение своей блокировки дать не может (убит сервис → блокировать некому),
+    // поэтому ведём юзера в системные VPN-настройки. На других платформах — no-op.
+    void openAndroidVpnSettings();
+
     void openLogsFolder();
     void openServiceLogsFolder();
     void exportLogsFile(const QString &fileName);

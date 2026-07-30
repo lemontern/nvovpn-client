@@ -49,6 +49,8 @@ public:
     void setScreenshotsEnabled(bool enabled);
     void setNavigationBarColor(unsigned int color);
     void minimizeApp();
+    // NvoVPN: открыть системный экран VPN-настроек (там Always-on VPN = KillSwitch на Android).
+    void openVpnSettings();
     QJsonArray getAppList();
     QPixmap getAppIcon(const QString &package, QSize *size, const QSize &requestedSize);
     bool isNotificationPermissionGranted();

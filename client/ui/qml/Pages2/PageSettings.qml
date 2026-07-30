@@ -167,9 +167,11 @@ PageType {
 
         property string title: qsTr("Connection")
         readonly property string leftImagePath: "qrc:/images/controls/radio.svg"
-        // NvoVPN: на странице остался только KillSwitch (desktop). DNS/Split Tunneling скрыты.
-        // На мобильных страница была бы пустой → показываем пункт лишь на desktop.
-        property bool isVisible: GC.isDesktop()
+        // NvoVPN: на странице остался только KillSwitch. DNS/Split Tunneling скрыты.
+        // Desktop — свой KillSwitch (firewall-демон); Android — переход в системный
+        // Always-on VPN (иначе юзеры не находят KillSwitch и пишут в поддержку).
+        // На iOS пункт скрыт: там KillSwitch пока не реализован.
+        property bool isVisible: GC.isDesktop() || Qt.platform.os === "android"
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsConnection)
         }

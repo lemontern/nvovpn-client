@@ -12,6 +12,12 @@ import "../Config"
 PageType {
     id: root
 
+    // NvoVPN: на Android настоящую блокировку трафика без VPN умеет ТОЛЬКО система
+    // (Always-on VPN + «Блокировать соединения без VPN»): если сервис приложения убит,
+    // блокировать уже некому. Desktop-переключатели ниже управляют firewall-демоном,
+    // которого на Android нет, — поэтому там показываем инструкцию + переход в настройки ОС.
+    readonly property bool isAndroid: Qt.platform.os === "android"
+
     BackButtonType {
         id: backButton
         anchors.top: parent.top
@@ -32,7 +38,35 @@ PageType {
             anchors.left: parent.left
             anchors.right: parent.right
 
+            // ---- Android: KillSwitch обеспечивается системой ----
+            BaseHeaderType {
+                visible: root.isAndroid
+                Layout.fillWidth: true
+                Layout.topMargin: 16
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+
+                headerText: qsTr("KillSwitch")
+                descriptionText: qsTr("On Android, blocking traffic without VPN is provided by the system. In the settings that open, select NvoVPN as \"Always-on VPN\" and enable \"Block connections without VPN\" — after that the internet will be blocked whenever the VPN is not connected.")
+            }
+
+            BasicButtonType {
+                visible: root.isAndroid
+                Layout.fillWidth: true
+                Layout.topMargin: 24
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+                Layout.preferredHeight: 56
+
+                text: qsTr("Open system VPN settings")
+
+                clickedFunc: function() {
+                    SettingsController.openAndroidVpnSettings()
+                }
+            }
+
             HeaderTypeWithSwitcher {
+                visible: !root.isAndroid
                 Layout.fillWidth: true
                 Layout.leftMargin: 16
                 Layout.rightMargin: 16
@@ -57,6 +91,7 @@ PageType {
 
             VerticalRadioButton {
                 id: softKillSwitch
+                visible: !root.isAndroid
                 Layout.fillWidth: true
                 Layout.topMargin: 32
                 Layout.leftMargin: 16
@@ -76,7 +111,7 @@ PageType {
                 Keys.onReturnPressed: this.clicked()
             }
 
-            DividerType {}
+            DividerType { visible: !root.isAndroid }
 
             VerticalRadioButton {
                 id: strictKillSwitch
@@ -116,6 +151,7 @@ PageType {
             }
             
             LabelWithButtonType {
+                visible: !root.isAndroid
                 Layout.topMargin: 32
                 Layout.fillWidth: true
 
