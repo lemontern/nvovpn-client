@@ -1,5 +1,6 @@
 #include "updateController.h"
 
+#include <QCryptographicHash>
 #include <QNetworkReply>
 #include <QVersionNumber>
 #include <QUrl>
@@ -165,6 +166,28 @@ void UpdateController::fetchReleaseDate()
         }
 
         m_downloadUrl = composeDownloadUrl();
+        fetchChecksum();
+    });
+}
+
+void UpdateController::fetchChecksum()
+{
+    doGetAsync("/SHA256SUMS", [this](bool ok, QByteArray data) {
+        m_expectedHash.clear();
+        if (ok) {
+            const QString sums = QString::fromUtf8(data);
+            const QString fileName = QUrl(m_downloadUrl).fileName();
+            const QStringList lines = sums.split('\n', Qt::SkipEmptyParts);
+            for (const QString &line : lines) {
+                if (line.contains(fileName)) {
+                    m_expectedHash = line.split(' ', Qt::SkipEmptyParts).first().trimmed().toLower();
+                    break;
+                }
+            }
+        }
+        if (m_expectedHash.isEmpty()) {
+            logger.warning() << "No SHA-256 checksum available for installer — update will proceed without integrity verification";
+        }
         emit updateFound();
         finishUpdateCheck();
     });
@@ -209,6 +232,35 @@ QString UpdateController::composeDownloadUrl() const
 #endif
 }
 
+bool UpdateController::verifyInstallerIntegrity(const QString &filePath) const
+{
+    if (m_expectedHash.isEmpty()) {
+        logger.warning() << "No expected hash available — skipping integrity check";
+        return true;
+    }
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        logger.error() << "Cannot open installer for hash verification:" << file.errorString();
+        return false;
+    }
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file)) {
+        logger.error() << "Failed to compute SHA-256 of installer";
+        return false;
+    }
+
+    const QString actualHash = hash.result().toHex().toLower();
+    if (actualHash != m_expectedHash) {
+        logger.error() << "SHA-256 mismatch: expected" << m_expectedHash << "got" << actualHash;
+        return false;
+    }
+
+    logger.info() << "Installer integrity verified (SHA-256 matches)";
+    return true;
+}
+
 void UpdateController::runInstaller()
 {
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS) && !defined(MACOS_NE)
@@ -240,6 +292,13 @@ void UpdateController::runInstaller()
             }
 
             file.close();
+
+            if (!verifyInstallerIntegrity(kInstallerLocalPath)) {
+                logger.error() << "Installer integrity check failed — aborting update";
+                QFile::remove(kInstallerLocalPath);
+                reply->deleteLater();
+                return;
+            }
 
     #if defined(Q_OS_WINDOWS)
             runWindowsInstaller(kInstallerLocalPath);

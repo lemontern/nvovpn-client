@@ -38,6 +38,10 @@ private:
     static QByteArray getSecTag(const QString &tag);
     static void setSecTag(const QString &tag, const QByteArray &data);
 
+    static QString secTagFilePath(const QString &tag);
+    static QByteArray getSecTagFromFile(const QString &tag);
+    static void setSecTagToFile(const QString &tag, const QByteArray &data);
+
     QSettings m_settings;
 
     mutable QHash<QString, QVariant> m_cache;

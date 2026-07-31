@@ -4,6 +4,7 @@
 #include <functional>
 #include <QObject>
 #include <QNetworkReply>
+#include <QCryptographicHash>
 
 #include "core/repositories/secureAppSettingsRepository.h"
 
@@ -30,8 +31,10 @@ private:
     void fetchVersionInfo();
     void fetchChangelog();
     void fetchReleaseDate();
+    void fetchChecksum();
     void doGetAsync(const QString &endpoint, std::function<void(bool, QByteArray)> onDone);
     bool isNewVersionAvailable() const;
+    bool verifyInstallerIntegrity(const QString &filePath) const;
     void setupNetworkErrorHandling(QNetworkReply* reply, const QString& operation);
     void handleNetworkError(QNetworkReply* reply, const QString& operation);
     QString composeDownloadUrl() const;
@@ -43,6 +46,7 @@ private:
     QString m_version;
     QString m_releaseDate;
     QString m_downloadUrl;
+    QString m_expectedHash;
     bool m_updateCheckRunning = false;
 
 #if defined(Q_OS_WINDOWS)

@@ -26,7 +26,7 @@ LocalServer::LocalServer(QObject *parent) : QObject(parent),
 {
     // Create the server and listen outside of QtRO
     m_server = QSharedPointer<QLocalServer>(new QLocalServer(this));
-    m_server->setSocketOptions(QLocalServer::WorldAccessOption);
+    m_server->setSocketOptions(QLocalServer::UserAccessOption);
 
     if (!m_server->listen(amnezia::getIpcServiceUrl())) {
         qDebug() << QString("Unable to start the server: %1.").arg(m_server->errorString());

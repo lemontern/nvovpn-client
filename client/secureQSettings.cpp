@@ -5,12 +5,15 @@
 #include "core/utils/utilities.h"
 #include <QDataStream>
 #include <QDebug>
+#include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QIODevice>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QRandomGenerator>
 #include <QSharedPointer>
+#include <QStandardPaths>
 #include <QTimer>
 
 using namespace QKeychain;
@@ -208,8 +211,10 @@ bool SecureQSettings::encryptionRequired() const
         return false;
     }
 #if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-    // QtKeyChain failing on Linux
-    return false;
+    // On Linux, QtKeychain may fail if no secret service (e.g. gnome-keyring) is running.
+    // Encryption is still attempted — getEncKey()/getEncIv() will log errors if keychain
+    // is unavailable, and setValue() will skip storing rather than save in plaintext.
+    // A file-based key fallback should be implemented for headless/minimal Linux environments.
 #endif
     return true;
 }
@@ -284,6 +289,8 @@ QByteArray SecureQSettings::getSecTag(const QString &tag)
 
     if (job->error()) {
         qCritical() << "SecureQSettings::getSecTag Error:" << job->errorString();
+        // Fallback: try file-based storage when keychain is unavailable
+        return getSecTagFromFile(tag);
     }
 
     return job->binaryData();
@@ -303,5 +310,41 @@ void SecureQSettings::setSecTag(const QString &tag, const QByteArray &data)
 
     if (job->error()) {
         qCritical() << "SecureQSettings::setSecTag Error:" << job->errorString();
+        // Fallback: use file-based storage when keychain is unavailable
+        setSecTagToFile(tag, data);
     }
+}
+
+QString SecureQSettings::secTagFilePath(const QString &tag)
+{
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/.keys";
+    QDir().mkpath(dir);
+    return dir + "/" + QString(tag).replace('/', '_');
+}
+
+QByteArray SecureQSettings::getSecTagFromFile(const QString &tag)
+{
+    QFile file(secTagFilePath(tag));
+    if (!file.exists()) {
+        return {};
+    }
+    if (!file.open(QIODevice::ReadOnly)) {
+        qCritical() << "SecureQSettings::getSecTagFromFile Cannot read key file";
+        return {};
+    }
+    return file.readAll();
+}
+
+void SecureQSettings::setSecTagToFile(const QString &tag, const QByteArray &data)
+{
+    const QString path = secTagFilePath(tag);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qCritical() << "SecureQSettings::setSecTagToFile Cannot write key file";
+        return;
+    }
+    file.write(data);
+    file.close();
+    // Restrict permissions to owner-only (0600)
+    file.setPermissions(QFile::ReadOwner | QFile::WriteOwner);
 }
