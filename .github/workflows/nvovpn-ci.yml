@@ -910,8 +910,22 @@ jobs:
               __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
             SDKVER=$(xcrun --sdk iphonesimulator --show-sdk-version)
             ld -r -arch arm64 -platform_version ios-simulator 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wgsim.o
-            rm -f /tmp/wgsim.a; ar -crs /tmp/wgsim.a /tmp/wgsim.o; cp /tmp/wgsim.a "$WGGO"
-            echo "✓ patched"
+
+            # Заглушки для двух символов рантайма Go. Рантайм arm64 ссылается на
+            # darwin_arm_init_mach_exception_handler / darwin_arm_init_thread_exception_port —
+            # они существуют только в сборке под НАСТОЯЩЕЕ устройство, а под симулятор
+            # Apple Silicon их нет, и линковка падает «Undefined symbols for architecture arm64».
+            # Это обработчики Mach-исключений (диагностика падений). Для сборки, которая нужна
+            # только ради скриншотов в App Store, пустые заглушки безопасны: VPN в симуляторе
+            # всё равно не работает — NEPacketTunnelProvider там не поддерживается Apple.
+            # (без heredoc: внутри YAML-блока завершитель получил бы отступ и не распознался)
+            printf '%s\n' 'void darwin_arm_init_mach_exception_handler(void) {}' \
+                          'void darwin_arm_init_thread_exception_port(void) {}' > /tmp/go_sim_stubs.c
+            xcrun --sdk iphonesimulator clang -arch arm64 -mios-simulator-version-min=15.0 \
+              -c /tmp/go_sim_stubs.c -o /tmp/go_sim_stubs.o
+
+            rm -f /tmp/wgsim.a; ar -crs /tmp/wgsim.a /tmp/wgsim.o /tmp/go_sim_stubs.o; cp /tmp/wgsim.a "$WGGO"
+            echo "✓ patched (+ заглушки Mach-исключений для симулятора)"
           fi
       - name: 'Build (simulator, unsigned)'
         run: |
