@@ -782,9 +782,10 @@ jobs:
           path: ${{ runner.temp }}/export/*.ipa
 
       - name: 'Upload to TestFlight (App Store Connect)'
-        # Только main: пока iOS-версия на ревью в App Store, лишние билды в App Store Connect
-        # не заливаем (билд 148 уже отправлен). Временно включалось для ре-сабмита — выключено обратно.
-        if: github.ref == 'refs/heads/main'
+        # Заливка в App Store Connect — ТОЛЬКО по ручному запуску (workflow_dispatch) из main.
+        # Причина: версия 1.0 сейчас IN_REVIEW; автоматическая заливка на каждый push в main
+        # плодила бы лишние билды во время ревью. Когда нужно отправить — запустить workflow вручную.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
         continue-on-error: true
         env:
           ASC_KEY_B64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}
