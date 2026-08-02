@@ -835,7 +835,26 @@ jobs:
 
   # Сборка под iOS-СИМУЛЯТОР — только для снятия скриншотов (запускается локально в Simulator).
   # continue-on-error: падение не должно валить весь прогон (device-билд и остальное важнее).
+  # ОТКЛЮЧЕНА 02.08.2026 (if: false). Джоба нужна была только чтобы получить .app и снять
+  # им скриншоты для страницы в App Store. Скриншоты уже загружены (без них приложение
+  # нельзя подать на ревью), так что прямо сейчас она не нужна, а постоянно красная джоба
+  # приучает не смотреть на красное — и настоящая поломка пройдёт мимо глаз.
+  #
+  # Что уже разобрано, если понадобится вернуть (снять if: false):
+  #   1. Собиралось под x86_64, которого нет в awg-apple → «Undefined symbols for
+  #      architecture x86_64» (_wgTurnOn и прочие wg*). ИСПРАВЛЕНО: в xcodebuild добавлены
+  #      ARCHS=arm64 ONLY_ACTIVE_ARCH=NO EXCLUDED_ARCHS=x86_64.
+  #   2. Рантайм Go ссылался на darwin_arm_init_mach_exception_handler и
+  #      darwin_arm_init_thread_exception_port — они есть только в сборке под устройство.
+  #      ИСПРАВЛЕНО: заглушки в шаге «Fix Go cgo symbol clash (sim)».
+  #   3. ОСТАЛОСЬ: «ld: building for 'iOS-simulator', but linking in object file
+  #      (…/Qt/6.10.1/…) built for 'iOS'» — установленный Qt содержит объекты под
+  #      устройство. Флагом не лечится, нужна отдельная установка Qt под симулятор
+  #      (в aqtinstall это отдельный target) и настройка cmake на неё.
+  #
+  # Сборка под настоящие устройства (джоба Build-iOS) этим не затронута и зелёная.
   Build-iOS-Simulator:
+    if: false
     runs-on: macos-15   # Xcode 26 / iOS 26 SDK
     continue-on-error: true
     env:
