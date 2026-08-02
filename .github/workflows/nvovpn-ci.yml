@@ -243,15 +243,18 @@ jobs:
           jarsigner -verify deploy/build/NvoVPN.aab | tail -1
           echo "✓ AAB подписан"
 
-      - name: 'Проверка 16КБ-выравнивания .so (Google Play, targetSdk 35)'
-        # ПОКА предупреждение, не блокер: libgojni.so 4КБ (source-сборка amnezia-libxray сломана
-        # upstream — см. recipes/amnezia-libxray/conanfile.py). targetSdk 35 письмо это НЕ трогает.
-        # Когда 16КБ-libgojni заработает — убрать `|| echo` (сделать проверку блокирующей).
+      - name: 'Проверка 16КБ-выравнивания .so (Google Play, срок 31.08.2026)'
+        # БЛОКИРУЮЩАЯ с 02.08.2026: все 115 .so выровнены по 16КБ. Раньше здесь стояло
+        # предупреждение, потому что libgojni.so оставалась 4КБ — считалось, что source-сборка
+        # amnezia-libxray сломана upstream. На деле её ломал сам апстримный build.sh, удаляя
+        # рабочий go.mod из релиза; чинится в recipes/amnezia-libxray/conanfile.py.
+        # Если шаг снова покраснеет — значит выравнивание где-то откатилось, и Google Play
+        # такой AAB не примет. Не заглушать `|| echo`, а искать причину.
         run: |
           TARGET="deploy/build/NvoVPN.aab"
           [ -f "$TARGET" ] || TARGET=$(find deploy/build/client/android-build -name "*.apk" ! -name "*unsigned*" | head -1)
           echo "Проверяю выравнивание: $TARGET"
-          python3 deploy/check_16kb.py "$TARGET" || echo "::warning::16КБ НЕ пройдено (libgojni 4КБ). AAB заливаем для targetSdk 35; полное 16КБ — после фикса source-сборки amnezia-libxray."
+          python3 deploy/check_16kb.py "$TARGET"
 
       - name: 'Upload APK + AAB'
         uses: actions/upload-artifact@v4
@@ -883,10 +886,16 @@ jobs:
       - name: 'Build (simulator, unsigned)'
         run: |
           set -e
+          # ARCHS=arm64: cmake сконфигурирован под arm64, но xcodebuild для sdk iphonesimulator
+          # берёт ARCHS_STANDARD и добавляет x86_64. Библиотека awg-apple среза x86_64 не
+          # содержит, поэтому сборка падала на «Undefined symbols for architecture x86_64»
+          # (_wgTurnOn, _wgSetConfig и прочие). Раннер macos-15 — Apple Silicon, x86_64-симулятор
+          # не нужен. Джоба нужна только для скриншотов в App Store.
           xcodebuild -project build-sim/NvoVPN.xcodeproj \
             -scheme NvoVPN \
             -sdk iphonesimulator -configuration Release \
             -derivedDataPath build-sim/dd \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO EXCLUDED_ARCHS=x86_64 \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" \
             build
           APP="$(find build-sim/dd/Build/Products -name 'NvoVPN.app' -maxdepth 3 | head -1)"
