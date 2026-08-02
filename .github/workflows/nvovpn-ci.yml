@@ -222,10 +222,23 @@ jobs:
           deploy/build.sh -t android --sign --aab --abi arm64-v8a --abi armeabi-v7a
 
       - name: 'Locate AAB (для Google Play)'
+        # Gradle собирает ДВА bundle — release и debug. Раньше здесь стояло
+        # `find -name '*.aab' | head -1`, и выбор зависел от порядка обхода каталогов:
+        # уезжал отладочный, а Google Play такой отклоняет («APK is marked as debuggable»).
+        # Подпись jarsigner отладочный флаг из манифеста не убирает, так что ошибка
+        # всплывала только на заливке. Берём release явно и падаем, если его нет.
         run: |
-          AAB=$(find deploy/build -name '*.aab' | head -1)
-          echo "AAB: $AAB"
-          [ -n "$AAB" ] && cp "$AAB" deploy/build/NvoVPN.aab && echo "→ deploy/build/NvoVPN.aab" || echo "AAB не найден"
+          set -e
+          echo "Найденные .aab:"
+          find deploy/build -name '*.aab' -print | sed 's/^/  /'
+          AAB=$(find deploy/build -path '*/bundle/release/*.aab' | head -1)
+          if [ -z "$AAB" ]; then
+            echo "::error::release-AAB не найден — в Play нельзя заливать debug-bundle"
+            exit 1
+          fi
+          echo "Выбран release: $AAB"
+          cp "$AAB" deploy/build/NvoVPN.aab
+          echo "→ deploy/build/NvoVPN.aab"
 
       - name: 'Подписать AAB (jarsigner) — Qt AAB не подписывает сам'
         # Play отклоняет неподписанные AAB («must be signed using jarsigner»). QT_ANDROID_SIGN_AAB
@@ -255,6 +268,23 @@ jobs:
           [ -f "$TARGET" ] || TARGET=$(find deploy/build/client/android-build -name "*.apk" ! -name "*unsigned*" | head -1)
           echo "Проверяю выравнивание: $TARGET"
           python3 deploy/check_16kb.py "$TARGET"
+
+      - name: 'Проверка: AAB не отладочный (Google Play отклоняет debuggable)'
+        # Ловим на сборке то, что раньше вылезало только при заливке в Play:
+        # «APK is marked as debuggable». Причина была в выборе debug-bundle вместо
+        # release; подпись jarsigner этот флаг не снимает.
+        run: |
+          set -e
+          python3 - <<'PY'
+          import sys, zipfile
+          p = "deploy/build/NvoVPN.aab"
+          m = zipfile.ZipFile(p).read("base/manifest/AndroidManifest.xml")
+          i = m.find(b"debuggable")
+          if i >= 0 and b"true" in m[i:i + 24]:
+              print("::error::В AAB выставлен debuggable=true — Play такой bundle отклонит")
+              sys.exit(1)
+          print("OK: AAB не отладочный")
+          PY
 
       - name: 'Upload APK + AAB'
         uses: actions/upload-artifact@v4
