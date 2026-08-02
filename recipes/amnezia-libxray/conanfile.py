@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.files import get, copy
+from conan.tools.files import get, copy, replace_in_file
 from conan.tools.layout import basic_layout
 from conan.errors import ConanInvalidConfiguration
 from conan.tools.env import Environment
@@ -47,6 +47,34 @@ class AmneziaLibxray(ConanFile):
         build_path = os.path.join(self.build_folder, "build.sh")
         build_stat = os.stat(build_path)
         os.chmod(build_path, build_stat.st_mode | stat.S_IEXEC)
+
+        # NvoVPN, правка 1 — не убивать рабочие go.mod/go.sum.
+        # Апстримный build.sh перед сборкой делает `rm -f go.mod; go mod init; go mod tidy`,
+        # то есть выбрасывает готовые файлы из релиза и резолвит зависимости заново из сети.
+        # Именно на этом сборка и падала: путь модуля amnezia-xray-core снаружи больше
+        # не резолвится «с нуля». При этом в архиве релиза лежит закреплённый go.mod
+        # (amnezia-xray-core v1.260206.0), с которым всё скачивается и собирается —
+        # проверено локально: go mod download, go build ./... и go vet проходят вчистую.
+        replace_in_file(self, build_path,
+            'prepare_go() {\n'
+            '    rm -f go.mod\n'
+            '    rm -f go.sum\n'
+            '    go mod init github.com/amnezia-vpn/amnezia-libxray\n'
+            '    go mod tidy\n'
+            '}',
+            'prepare_go() {\n'
+            '    # NvoVPN: используем go.mod/go.sum из релиза как есть.\n'
+            '    go mod download\n'
+            '}',
+        )
+
+        # NvoVPN, правка 2 — 16КБ-выравнивание страниц (требование Google Play).
+        # libgojni.so из этого пакета оставалась единственной библиотекой в APK
+        # с выравниванием 4КБ (114 из 115 остальных уже 16КБ).
+        replace_in_file(self, build_path,
+            '-ldflags="-w -s -buildid="',
+            '-ldflags="-w -s -buildid= -extldflags=-Wl,-z,max-page-size=16384"',
+        )
 
     def build(self):
         self._patch_sources()
