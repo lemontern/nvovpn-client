@@ -886,10 +886,16 @@ jobs:
       - name: 'Build (simulator, unsigned)'
         run: |
           set -e
+          # ARCHS=arm64: cmake сконфигурирован под arm64, но xcodebuild для sdk iphonesimulator
+          # берёт ARCHS_STANDARD и добавляет x86_64. Библиотека awg-apple среза x86_64 не
+          # содержит, поэтому сборка падала на «Undefined symbols for architecture x86_64»
+          # (_wgTurnOn, _wgSetConfig и прочие). Раннер macos-15 — Apple Silicon, x86_64-симулятор
+          # не нужен. Джоба нужна только для скриншотов в App Store.
           xcodebuild -project build-sim/NvoVPN.xcodeproj \
             -scheme NvoVPN \
             -sdk iphonesimulator -configuration Release \
             -derivedDataPath build-sim/dd \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO EXCLUDED_ARCHS=x86_64 \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" \
             build
           APP="$(find build-sim/dd/Build/Products -name 'NvoVPN.app' -maxdepth 3 | head -1)"
