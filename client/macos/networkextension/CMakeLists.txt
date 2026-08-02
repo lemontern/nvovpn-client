@@ -66,6 +66,19 @@ set(CLIENT_ROOT_DIR ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 target_link_libraries(AmneziaVPNNetworkExtension PRIVATE ${FW_LIBRESOLV})
 
+# NvoVPN: VLESS/xray на macOS (раздаётся с сайта .dmg, не App Store → 4.3 не применяется).
+# Движок xray (libamnezia_xray, Go) линкуется рядом с libwg-go (AmneziaWG, Go) в одном бинаре NE.
+# Go-конфликт (18 дублирующихся cgo-символов xray↔wg-go) решён локализацией символов в CI-шаге
+# «Fix Go cgo symbol clash in libamnezia_xray.a» (ld -r -unexported_symbols_list). -force_load
+# гарантирует, что весь Go-рантайм xray (включая init-объекты) попадёт в бинарь. hev (C, мост
+# SOCKS→packetFlow для xray) Go-конфликта не даёт — линкуется как обычная статическая либа.
+find_package(amnezia-xray-bindings REQUIRED)
+target_link_libraries(AmneziaVPNNetworkExtension PRIVATE amnezia::xray-bindings)
+target_link_options(AmneziaVPNNetworkExtension PRIVATE "-Wl,-force_load,$<TARGET_FILE:amnezia::xray-bindings>")
+
+find_package(hev-socks5-tunnel REQUIRED)
+target_link_libraries(AmneziaVPNNetworkExtension PRIVATE heiher::hev-socks5-tunnel)
+
 target_compile_options(AmneziaVPNNetworkExtension PRIVATE -DGROUP_ID=\"${BUILD_IOS_GROUP_IDENTIFIER}\")
 target_compile_options(AmneziaVPNNetworkExtension PRIVATE -DNETWORK_EXTENSION=1)
 
@@ -103,9 +116,11 @@ target_sources(AmneziaVPNNetworkExtension PRIVATE
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+WireGuard.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+OpenVPN.swift
-    # NvoVPN: AmneziaWG-only. Xray + hev-socks5-tunnel убраны (Go-конфликт wg-go/hev при линковке).
-    # Вместо PacketTunnelProvider+Xray.swift / XrayConfig.swift / HevSocksTunnel.swift — заглушка:
-    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+XrayStub.swift
+    # NvoVPN: VLESS/xray на macOS (раздаётся с сайта, не App Store → 4.3 не применяется).
+    # Реальная обвязка вместо заглушки XrayStub; Go-конфликт wg-go↔xray решён в CI (см. линковку ниже).
+    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+Xray.swift
+    ${CLIENT_ROOT_DIR}/platforms/ios/XrayConfig.swift
+    ${CLIENT_ROOT_DIR}/platforms/ios/HevSocksTunnel.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/WGConfig.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/iosglue.mm
 )

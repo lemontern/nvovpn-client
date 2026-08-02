@@ -32,9 +32,11 @@ android {
         // NvoVPN: поддержка 16 КБ страниц памяти (требование Google Play для targetSDK 35).
         // .so раздаём несжатыми и 16КБ-выровненными (mmap прямо из APK); сжатие ломало бы это.
         jniLibs.useLegacyPackaging = false
-        // Xray не используется (NvoVPN = только AmneziaWG). Его Go-либа libgojni.so —
-        // единственная 4КБ-выровненная (0x1000), из-за неё Play отклонял 16КБ. Исключаем.
-        jniLibs.excludes += "**/libgojni.so"
+        // libgojni.so (Go-движок Xray) НУЖНА для VLESS/Reality stealth-фолбека.
+        // Она 4КБ-выровнена (0x1000) — для прямой раздачи APK (сайт) это ОК, устройства ставят.
+        // TODO(Google Play, targetSDK 35): пересобрать libgojni.so с 16КБ-выравниванием
+        //   (-Wl,-z,max-page-size=16384 в build.sh amnezia-libxray), иначе AAB отклонят.
+        //   Для AAB можно временно исключать: if (проверка bundle) jniLibs.excludes += "**/libgojni.so".
     }
 
     defaultConfig {

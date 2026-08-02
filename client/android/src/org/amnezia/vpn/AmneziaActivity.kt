@@ -1035,6 +1035,35 @@ class AmneziaActivity : QtActivity() {
         }
     }
 
+    /**
+     * NvoVPN KillSwitch на Android: настоящую блокировку трафика без VPN умеет только система
+     * (Always-on VPN + «Блокировать соединения без VPN»). Приложение не может это гарантировать
+     * само — если его сервис убит, блокировать уже некому. Поэтому открываем системный экран
+     * VPN-настроек. Settings.ACTION_VPN_SETTINGS — публичный API (API 24+, у нас minSdk 28),
+     * разрешений не требует.
+     */
+    @Suppress("unused")
+    fun openVpnSettings() {
+        Log.v(TAG, "Open system VPN settings")
+        mainScope.launch {
+            try {
+                startActivity(Intent(Settings.ACTION_VPN_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                })
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to open VPN settings: $e")
+                // Фолбэк: общий экран настроек, если производитель убрал VPN-экран.
+                try {
+                    startActivity(Intent(Settings.ACTION_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Failed to open settings: $e2")
+                }
+            }
+        }
+    }
+
     @Suppress("unused")
     fun getAppList(): String {
         Log.v(TAG, "Get app list")

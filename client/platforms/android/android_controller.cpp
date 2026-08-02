@@ -258,6 +258,11 @@ void AndroidController::minimizeApp()
     callActivityMethod("minimizeApp", "()V");
 }
 
+void AndroidController::openVpnSettings()
+{
+    callActivityMethod("openVpnSettings", "()V");
+}
+
 QJsonArray AndroidController::getAppList()
 {
     QJniObject appList = callActivityMethod<jstring>("getAppList", "()Ljava/lang/String;");

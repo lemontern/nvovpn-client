@@ -24,7 +24,13 @@ bool key_eq(const uint8_t key1[WG_KEY_LEN], const uint8_t key2[WG_KEY_LEN]);
 
 void write_msg_to_log(const char* tag, const char* msg);
 
-// init function definition in C 
+// init function definition in C
 void hev_socks5_tunnel_quit(void);
 // Updated function definition in C
 int hev_socks5_tunnel_main(const char* configFile, int fd);
+
+// NvoVPN: C-API движка xray (amnezia_xray_configure/_start/_stop/_setsockcallback/_free +
+// typedef amnezia_xray_sockcallback). Заголовок из conan-пакета amnezia-xray-bindings
+// (include-путь пробрасывается линковкой amnezia::xray-bindings). Даёт Swift-обвязке
+// (PacketTunnelProvider+Xray.swift) доступ к движку без gomobile-биндингов LibXray*.
+#include "amnezia_xray.h"

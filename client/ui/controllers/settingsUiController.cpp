@@ -90,6 +90,13 @@ void SettingsUiController::toggleLogging(bool enable)
     emit loggingStateChanged();
 }
 
+void SettingsUiController::openAndroidVpnSettings()
+{
+#ifdef Q_OS_ANDROID
+    AndroidController::instance()->openVpnSettings();
+#endif
+}
+
 void SettingsUiController::openLogsFolder()
 {
     Logger::openLogsFolder(false);

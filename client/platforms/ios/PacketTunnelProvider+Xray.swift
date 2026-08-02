@@ -207,7 +207,10 @@ extension PacketTunnelProvider {
 
     func stopXray(completionHandler: () -> Void) {
         Socks5Tunnel.quit()
-        LibXrayStopXray()
+        if let err = amnezia_xray_stop() {
+            xrayLog(.error, message: "amnezia_xray_stop: \(String(cString: err))")
+            amnezia_xray_free(UnsafeMutableRawPointer(err))
+        }
         completionHandler()
     }
 
@@ -278,27 +281,48 @@ extension PacketTunnelProvider {
 
     private func setupAndStartXray(configData: Data,
                                    completionHandler: @escaping (Error?) -> Void) {
+        // Пишем конфиг на диск для диагностики; движок конфигурируется СОДЕРЖИМЫМ (не путём).
         let path = Constants.cachesDirectory.appendingPathComponent("config.json", isDirectory: false).path
-        guard FileManager.default.createFile(atPath: path, contents: configData) else {
-            xrayLog(.error, message: "Can't save xray configuration")
-            completionHandler(XrayErrors.cantSaveXrayConfig)
+        FileManager.default.createFile(atPath: path, contents: configData)
+
+        guard let configString = String(data: configData, encoding: .utf8) else {
+            xrayLog(.error, message: "Can't decode xray config to string")
+            completionHandler(XrayErrors.xrayConfigIsWrong)
             return
         }
 
         updateActiveInterfaceIndexForCurrentPath()
 
+        // Колбэк защиты сокетов xray от петли маршрутизации (bind исходящих к активному интерфейсу).
         let ctx = Unmanaged.passUnretained(self).toOpaque()
-        let cb: libxray_sockcallback = { (fd, ctx) in
+        let cb: amnezia_xray_sockcallback = { (fd, ctx) in
             guard let ctx = ctx else { return }
             let instance = Unmanaged<PacketTunnelProvider>.fromOpaque(ctx).takeUnretainedValue()
 
             instance.sockCallback(fd: fd)
         }
-        LibXraySetSockCallback(cb, ctx)
+        if let err = amnezia_xray_setsockcallback(cb, ctx) {
+            let msg = String(cString: err); amnezia_xray_free(UnsafeMutableRawPointer(err))
+            xrayLog(.error, message: "amnezia_xray_setsockcallback: \(msg)")
+            completionHandler(XrayErrors.xrayConfigIsWrong)
+            return
+        }
 
-        LibXrayRunXray(nil,
-                       path,
-                       Int64.max)
+        // amnezia_xray_configure принимает содержимое конфига как C-строку (JSON).
+        var cfg = Array(configString.utf8CString)
+        if let err = amnezia_xray_configure(&cfg) {
+            let msg = String(cString: err); amnezia_xray_free(UnsafeMutableRawPointer(err))
+            xrayLog(.error, message: "amnezia_xray_configure: \(msg)")
+            completionHandler(XrayErrors.xrayConfigIsWrong)
+            return
+        }
+
+        if let err = amnezia_xray_start() {
+            let msg = String(cString: err); amnezia_xray_free(UnsafeMutableRawPointer(err))
+            xrayLog(.error, message: "amnezia_xray_start: \(msg)")
+            completionHandler(XrayErrors.xrayConfigIsWrong)
+            return
+        }
 
         completionHandler(nil)
         xrayLog(.info, message: "Xray started")

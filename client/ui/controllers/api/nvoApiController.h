@@ -40,6 +40,10 @@ class NvoApiController : public QObject
     Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
     Q_PROPERTY(bool onboardingDone READ onboardingDone NOTIFY onboardingChanged)
     Q_PROPERTY(QStringList favoriteCountries READ favoriteCountries NOTIFY favoritesChanged)
+    // Маскировка (VLESS/Reality stealth-фолбек): 0 = выкл, 1 = авто (при провале AWG), 2 = всегда вкл.
+    Q_PROPERTY(int stealthMode READ stealthMode WRITE setStealthMode NOTIFY stealthModeChanged)
+    // true когда последнее подключение подняли через VLESS (для ненавязчивого уведомления в UI).
+    Q_PROPERTY(bool lastConnectViaStealth READ lastConnectViaStealth NOTIFY lastConnectViaStealthChanged)
 
 public:
     explicit NvoApiController(SecureQSettings *settings, NvoServersModel *serversModel, QObject *parent = nullptr);
@@ -62,6 +66,10 @@ public:
     int selectedServerId() const;               // -1 = Авто (лучший сервер)
     bool onboardingDone() const;                // показан ли обучающий экран (§12.8)
     QStringList favoriteCountries() const;      // коды избранных стран (для подсветки/сортировки в UI)
+    int stealthMode() const;                    // 0=выкл, 1=авто, 2=всегда (VLESS-фолбек)
+    bool lastConnectViaStealth() const;         // последнее подключение — через VLESS?
+    int lastConnectServerId() const;            // серверу последнего requestConfig (для фолбека)
+    QString lastProtocol() const;               // "amneziawg" | "vless" последнего requestConfig
 
 public slots:
     void setOnboardingDone();
@@ -70,9 +78,11 @@ public slots:
     void logout();
     void refreshServers();
     void refreshUser();
-    void requestConfig(int serverId);          // POST /connect → сигнал configReady
+    void requestConfig(int serverId, const QString &protocol = QStringLiteral("amneziawg")); // POST /connect → сигнал configReady
     void connectToSelected();                   // выбранный сервер или Авто → requestConfig
     void setSelectedServerId(int serverId);
+    void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
+    void connectViaStealthFallback();           // повторить последний сервер по VLESS (вызывает оркестратор при таймауте AWG)
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
@@ -95,6 +105,8 @@ signals:
     void selectedServerChanged();
     void onboardingChanged();
     void favoritesChanged();
+    void stealthModeChanged();
+    void lastConnectViaStealthChanged();
     void iapProductsUpdated();                   // цены StoreKit подгрузились
     void iapPurchaseSucceeded(const QString &message);  // покупка активирована на бэкенде
     void iapPurchaseFailed(const QString &message);     // отмена/ошибка покупки или активации
@@ -142,6 +154,12 @@ private:
     bool m_busy = false;
     bool m_onboardingDone = false;
     QStringList m_favoriteCountries;
+
+    // Маскировка (VLESS-фолбек).
+    int m_stealthMode = 1;                       // дефолт: авто (фолбек только при провале AWG)
+    bool m_lastConnectViaStealth = false;
+    int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
+    QString m_lastProtocol = QStringLiteral("amneziawg");
 
     // In-App Purchase (iOS): цены из StoreKit.
     bool m_iapReady = false;

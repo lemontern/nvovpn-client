@@ -8,7 +8,10 @@ class AmneziaVPN(ConanFile):
         "macos_ne": [True, False]
     }
     default_options = {
-        "macos_ne": False
+        "macos_ne": False,
+        # libssh на Android использует mbedTLS-backend (см. requirements); он требует threading.
+        # На других платформах mbedtls в граф не входит — опция там безвредно игнорируется.
+        "mbedtls/*:enable_threading": True,
     }
 
     def requirements(self):
@@ -39,6 +42,14 @@ class AmneziaVPN(ConanFile):
             # openvpnadapter остаётся только на macOS NE (там OpenVPN-код ещё компилируется).
             if os == "Macos":
                 self.requires("openvpnadapter/1.0.0")
+                # NvoVPN: VLESS/xray на macOS (раздаётся с сайта .dmg, не App Store → 4.3 не применяется).
+                # Движок xray (Go) + hev (C, мост SOCKS→packetFlow). Go-конфликт xray↔wg-go решён
+                # локализацией cgo-символов в CI (см. .github/workflows/nvovpn-ci.yml).
+                self.requires("amnezia-xray-bindings/1.1.0")
+                # as_framework=True — hev упаковывается как HevSocks5Tunnel.xcframework через
+                # package_framework/location (рабочий путь линковки; ветка as_framework=False
+                # в recipe битая — cpp_info.libraries вместо .libs). Так же требовал оригинал.
+                self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.0")
@@ -46,6 +57,13 @@ class AmneziaVPN(ConanFile):
             self.requires("openvpn-pt-android/1.0.0")
 
         # expicitly use libssh@amnezia to prevent it from being downloaded from conan-center
-        self.requires("libssh/0.11.3@amnezia")
+        # На Android OpenSSL-backend libssh не находит библиотеку 'ssl' при сборке (на других
+        # платформах OpenSSL резолвится штатно) — переключаем libssh на mbedTLS (чистый C, портируемый).
+        # libssh нужен только self-hosted-флоу (SSH внутрь сервера); боевой NvoVPN-путь его не вызывает.
+        if os == "Android":
+            # mbedtls затянется транзитивно (libssh crypto_backend=mbedtls); enable_threading задан в default_options.
+            self.requires("libssh/0.11.3@amnezia", options={"crypto_backend": "mbedtls"})
+        else:
+            self.requires("libssh/0.11.3@amnezia")
         self.requires("openssl/3.6.2")
         self.requires("zlib/1.3.2")

@@ -28,8 +28,12 @@ PageType {
         sessionSeconds = 0
         // In-App Review (Android): считаем успешные подключения; на 3-м NvoApi покажет
         // официальное окно оценки Google. На iOS/desktop вызов — no-op.
-        if (connected)
+        if (connected) {
             NvoApi.registerSuccessfulConnection()
+            // Если подключились через VLESS (фолбек по блокировке или режим «Всегда») — ненавязчиво сообщаем.
+            if (NvoApi.lastConnectViaStealth)
+                PageController.showNotificationMessage(qsTr("Подключено в режиме маскировки"))
+        }
     }
 
     function formatDuration(s) {

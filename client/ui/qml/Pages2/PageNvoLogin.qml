@@ -262,7 +262,11 @@ PageType {
             }
 
             // ---- Переключатель режима ----
+            // App Store 2.1: на iOS вход по коду СКРЫТ — только email+пароль (Apple спрашивала
+            // «как получают код / платный ли он»). Переключатель — единственный вход в codeMode,
+            // поэтому его скрытие полностью убирает код-логин из iOS-сборки.
             CaptionTextType {
+                visible: !root.isIos
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 20
                 horizontalAlignment: Text.AlignHCenter
