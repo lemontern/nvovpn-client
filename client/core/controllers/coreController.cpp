@@ -244,17 +244,22 @@ void CoreController::initControllers()
     // на рабочем AWG ведёт себя ровно как раньше.
     m_stealthWatchdog = new QTimer(this);
     m_stealthWatchdog->setSingleShot(true);
-    m_stealthWatchdog->setInterval(10000);
+    m_stealthWatchdog->setInterval(5000);
     connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
         // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
         if (!m_connectionUiController->isConnected()) {
             m_nvoApiController->connectViaStealthFallback();
         }
     });
-    // Успех/ошибка подключения — снимаем watchdog (handshake прошёл или явный сбой; таймаут больше не нужен).
+    // Успех — снимаем watchdog. Явный сбой AWG (Error/Disconnected) ДО таймаута — не ждём 5с,
+    // фолбечим на VLESS сразу. Watchdog активен только на awg-попытке в stealthMode=1, поэтому
+    // isActive() гарантирует, что это именно неудавшийся awg-коннект (не ручной дисконнект/дроп сессии).
     connect(m_connectionUiController, &ConnectionUiController::connectionStateChanged, this, [this]() {
-        if (m_connectionUiController->isConnected() || !m_connectionUiController->isConnectionInProgress()) {
+        if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
+        } else if (m_stealthWatchdog->isActive() && !m_connectionUiController->isConnectionInProgress()) {
+            m_stealthWatchdog->stop();
+            m_nvoApiController->connectViaStealthFallback();
         }
     });
 
