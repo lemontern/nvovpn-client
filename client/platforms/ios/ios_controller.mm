@@ -137,7 +137,6 @@ Vpn::ConnectionState iosStatusToState(NEVPNStatus status) {
 
 namespace {
 constexpr int kHandshakeTimeoutMs = 12000;
-constexpr uint64_t kHandshakeRxThreshold = 4096;
 bool isWireGuardBasedProto(amnezia::Proto proto) {
     return proto == amnezia::Proto::WireGuard || proto == amnezia::Proto::Awg;
 }
@@ -462,11 +461,17 @@ void IosController::checkStatus()
 
         QMetaObject::invokeMethod(this, [this, txBytes, rxBytes, last_handshake_time_sec]() {
             if (isWireGuardBasedProto(m_proto) && m_handshakeAwaiting) {
+                // Признак живого туннеля — только ВХОДЯЩИЙ трафик. tx сюда брать нельзя: когда NE поднял
+                // туннель и забрал дефолтный маршрут, в него льётся весь исходящий трафик системы, и tx
+                // растёт даже если ответа нет вообще (DPI режет UDP). Раньше это давало ложное
+                // «handshake confirmed» → UI рапортовал «Подключено» при мёртвой сети и глушил VLESS-фолбек.
+                // Порог по rx тоже снят: в WireGuard счётчик растёт только на успешно расшифрованных
+                // пакетах, а расшифровка невозможна без состоявшегося handshake. Значит rx > 0 —
+                // достаточное и при этом самое раннее подтверждение (живой туннель подтверждается
+                // быстрее, чем по прежним 4 КБ, — меньше шансов на ложный фолбек).
                 const bool hasHandshakeData = (last_handshake_time_sec >= 0);
                 const bool hasFreshHandshake = hasHandshakeData &&
-                        ((last_handshake_time_sec > 0) ||
-                         (rxBytes >= kHandshakeRxThreshold) ||
-                         (txBytes >= kHandshakeRxThreshold));
+                        ((last_handshake_time_sec > 0) || (rxBytes > 0));
 
                 if (hasFreshHandshake) {
                     m_handshakeConfirmed = true;
