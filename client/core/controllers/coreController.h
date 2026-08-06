@@ -235,6 +235,10 @@ private:
 
     // Маскировка: watchdog AWG→VLESS. Если AWG не поднялся (нет handshake) за таймаут — фолбек на VLESS.
     QTimer* m_stealthWatchdog = nullptr;
+    // Фолбек уже запущен: туннель рвём, ждём возврата маршрута, запрос за VLESS-конфигом ещё не ушёл.
+    // Флаг защищает от повторного входа (разрыв сам порождает connectionStateChanged).
+    bool m_stealthFallbackPending = false;
+    void startStealthFallback();
 };
 
 #endif // CORECONTROLLER_H

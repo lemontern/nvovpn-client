@@ -193,6 +193,10 @@ void NvoApiController::connectViaStealthFallback()
     if (m_lastProtocol == QStringLiteral("vless")) {
         return; // уже на VLESS — второго фолбека нет
     }
+    // Keep-alive сокет, по которому ходил awg-запрос, к этому моменту протух: его пакеты успели уйти
+    // в мёртвый туннель и остались без ACK. Переиспользование такого соединения = запрос в никуда,
+    // поэтому пул соединений сбрасываем и открываем новое (авторизация/куки не трогаются).
+    m_nam->clearConnectionCache();
     requestConfig(m_lastConnectServerId, QStringLiteral("vless"));
 }
 

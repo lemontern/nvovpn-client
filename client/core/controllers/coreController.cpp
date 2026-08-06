@@ -21,6 +21,12 @@
     #include <NvoVPN-Swift.h>
 #endif
 
+namespace {
+    // Сколько ждать после разрыва мёртвого awg-туннеля, прежде чем идти на бэкенд за VLESS-конфигом.
+    // Замер на macOS: система возвращает дефолтный маршрут с utun на физический интерфейс за <1 сек.
+    constexpr int kStealthRouteRestoreMs = 1200;
+}
+
 CoreController::CoreController(const QSharedPointer<VpnConnection> &vpnConnection, SecureQSettings* settings,
                                QQmlApplicationEngine *engine, QObject *parent)
     : QObject(parent), m_vpnConnection(vpnConnection), m_settings(settings), m_engine(engine)
@@ -248,17 +254,24 @@ void CoreController::initControllers()
     connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
         // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
         if (!m_connectionUiController->isConnected()) {
-            m_nvoApiController->connectViaStealthFallback();
+            startStealthFallback();
         }
     });
     // Успех — снимаем watchdog. Явный сбой AWG (Error/Disconnected) ДО таймаута — не ждём 5с,
     // фолбечим на VLESS сразу. Watchdog активен только на awg-попытке в stealthMode=1, поэтому
     // isActive() гарантирует, что это именно неудавшийся awg-коннект (не ручной дисконнект/дроп сессии).
     connect(m_connectionUiController, &ConnectionUiController::connectionStateChanged, this, [this]() {
+        // Мы сами рвём туннель перед фолбеком — приходящие от разрыва состояния игнорируем,
+        // запрос за VLESS уйдёт по таймеру из startStealthFallback(), когда вернётся маршрут.
+        if (m_stealthFallbackPending) {
+            return;
+        }
         if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
         } else if (m_stealthWatchdog->isActive() && !m_connectionUiController->isConnectionInProgress()) {
             m_stealthWatchdog->stop();
+            // Туннель не поднялся вообще (нода недоступна/конфиг битый) — маршрут системы не захвачен,
+            // сеть жива, можно запрашивать VLESS сразу, без разрыва.
             m_nvoApiController->connectViaStealthFallback();
         }
     });
@@ -268,6 +281,8 @@ void CoreController::initControllers()
     connect(m_nvoApiController, &NvoApiController::configReady, this,
             [this](const QString &config, int, const QString &, const QString &, const QString &) {
                 m_stealthWatchdog->stop();
+                // Пришёл свежий конфиг — отложенный (ещё не ушедший) фолбек больше не актуален.
+                m_stealthFallbackPending = false;
                 while (m_serversController->getServersCount() > 0) {
                     m_serversController->removeServer(m_serversController->getServerId(0));
                 }
@@ -281,6 +296,32 @@ void CoreController::initControllers()
                     }
                 }
             });
+}
+
+// Фолбек AWG→VLESS, когда туннель ПОДНЯЛСЯ, но handshake не пришёл (DPI режет UDP).
+// Порядок важен: к этому моменту система уже увела дефолтный маршрут в мёртвый awg-туннель,
+// поэтому запрос за VLESS-конфигом ушёл бы в чёрную дыру (проверено дампом: POST ретрансмитился
+// 10 раз без единого ответа). Сначала рвём туннель — маршрут возвращается на физический интерфейс
+// за ~1 сек — и только потом идём на бэкенд.
+void CoreController::startStealthFallback()
+{
+    if (m_stealthFallbackPending) {
+        return;
+    }
+    m_stealthWatchdog->stop();
+    m_stealthFallbackPending = true;
+
+    m_connectionUiController->closeConnection();
+
+    QTimer::singleShot(kStealthRouteRestoreMs, this, [this]() {
+        // Флаг мог сброситься, если за эту паузу пришёл новый конфиг (пользователь нажал «Подключить»
+        // сам) — тогда отложенный фолбек отменяется, чтобы не перебивать свежую попытку.
+        if (!m_stealthFallbackPending) {
+            return;
+        }
+        m_stealthFallbackPending = false;
+        m_nvoApiController->connectViaStealthFallback();
+    });
 }
 
 void CoreController::initAndroidController()
