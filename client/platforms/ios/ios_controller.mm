@@ -140,14 +140,14 @@ namespace {
 constexpr int kHandshakeTimeoutMs = 12000;
 
 // Контроль живости уже поднятого туннеля. Два признака обрыва, быстрый и медленный.
+// Проверки идут на готовом опросе VpnConnection — раз в секунду.
 //
 // БЫСТРЫЙ — «шлём, а в ответ тишина». Если человек чем-то пользуется, tx растёт, и при живой
 // связи rx обязан расти тоже: любой TCP требует подтверждений. Когда DPI режет туннель, tx
 // продолжает набирать (система льёт трафик в захваченный маршрут), а rx замирает намертво.
-// Это ловится за секунды, а не за минуты — ради этого и опрашиваем часто.
 // Порог по tx отсекает простой: keepalive даёт около 32 байт в минуту, до килобайтов не дотянет.
-// Требуем несколько срабатываний подряд, чтобы короткий провал связи (метро, пересадка Wi-Fi)
-// не рвал исправный туннель.
+// Серия в 10 секунд нужна, чтобы короткий провал (метро, пересадка Wi-Fi, секундный лаг)
+// не рвал исправный туннель: рвать рабочее соединение хуже, чем на пару секунд задержаться.
 //
 // МЕДЛЕННЫЙ — молчащее рукопожатие. Нужен для случая, когда человек ничего не качает: тогда tx
 // почти не растёт и быстрый признак молчит. Здесь спешить незачем — раз трафика нет, человек
@@ -155,9 +155,8 @@ constexpr int kHandshakeTimeoutMs = 12000;
 // переустанавливаются примерно раз в две минуты).
 //
 // В обоих случаях рост rx означает «живо» и гасит любые подозрения.
-constexpr int kLivenessPollMs = 5000;
-constexpr uint64_t kLivenessDeadTxBytes = 24576;
-constexpr int kLivenessDeadStreak = 4;
+constexpr uint64_t kLivenessDeadTxBytes = 4096;
+constexpr int kLivenessDeadStreak = 10;
 constexpr long long kLivenessTimeoutSec = 300;
 // Сколько ждём ответа расширения, прежде чем счесть запрос застрявшим и выпустить флаг.
 constexpr qint64 kStatusStuckMs = 8000;
@@ -453,51 +452,29 @@ void IosController::disconnectVpn()
 
 
 /**
- * Включает слежение за уже поднятым туннелем.
+ * Начинает слежение за уже поднятым туннелем.
  *
- * Своего периодического опроса здесь нет: checkStatus() дёргается по NEVPNStatusDidChange,
- * то есть только когда система сообщает о смене статуса. При обрыве связи статус как раз
- * не меняется — NE продолжает считать туннель поднятым, — поэтому заводим собственный таймер.
+ * Своего таймера здесь НЕ нужно: VpnConnection уже опрашивает нас раз в секунду
+ * (m_checkTimer, интервал 1000 мс, работает пока состояние Connected/Connecting/Reconnecting).
+ * Раньше тут стоял собственный QTimer — он дублировал существующий опрос и принёс с собой
+ * две поломки разом: остановку из чужого потока («Timers cannot be stopped from another thread»)
+ * и асинхронный старт/стоп с гонками. Теперь просто выставляем отметки, а вызовы приходят
+ * из готового опроса.
  */
 void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
 {
-    // Всё, что касается таймера, делаем строго в потоке объекта.
-    // Сюда приходят и системные уведомления NEVPNStatusDidChange, а они прилетают из чужого
-    // потока: Qt на это ругался «Timers cannot be stopped from another thread», таймер оставался
-    // нерабочим, и слежение молчало вообще — ни быстрый признак, ни медленный не срабатывали.
-    QMetaObject::invokeMethod(this, [this, rxBytes, txBytes]() {
-        m_livenessRxMark = rxBytes;
-        m_livenessTxMark = txBytes;
-        m_livenessDeadStreak = 0;
-        m_livenessTearingDown = false;
-
-        if (!m_livenessTimer) {
-            m_livenessTimer = new QTimer(this);
-            connect(m_livenessTimer, &QTimer::timeout, this, [this]() {
-                qDebug() << "IosController: тик живости; запрос в полёте ="
-                         << m_statusRequestInFlight.load()
-                         << ", подряд без ответа =" << m_livenessDeadStreak;
-                checkStatus();
-            });
-        }
-        m_livenessTimer->start(kLivenessPollMs);
-        qDebug() << "IosController: слежение за живостью включено, опрос раз в"
-                 << kLivenessPollMs / 1000 << "сек; поток объекта =" << thread()
-                 << ", текущий =" << QThread::currentThread()
-                 << ", таймер активен =" << m_livenessTimer->isActive();
-    }, Qt::QueuedConnection);
+    m_livenessRxMark = rxBytes;
+    m_livenessTxMark = txBytes;
+    m_livenessDeadStreak = 0;
+    m_livenessTearingDown = false;
+    qDebug() << "IosController: слежение за живостью включено (опрос VpnConnection раз в секунду)";
 }
 
 void IosController::stopLivenessWatch()
 {
-    QMetaObject::invokeMethod(this, [this]() {
-        if (m_livenessTimer) {
-            m_livenessTimer->stop();
-        }
-        m_livenessRxMark = 0;
-        m_livenessTxMark = 0;
-        m_livenessDeadStreak = 0;
-    }, Qt::QueuedConnection);
+    m_livenessRxMark = 0;
+    m_livenessTxMark = 0;
+    m_livenessDeadStreak = 0;
 }
 
 /**
@@ -669,6 +646,16 @@ void IosController::checkStatus()
                 }
             } else if (isWireGuardBasedProto(m_proto) && m_handshakeConfirmed) {
                 checkTunnelLiveness(rxBytes, txBytes, last_handshake_time_sec);
+            } else if (isWireGuardBasedProto(m_proto)) {
+                // Приложение стартовало при УЖЕ поднятом туннеле: события подключения не было,
+                // оба флага пустые — и слежение за живостью не включалось вовсе. На практике это
+                // не редкость: перезапуск приложения, обновление, возврат из сна. Начинаем
+                // ожидание рукопожатия ровно как при обычном подключении, дальше всё идёт
+                // штатным путём (подтверждение → startLivenessWatch).
+                qDebug() << "IosController: туннель уже поднят, а подключения мы не видели —"
+                         << "начинаем ожидание рукопожатия";
+                m_handshakeAwaiting = true;
+                m_handshakeTimer.restart();
             }
 
             emit bytesChanged(rxBytes - m_rxBytes, txBytes - m_txBytes);
