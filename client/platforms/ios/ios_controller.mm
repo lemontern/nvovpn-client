@@ -473,11 +473,18 @@ void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
 
         if (!m_livenessTimer) {
             m_livenessTimer = new QTimer(this);
-            connect(m_livenessTimer, &QTimer::timeout, this, [this]() { checkStatus(); });
+            connect(m_livenessTimer, &QTimer::timeout, this, [this]() {
+                qDebug() << "IosController: тик живости; запрос в полёте ="
+                         << m_statusRequestInFlight.load()
+                         << ", подряд без ответа =" << m_livenessDeadStreak;
+                checkStatus();
+            });
         }
         m_livenessTimer->start(kLivenessPollMs);
         qDebug() << "IosController: слежение за живостью включено, опрос раз в"
-                 << kLivenessPollMs / 1000 << "сек";
+                 << kLivenessPollMs / 1000 << "сек; поток объекта =" << thread()
+                 << ", текущий =" << QThread::currentThread()
+                 << ", таймер активен =" << m_livenessTimer->isActive();
     }, Qt::QueuedConnection);
 }
 
@@ -502,6 +509,10 @@ void IosController::stopLivenessWatch()
  */
 void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec)
 {
+    qDebug() << "IosController: живость — rx" << rxBytes << "(было" << m_livenessRxMark << ")"
+             << "tx" << txBytes << "(было" << m_livenessTxMark << ")"
+             << "рукопожатие" << lastHandshakeSec;
+
     if (m_livenessTearingDown) {
         return;  // разрыв уже запущен; остановка таймера асинхронная, второй раз не рвём
     }
