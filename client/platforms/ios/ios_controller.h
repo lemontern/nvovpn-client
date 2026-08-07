@@ -149,6 +149,9 @@ private:
     // это и есть быстрый признак обрыва.
     uint64_t m_livenessTxMark = 0;
     int m_livenessDeadStreak = 0;
+    // Разрыв уже запущен. Остановка таймера асинхронная (идёт в поток объекта), поэтому
+    // без этого флага таймер успевал сработать ещё раз и рвал соединение повторно.
+    bool m_livenessTearingDown = false;
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
 };

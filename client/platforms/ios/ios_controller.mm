@@ -459,25 +459,34 @@ void IosController::disconnectVpn()
  */
 void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
 {
-    m_livenessRxMark = rxBytes;
-    m_livenessTxMark = txBytes;
-    m_livenessDeadStreak = 0;
+    // Всё, что касается таймера, делаем строго в потоке объекта.
+    // Сюда приходят и системные уведомления NEVPNStatusDidChange, а они прилетают из чужого
+    // потока: Qt на это ругался «Timers cannot be stopped from another thread», таймер оставался
+    // нерабочим, и слежение молчало вообще — ни быстрый признак, ни медленный не срабатывали.
+    QMetaObject::invokeMethod(this, [this, rxBytes, txBytes]() {
+        m_livenessRxMark = rxBytes;
+        m_livenessTxMark = txBytes;
+        m_livenessDeadStreak = 0;
+        m_livenessTearingDown = false;
 
-    if (!m_livenessTimer) {
-        m_livenessTimer = new QTimer(this);
-        connect(m_livenessTimer, &QTimer::timeout, this, [this]() { checkStatus(); });
-    }
-    m_livenessTimer->start(kLivenessPollMs);
+        if (!m_livenessTimer) {
+            m_livenessTimer = new QTimer(this);
+            connect(m_livenessTimer, &QTimer::timeout, this, [this]() { checkStatus(); });
+        }
+        m_livenessTimer->start(kLivenessPollMs);
+    }, Qt::QueuedConnection);
 }
 
 void IosController::stopLivenessWatch()
 {
-    if (m_livenessTimer) {
-        m_livenessTimer->stop();
-    }
-    m_livenessRxMark = 0;
-    m_livenessTxMark = 0;
-    m_livenessDeadStreak = 0;
+    QMetaObject::invokeMethod(this, [this]() {
+        if (m_livenessTimer) {
+            m_livenessTimer->stop();
+        }
+        m_livenessRxMark = 0;
+        m_livenessTxMark = 0;
+        m_livenessDeadStreak = 0;
+    }, Qt::QueuedConnection);
 }
 
 /**
@@ -489,6 +498,10 @@ void IosController::stopLivenessWatch()
  */
 void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec)
 {
+    if (m_livenessTearingDown) {
+        return;  // разрыв уже запущен; остановка таймера асинхронная, второй раз не рвём
+    }
+
     // Данные от сервера идут — туннель живой, сколько бы ни было рукопожатию.
     if (rxBytes > m_livenessRxMark) {
         m_livenessRxMark = rxBytes;
@@ -503,6 +516,7 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
         if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
             qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
                        << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
+            m_livenessTearingDown = true;
             stopLivenessWatch();
             disconnectVpn();
         }
@@ -522,6 +536,7 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
 
     qWarning() << "IosController: туннель молчит" << age
                << "сек — рвём соединение, чтобы уйти на VLESS";
+    m_livenessTearingDown = true;
     stopLivenessWatch();
     disconnectVpn();
 }
