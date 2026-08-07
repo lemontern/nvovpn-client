@@ -154,6 +154,8 @@ private:
     bool m_livenessTearingDown = false;
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
+    // Когда ушёл запрос статуса: по нему выпускаем флаг, если расширение так и не ответило.
+    std::atomic<qint64> m_statusRequestStartedMs { 0 };
 };
 
 #endif // IOS_CONTROLLER_H

@@ -159,6 +159,8 @@ constexpr int kLivenessPollMs = 5000;
 constexpr uint64_t kLivenessDeadTxBytes = 24576;
 constexpr int kLivenessDeadStreak = 4;
 constexpr long long kLivenessTimeoutSec = 300;
+// Сколько ждём ответа расширения, прежде чем счесть запрос застрявшим и выпустить флаг.
+constexpr qint64 kStatusStuckMs = 8000;
 bool isWireGuardBasedProto(amnezia::Proto proto) {
     return proto == amnezia::Proto::WireGuard || proto == amnezia::Proto::Awg;
 }
@@ -474,6 +476,8 @@ void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
             connect(m_livenessTimer, &QTimer::timeout, this, [this]() { checkStatus(); });
         }
         m_livenessTimer->start(kLivenessPollMs);
+        qDebug() << "IosController: слежение за живостью включено, опрос раз в"
+                 << kLivenessPollMs / 1000 << "сек";
     }, Qt::QueuedConnection);
 }
 
@@ -513,6 +517,8 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
     // Быстрый признак: заметно отправили и не получили в ответ ничего.
     if (txBytes > m_livenessTxMark + kLivenessDeadTxBytes) {
         m_livenessTxMark = txBytes;
+        qDebug() << "IosController: отправили без ответа, подряд" << (m_livenessDeadStreak + 1)
+                 << "из" << kLivenessDeadStreak;
         if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
             qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
                        << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
@@ -551,9 +557,34 @@ void IosController::checkStatus()
         return;
     }
 
-    if (m_statusRequestInFlight.exchange(true)) {
-        return;
+    // Расширение отвечает не всегда: sendProviderMessage асинхронный, и когда туннель мёртв,
+    // responseHandler может не прийти вовсе. Раньше флаг «запрос в полёте» в этом случае залипал
+    // навсегда — checkStatus() молча выходил на первой строке, и слежение за живостью замолкало
+    // целиком (в боевом тесте так и вышло: один вызов на подтверждении рукопожатия и тишина).
+    // Поэтому флаг живёт не дольше таймаута.
+    const qint64 nowMs = (qint64) QDateTime::currentMSecsSinceEpoch();
+    if (m_statusRequestInFlight.load()) {
+        if (m_statusRequestStartedMs > 0 && (nowMs - m_statusRequestStartedMs) < kStatusStuckMs) {
+            return;  // ответа ещё ждём, это нормально
+        }
+        qWarning() << "IosController: расширение молчит"
+                   << (nowMs - m_statusRequestStartedMs) / 1000
+                   << "сек — сбрасываем застрявший запрос";
+        // Молчащее расширение при поднятом туннеле — само по себе подозрительно,
+        // засчитываем как попытку без ответа.
+        if (m_handshakeConfirmed && !m_livenessTearingDown) {
+            if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
+                qWarning() << "IosController: статус недоступен" << m_livenessDeadStreak
+                           << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
+                m_livenessTearingDown = true;
+                stopLivenessWatch();
+                disconnectVpn();
+                return;
+            }
+        }
     }
+    m_statusRequestInFlight = true;
+    m_statusRequestStartedMs = nowMs;
 
     NSString *actionKey = [NSString stringWithUTF8String:MessageKey::action];
     NSString *actionValue = [NSString stringWithUTF8String:Action::getStatus];
@@ -566,6 +597,7 @@ void IosController::checkStatus()
         if (!response) {
             QMetaObject::invokeMethod(this, [this]() {
                 m_statusRequestInFlight = false;
+                m_statusRequestStartedMs = 0;
             }, Qt::QueuedConnection);
             return;
         }
@@ -611,6 +643,7 @@ void IosController::checkStatus()
             m_rxBytes = rxBytes;
             m_txBytes = txBytes;
             m_statusRequestInFlight = false;
+                m_statusRequestStartedMs = 0;
         }, Qt::QueuedConnection);
     });
     });
@@ -739,6 +772,7 @@ void IosController::vpnStatusDidChange(void *pNotification)
             m_handshakeConfirmed = false;
             m_handshakeTimer.invalidate();
             m_statusRequestInFlight = false;
+                m_statusRequestStartedMs = 0;
             stopLivenessWatch();  // туннеля больше нет — сторожить нечего
         }
         emitConnectionStateIfChanged(nextState);
