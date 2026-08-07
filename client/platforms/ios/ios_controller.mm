@@ -156,6 +156,9 @@ constexpr int kHandshakeTimeoutMs = 12000;
 //
 // В обоих случаях рост rx означает «живо» и гасит любые подозрения.
 constexpr uint64_t kLivenessDeadTxBytes = 4096;
+// Во сколько раз исходящий трафик может превышать входящий, прежде чем счесть связь мёртвой.
+// На живом туннеле ответы идут сопоставимым потоком; при обрыве rx капает крохами.
+constexpr uint64_t kLivenessRxRatio = 10;
 constexpr int kLivenessDeadStreak = 10;
 constexpr long long kLivenessTimeoutSec = 300;
 // Сколько ждём ответа расширения, прежде чем счесть запрос застрявшим и выпустить флаг.
@@ -494,19 +497,28 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
         return;  // разрыв уже запущен; остановка таймера асинхронная, второй раз не рвём
     }
 
-    // Данные от сервера идут — туннель живой, сколько бы ни было рукопожатию.
-    if (rxBytes > m_livenessRxMark) {
+    const uint64_t rxDelta = rxBytes > m_livenessRxMark ? rxBytes - m_livenessRxMark : 0;
+    const uint64_t txDelta = txBytes > m_livenessTxMark ? txBytes - m_livenessTxMark : 0;
+
+    // Смотрим не на сам факт роста rx, а на СООТНОШЕНИЕ. В боевом тесте у мёртвого туннеля
+    // rx всё равно подрастал крохами — 112-384 байта против десятков килобайт исходящего
+    // (ретрансмиты и служебный мусор). Проверка «rx вырос — значит живо» на это ловилась
+    // и не срабатывала никогда. На живой связи пропорция совсем другая: tx +24912 / rx +21376.
+    const bool answersComing = rxDelta > 0 && rxDelta >= txDelta / kLivenessRxRatio;
+
+    if (answersComing) {
         m_livenessRxMark = rxBytes;
         m_livenessTxMark = txBytes;
         m_livenessDeadStreak = 0;
         return;
     }
 
-    // Быстрый признак: заметно отправили и не получили в ответ ничего.
-    if (txBytes > m_livenessTxMark + kLivenessDeadTxBytes) {
-        m_livenessTxMark = txBytes;
-        qDebug() << "IosController: отправили без ответа, подряд" << (m_livenessDeadStreak + 1)
-                 << "из" << kLivenessDeadStreak;
+    // Быстрый признак: заметно отправили, а внятного ответа нет.
+    // Отметки НЕ двигаем намеренно: дельты копятся от последней заведомо живой точки,
+    // поэтому редкие крохи входящего не могут раз за разом обнулять картину.
+    if (txDelta > kLivenessDeadTxBytes) {
+        qDebug() << "IosController: отправили" << txDelta << "б, в ответ" << rxDelta
+                 << "б — подряд" << (m_livenessDeadStreak + 1) << "из" << kLivenessDeadStreak;
         if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
             qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
                        << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
