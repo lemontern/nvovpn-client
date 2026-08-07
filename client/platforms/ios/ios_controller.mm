@@ -609,6 +609,23 @@ void IosController::checkStatus()
             QMetaObject::invokeMethod(this, [this]() {
                 m_statusRequestInFlight = false;
                 m_statusRequestStartedMs = 0;
+
+                // Пустой ответ раньше просто гасил запрос, и слежение молчало: до проверки
+                // живости управление вообще не доходило. Между тем расширение, которое не может
+                // отдать статус поднятого туннеля, — само по себе симптом, поэтому считаем это
+                // попыткой без ответа наравне с молчанием сети.
+                if (!isWireGuardBasedProto(m_proto) || !m_handshakeConfirmed || m_livenessTearingDown) {
+                    return;
+                }
+                qWarning() << "IosController: расширение вернуло пустой статус, подряд"
+                           << (m_livenessDeadStreak + 1) << "из" << kLivenessDeadStreak;
+                if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
+                    qWarning() << "IosController: статус недоступен подряд — рвём соединение,"
+                               << "чтобы уйти на VLESS";
+                    m_livenessTearingDown = true;
+                    stopLivenessWatch();
+                    disconnectVpn();
+                }
             }, Qt::QueuedConnection);
             return;
         }
@@ -618,6 +635,10 @@ void IosController::checkStatus()
         const long long last_handshake_time_sec = int64FromResponse(response, @"last_handshake_time_sec");
 
         QMetaObject::invokeMethod(this, [this, txBytes, rxBytes, last_handshake_time_sec]() {
+            qDebug() << "IosController: статус получен; wg-протокол ="
+                     << isWireGuardBasedProto(m_proto) << ", ждём рукопожатие ="
+                     << m_handshakeAwaiting << ", подтверждено =" << m_handshakeConfirmed;
+
             if (isWireGuardBasedProto(m_proto) && m_handshakeAwaiting) {
                 // Признак живого туннеля — только ВХОДЯЩИЙ трафик. tx сюда брать нельзя: когда NE поднял
                 // туннель и забрал дефолтный маршрут, в него льётся весь исходящий трафик системы, и tx
