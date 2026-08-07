@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QList>
 #include <QElapsedTimer>
+#include <QTimer>
 #include <atomic>
 
 #ifdef __OBJC__
@@ -58,6 +59,10 @@ public:
 
     void getBackendLogs(std::function<void(const QString &)> &&callback);
     void checkStatus();
+    // Слежение за уже поднятым туннелем: см. комментарии в .mm.
+    void startLivenessWatch(uint64_t rxBytes);
+    void stopLivenessWatch();
+    void checkTunnelLiveness(uint64_t rxBytes, long long lastHandshakeSec);
 
     bool shareText(const QStringList &filesToSend);
     QString openFile();
@@ -132,6 +137,14 @@ private:
     bool m_handshakeAwaiting = false;
     bool m_handshakeConfirmed = false;
     QElapsedTimer m_handshakeTimer;
+    // Контроль живости УЖЕ поднятого туннеля. Проверка выше сторожит только первое рукопожатие
+    // и после него замолкает, поэтому обрыв посреди сессии оставался незамеченным: NE держит
+    // туннель, дефолтный маршрут в нём, а трафик уже режется. Своего опроса тут нет —
+    // checkStatus() дёргается по NEVPNStatusDidChange, то есть только когда статус меняется,
+    // а при обрыве он как раз не меняется. Поэтому заводим собственный таймер.
+    QTimer *m_livenessTimer = nullptr;
+    // rx на прошлой проверке: если растёт, туннель живой независимо от возраста рукопожатия.
+    uint64_t m_livenessRxMark = 0;
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
 };

@@ -2,6 +2,7 @@
 
 #import <TargetConditionals.h>   // NvoVPN: для корректного TARGET_OS_OSX (иначе #if трактует его как 0)
 
+#include <QDateTime>
 #include <QDebug>
 #include <QFile>
 #include <QJsonArray>
@@ -137,6 +138,16 @@ Vpn::ConnectionState iosStatusToState(NEVPNStatus status) {
 
 namespace {
 constexpr int kHandshakeTimeoutMs = 12000;
+
+// Контроль живости уже поднятого туннеля.
+//
+// Порог с большим запасом: клиент шлёт keepalive раз в минуту, а WireGuard при активном трафике
+// переустанавливает ключи примерно раз в две минуты — на живой связи рукопожатия не могут молчать
+// пять минут. Дополнительно страхуемся ростом rx: если данные от сервера идут, туннель считаем
+// живым, каким бы старым ни было рукопожатие. Оборвать исправное соединение хуже, чем не заметить
+// обрыв, а на простаивающем туннеле рукопожатие само по себе не обновляется.
+constexpr int kLivenessPollMs = 30000;
+constexpr long long kLivenessTimeoutSec = 300;
 bool isWireGuardBasedProto(amnezia::Proto proto) {
     return proto == amnezia::Proto::WireGuard || proto == amnezia::Proto::Awg;
 }
@@ -405,6 +416,8 @@ void IosController::disconnectVpn()
         return;
     }
 
+    stopLivenessWatch();
+
     NETunnelProviderManager *tunnel = m_currentTunnel;
 
     // Если включён kill switch (on-demand), перед явным отключением снимаем on-demand —
@@ -425,6 +438,63 @@ void IosController::disconnectVpn()
     }
 }
 
+
+/**
+ * Включает слежение за уже поднятым туннелем.
+ *
+ * Своего периодического опроса здесь нет: checkStatus() дёргается по NEVPNStatusDidChange,
+ * то есть только когда система сообщает о смене статуса. При обрыве связи статус как раз
+ * не меняется — NE продолжает считать туннель поднятым, — поэтому заводим собственный таймер.
+ */
+void IosController::startLivenessWatch(uint64_t rxBytes)
+{
+    m_livenessRxMark = rxBytes;
+
+    if (!m_livenessTimer) {
+        m_livenessTimer = new QTimer(this);
+        connect(m_livenessTimer, &QTimer::timeout, this, [this]() { checkStatus(); });
+    }
+    m_livenessTimer->start(kLivenessPollMs);
+}
+
+void IosController::stopLivenessWatch()
+{
+    if (m_livenessTimer) {
+        m_livenessTimer->stop();
+    }
+    m_livenessRxMark = 0;
+}
+
+/**
+ * Рвёт туннель, если связь пропала посреди сессии.
+ *
+ * Без этого приложение показывало «Подключено» до тех пор, пока человек сам не отключится:
+ * DPI режет трафик молча, NE держит туннель вместе с дефолтным маршрутом, и пользователь
+ * остаётся вообще без интернета, не понимая почему. После разрыва оркестратор уводит на VLESS.
+ */
+void IosController::checkTunnelLiveness(uint64_t rxBytes, long long lastHandshakeSec)
+{
+    // Данные от сервера идут — туннель живой, сколько бы ни было рукопожатию.
+    if (rxBytes > m_livenessRxMark) {
+        m_livenessRxMark = rxBytes;
+        return;
+    }
+
+    if (lastHandshakeSec <= 0) {
+        return;  // значения нет или ошибка — не выдумываем обрыв
+    }
+
+    const long long nowSec = (long long) QDateTime::currentSecsSinceEpoch();
+    const long long age = nowSec - lastHandshakeSec;
+    if (age <= kLivenessTimeoutSec) {
+        return;
+    }
+
+    qWarning() << "IosController: туннель молчит" << age
+               << "сек — рвём соединение, чтобы уйти на VLESS";
+    stopLivenessWatch();
+    disconnectVpn();
+}
 
 void IosController::checkStatus()
 {
@@ -479,12 +549,17 @@ void IosController::checkStatus()
                     m_handshakeTimer.invalidate();
                     qDebug() << "IosController::checkStatus : handshake confirmed";
                     emitConnectionStateIfChanged(Vpn::ConnectionState::Connected);
+                    // Дальше туннель сторожит контроль живости: рукопожатие состоялось,
+                    // но связь ещё может пропасть посреди сессии.
+                    startLivenessWatch(rxBytes);
                 } else if (m_handshakeTimer.isValid() &&
                            m_handshakeTimer.elapsed() > kHandshakeTimeoutMs) {
                     m_handshakeTimer.restart();
                     qDebug() << "IosController::checkStatus : handshake timed out, keeping tunnel alive";
                     emitConnectionStateIfChanged(Vpn::ConnectionState::Reconnecting);
                 }
+            } else if (isWireGuardBasedProto(m_proto) && m_handshakeConfirmed) {
+                checkTunnelLiveness(rxBytes, last_handshake_time_sec);
             }
 
             emit bytesChanged(rxBytes - m_rxBytes, txBytes - m_txBytes);
@@ -619,6 +694,7 @@ void IosController::vpnStatusDidChange(void *pNotification)
             m_handshakeConfirmed = false;
             m_handshakeTimer.invalidate();
             m_statusRequestInFlight = false;
+            stopLivenessWatch();  // туннеля больше нет — сторожить нечего
         }
         emitConnectionStateIfChanged(nextState);
 }
