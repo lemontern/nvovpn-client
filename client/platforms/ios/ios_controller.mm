@@ -156,9 +156,9 @@ constexpr int kHandshakeTimeoutMs = 12000;
 //
 // В обоих случаях рост rx означает «живо» и гасит любые подозрения.
 constexpr uint64_t kLivenessDeadTxBytes = 4096;
-// Во сколько раз исходящий трафик может превышать входящий, прежде чем счесть связь мёртвой.
-// На живом туннеле ответы идут сопоставимым потоком; при обрыве rx капает крохами.
-constexpr uint64_t kLivenessRxRatio = 10;
+// Сколько входящего за интервал считаем признаком живого туннеля. Замеры: на живой связи
+// rx прибавляет килобайты в секунду, при обрыве — десятки байт (ретрансмиты, служебный мусор).
+constexpr uint64_t kLivenessAliveRxBytes = 1024;
 constexpr int kLivenessDeadStreak = 10;
 constexpr long long kLivenessTimeoutSec = 300;
 // Сколько ждём ответа расширения, прежде чем счесть запрос застрявшим и выпустить флаг.
@@ -497,27 +497,28 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
         return;  // разрыв уже запущен; остановка таймера асинхронная, второй раз не рвём
     }
 
+    // Сравниваем приращения ЗА ИНТЕРВАЛ (опрос идёт раз в секунду), а не накопленные суммы.
+    // Накопительный вариант оборвал живую связь: за полторы минуты набежало 4.2 МБ исходящего
+    // против 240 КБ входящего — по пропорции «мёртво», хотя человек в это время спокойно качал.
+    // Дело в том, что при частичном туннелировании поток вообще не обязан быть симметричным.
+    //
+    // Приращения же разделяют состояния чисто:
+    //   живая связь  — rx растёт на килобайты в секунду,
+    //   обрыв        — на десятки байт (ретрансмиты и служебный мусор).
     const uint64_t rxDelta = rxBytes > m_livenessRxMark ? rxBytes - m_livenessRxMark : 0;
     const uint64_t txDelta = txBytes > m_livenessTxMark ? txBytes - m_livenessTxMark : 0;
 
-    // Смотрим не на сам факт роста rx, а на СООТНОШЕНИЕ. В боевом тесте у мёртвого туннеля
-    // rx всё равно подрастал крохами — 112-384 байта против десятков килобайт исходящего
-    // (ретрансмиты и служебный мусор). Проверка «rx вырос — значит живо» на это ловилась
-    // и не срабатывала никогда. На живой связи пропорция совсем другая: tx +24912 / rx +21376.
-    const bool answersComing = rxDelta > 0 && rxDelta >= txDelta / kLivenessRxRatio;
+    m_livenessRxMark = rxBytes;
+    m_livenessTxMark = txBytes;
 
-    if (answersComing) {
-        m_livenessRxMark = rxBytes;
-        m_livenessTxMark = txBytes;
+    if (rxDelta >= kLivenessAliveRxBytes) {
         m_livenessDeadStreak = 0;
         return;
     }
 
-    // Быстрый признак: заметно отправили, а внятного ответа нет.
-    // Отметки НЕ двигаем намеренно: дельты копятся от последней заведомо живой точки,
-    // поэтому редкие крохи входящего не могут раз за разом обнулять картину.
+    // Быстрый признак: заметно отправили, а внятного ответа за этот интервал нет.
     if (txDelta > kLivenessDeadTxBytes) {
-        qDebug() << "IosController: отправили" << txDelta << "б, в ответ" << rxDelta
+        qDebug() << "IosController: за интервал отправили" << txDelta << "б, получили" << rxDelta
                  << "б — подряд" << (m_livenessDeadStreak + 1) << "из" << kLivenessDeadStreak;
         if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
             qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
