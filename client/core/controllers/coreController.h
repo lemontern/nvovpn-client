@@ -238,6 +238,9 @@ private:
     // Фолбек уже запущен: туннель рвём, ждём возврата маршрута, запрос за VLESS-конфигом ещё не ушёл.
     // Флаг защищает от повторного входа (разрыв сам порождает connectionStateChanged).
     bool m_stealthFallbackPending = false;
+    // Был ли поднят рабочий awg-туннель: по нему отличаем самопроизвольный обрыв связи
+    // от неудавшейся попытки подключения.
+    bool m_awgTunnelWasUp = false;
     void startStealthFallback();
 };
 

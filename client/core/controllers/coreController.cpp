@@ -268,11 +268,22 @@ void CoreController::initControllers()
         }
         if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
+            // Запоминаем, что живой awg-туннель БЫЛ: если он оборвётся сам, это повод уйти на VLESS.
+            m_awgTunnelWasUp = (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg"));
         } else if (m_stealthWatchdog->isActive() && !m_connectionUiController->isConnectionInProgress()) {
             m_stealthWatchdog->stop();
             // Туннель не поднялся вообще (нода недоступна/конфиг битый) — маршрут системы не захвачен,
             // сеть жива, можно запрашивать VLESS сразу, без разрыва.
             m_nvoApiController->connectViaStealthFallback();
+        } else if (m_awgTunnelWasUp && !m_connectionUiController->isConnectionInProgress()) {
+            // Сюда попадаем, когда рабочий awg-туннель оборвался сам — демон увидел, что рукопожатия
+            // молчат, и деактивировал интерфейс (см. Daemon::checkLiveness). Раньше такого пути не было
+            // вовсе: приложение показывало «Подключено» до ручного отключения, хотя трафик уже резался.
+            // Осознанное «Отключить» сюда не приводит — его помечает closeConnectionByUser().
+            m_awgTunnelWasUp = false;
+            if (!m_connectionUiController->takeUserInitiatedClose()) {
+                m_nvoApiController->connectViaStealthFallback();
+            }
         }
     });
 
@@ -283,6 +294,9 @@ void CoreController::initControllers()
                 m_stealthWatchdog->stop();
                 // Пришёл свежий конфиг — отложенный (ещё не ушедший) фолбек больше не актуален.
                 m_stealthFallbackPending = false;
+                // Прежний туннель сейчас будет снесён ради нового: разрыв запланированный,
+                // принимать его за обрыв связи нельзя (иначе смена страны уводила бы на VLESS).
+                m_awgTunnelWasUp = false;
                 while (m_serversController->getServersCount() > 0) {
                     m_serversController->removeServer(m_serversController->getServerId(0));
                 }

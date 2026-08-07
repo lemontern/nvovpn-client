@@ -115,7 +115,8 @@ PageType {
 
                 clickedFunction: function() {
                     if (ConnectionController.isConnected || ConnectionController.isConnectionInProgress) {
-                        ConnectionController.closeConnection()
+                        // Выход из аккаунта — тоже осознанное действие, фолбек тут не нужен.
+                        ConnectionController.closeConnectionByUser()
                     }
                     NvoApi.logout()
                 }

@@ -206,7 +206,9 @@ PageType {
                     hoverEnabled: true
                     onClicked: {
                         if (root.connected) {
-                            ConnectionController.closeConnection()
+                            // Именно ByUser: осознанное отключение не должно уводить на VLESS,
+                            // в отличие от обрыва связи.
+                            ConnectionController.closeConnectionByUser()
                         } else {
                             NvoApi.connectToSelected()
                         }

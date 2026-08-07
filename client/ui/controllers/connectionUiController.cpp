@@ -45,6 +45,20 @@ void ConnectionUiController::closeConnection()
     m_connectionController->closeConnection();
 }
 
+void ConnectionUiController::closeConnectionByUser()
+{
+    m_userInitiatedClose = true;
+    closeConnection();
+}
+
+bool ConnectionUiController::takeUserInitiatedClose()
+{
+    const bool wasUser = m_userInitiatedClose;
+    m_userInitiatedClose = false;
+
+    return wasUser;
+}
+
 ErrorCode ConnectionUiController::getLastConnectionError()
 {
     return m_connectionController->lastConnectionError();

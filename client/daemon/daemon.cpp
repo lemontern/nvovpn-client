@@ -18,6 +18,20 @@
 constexpr const char* JSON_ALLOWEDIPADDRESSRANGES = "allowedIPAddressRanges";
 constexpr int HANDSHAKE_POLL_MSEC = 250;
 
+// Контроль живости УЖЕ поднятого туннеля.
+//
+// checkHandshake() следит только за первым рукопожатием и после него замолкает навсегда,
+// поэтому обрыв посреди сессии клиент не замечал: интерфейс поднят, DPI молча режет трафик,
+// а приложение показывает «Подключено», пока человек сам не нажмёт «Отключить».
+//
+// Порог с большим запасом: клиент шлёт keepalive каждые WG_KEEPALIVE_PERIOD (60 с), а WireGuard
+// при активном трафике переустанавливает ключи примерно раз в две минуты — на живой связи
+// рукопожатия не могут молчать пять минут. Дополнительно страхуемся ростом rx: если данные
+// от сервера идут, туннель считаем живым, что бы ни показывал handshake (иначе рискуем оборвать
+// исправное соединение, а это хуже, чем не заметить обрыв).
+constexpr int LIVENESS_POLL_MSEC = 30000;
+constexpr qint64 LIVENESS_TIMEOUT_MSEC = 300000;
+
 namespace {
 
 Logger logger("Daemon");
@@ -36,6 +50,9 @@ Daemon::Daemon(QObject* parent) : QObject(parent) {
 
   m_handshakeTimer.setSingleShot(true);
   connect(&m_handshakeTimer, &QTimer::timeout, this, &Daemon::checkHandshake);
+
+  m_livenessTimer.setSingleShot(true);
+  connect(&m_livenessTimer, &QTimer::timeout, this, &Daemon::checkLiveness);
 }
 
 Daemon::~Daemon() {
@@ -447,6 +464,9 @@ bool Daemon::parseConfig(const QJsonObject& obj, InterfaceConfig& config) {
 bool Daemon::deactivate(bool emitSignals) {
   Q_ASSERT(wgutils() != nullptr);
 
+  // Туннеля больше не будет — сторожить нечего.
+  m_livenessTimer.stop();
+
   // Deactivate the main interface.
   if (!m_connections.isEmpty()) {
     const ConnectionState& state = m_connections.first();
@@ -605,7 +625,11 @@ void Daemon::checkHandshake() {
       }
       if (status.m_handshake != 0) {
         connection.m_date.setMSecsSinceEpoch(status.m_handshake);
+        connection.m_lastRxBytes = status.m_rxBytes;
         emit connected(status.m_pubkey);
+        // Дальше за этим соединением следит checkLiveness(): рукопожатие состоялось,
+        // но связь ещё может пропасть посреди сессии.
+        m_livenessTimer.start(LIVENESS_POLL_MSEC);
       }
     }
 
@@ -618,4 +642,54 @@ void Daemon::checkHandshake() {
   if (pendingHandshakes > 0) {
     m_handshakeTimer.start(HANDSHAKE_POLL_MSEC);
   }
+}
+
+/**
+ * Следит за уже поднятым туннелем и рвёт его, если связь пропала.
+ *
+ * Без этого приложение показывало «Подключено» до тех пор, пока пользователь сам не отключится:
+ * DPI режет трафик молча, интерфейс при этом остаётся поднятым, а дефолтный маршрут — в нём,
+ * то есть человек сидит вообще без интернета и не понимает почему.
+ *
+ * Рвём соединение штатной деактивацией: маршрут возвращается на физический интерфейс, клиент
+ * получает disconnected и может уйти на VLESS.
+ */
+void Daemon::checkLiveness() {
+  if (m_connections.isEmpty() || wgutils() == nullptr) {
+    return;
+  }
+
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  QList<WireguardUtils::PeerStatus> peers = wgutils()->getPeerStatus();
+
+  for (ConnectionState& connection : m_connections) {
+    if (!connection.m_date.isValid()) {
+      continue;  // ещё не подключились — это забота checkHandshake()
+    }
+
+    for (const WireguardUtils::PeerStatus& status : peers) {
+      if (connection.m_config.m_serverPublicKey != status.m_pubkey) {
+        continue;
+      }
+
+      // Данные от сервера идут — туннель живой, независимо от возраста рукопожатия.
+      if (status.m_rxBytes > connection.m_lastRxBytes) {
+        connection.m_lastRxBytes = status.m_rxBytes;
+        break;
+      }
+
+      if (status.m_handshake == 0 ||
+          (now - status.m_handshake) <= LIVENESS_TIMEOUT_MSEC) {
+        break;
+      }
+
+      logger.warning() << "Туннель молчит дольше допустимого — рвём соединение;"
+                       << "последнее рукопожатие"
+                       << (now - status.m_handshake) / 1000 << "сек назад";
+      deactivate(true);
+      return;
+    }
+  }
+
+  m_livenessTimer.start(LIVENESS_POLL_MSEC);
 }
