@@ -60,9 +60,9 @@ public:
     void getBackendLogs(std::function<void(const QString &)> &&callback);
     void checkStatus();
     // Слежение за уже поднятым туннелем: см. комментарии в .mm.
-    void startLivenessWatch(uint64_t rxBytes);
+    void startLivenessWatch(uint64_t rxBytes, uint64_t txBytes);
     void stopLivenessWatch();
-    void checkTunnelLiveness(uint64_t rxBytes, long long lastHandshakeSec);
+    void checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec);
 
     bool shareText(const QStringList &filesToSend);
     QString openFile();
@@ -145,6 +145,10 @@ private:
     QTimer *m_livenessTimer = nullptr;
     // rx на прошлой проверке: если растёт, туннель живой независимо от возраста рукопожатия.
     uint64_t m_livenessRxMark = 0;
+    // tx на прошлой проверке и сколько раз подряд мы отправляли без единого ответа —
+    // это и есть быстрый признак обрыва.
+    uint64_t m_livenessTxMark = 0;
+    int m_livenessDeadStreak = 0;
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
 };

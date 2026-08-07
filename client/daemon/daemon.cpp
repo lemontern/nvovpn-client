@@ -18,18 +18,28 @@
 constexpr const char* JSON_ALLOWEDIPADDRESSRANGES = "allowedIPAddressRanges";
 constexpr int HANDSHAKE_POLL_MSEC = 250;
 
-// Контроль живости УЖЕ поднятого туннеля.
+// Контроль живости УЖЕ поднятого туннеля. Два признака обрыва, быстрый и медленный.
 //
 // checkHandshake() следит только за первым рукопожатием и после него замолкает навсегда,
 // поэтому обрыв посреди сессии клиент не замечал: интерфейс поднят, DPI молча режет трафик,
 // а приложение показывает «Подключено», пока человек сам не нажмёт «Отключить».
 //
-// Порог с большим запасом: клиент шлёт keepalive каждые WG_KEEPALIVE_PERIOD (60 с), а WireGuard
-// при активном трафике переустанавливает ключи примерно раз в две минуты — на живой связи
-// рукопожатия не могут молчать пять минут. Дополнительно страхуемся ростом rx: если данные
-// от сервера идут, туннель считаем живым, что бы ни показывал handshake (иначе рискуем оборвать
-// исправное соединение, а это хуже, чем не заметить обрыв).
-constexpr int LIVENESS_POLL_MSEC = 30000;
+// БЫСТРЫЙ признак — «шлём, а в ответ тишина». Если человек чем-то пользуется, tx растёт, и при
+// живой связи rx обязан расти тоже: любой TCP требует подтверждений. Когда DPI режет туннель,
+// tx продолжает набирать (система льёт трафик в захваченный маршрут), а rx замирает намертво.
+// Ловится за секунды. Порог по tx отсекает простой: keepalive даёт около 32 байт в минуту.
+// Несколько срабатываний подряд нужны, чтобы короткий провал связи не рвал исправный туннель.
+//
+// МЕДЛЕННЫЙ признак — молчащее рукопожатие. Для случая, когда человек ничего не качает: тогда
+// tx почти не растёт и быстрый признак молчит. Спешить тут незачем — раз трафика нет, туннелем
+// и не пользуются, поэтому порог с запасом (keepalive раз в WG_KEEPALIVE_PERIOD, ключи
+// переустанавливаются примерно раз в две минуты).
+//
+// В обоих случаях рост rx означает «живо» и гасит любые подозрения: оборвать исправное
+// соединение хуже, чем не заметить обрыв.
+constexpr int LIVENESS_POLL_MSEC = 5000;
+constexpr qint64 LIVENESS_DEAD_TX_BYTES = 24576;
+constexpr int LIVENESS_DEAD_STREAK = 4;
 constexpr qint64 LIVENESS_TIMEOUT_MSEC = 300000;
 
 namespace {
@@ -626,6 +636,8 @@ void Daemon::checkHandshake() {
       if (status.m_handshake != 0) {
         connection.m_date.setMSecsSinceEpoch(status.m_handshake);
         connection.m_lastRxBytes = status.m_rxBytes;
+        connection.m_lastTxBytes = status.m_txBytes;
+        connection.m_deadStreak = 0;
         emit connected(status.m_pubkey);
         // Дальше за этим соединением следит checkLiveness(): рукопожатие состоялось,
         // но связь ещё может пропасть посреди сессии.
@@ -675,9 +687,24 @@ void Daemon::checkLiveness() {
       // Данные от сервера идут — туннель живой, независимо от возраста рукопожатия.
       if (status.m_rxBytes > connection.m_lastRxBytes) {
         connection.m_lastRxBytes = status.m_rxBytes;
+        connection.m_lastTxBytes = status.m_txBytes;
+        connection.m_deadStreak = 0;
         break;
       }
 
+      // Быстрый признак: заметно отправили и не получили в ответ ничего.
+      if (status.m_txBytes > connection.m_lastTxBytes + LIVENESS_DEAD_TX_BYTES) {
+        connection.m_lastTxBytes = status.m_txBytes;
+        if (++connection.m_deadStreak >= LIVENESS_DEAD_STREAK) {
+          logger.warning() << "Отправляем, ответа нет" << connection.m_deadStreak
+                           << "проверок подряд — рвём соединение";
+          deactivate(true);
+          return;
+        }
+        break;
+      }
+
+      // Медленный признак: трафика почти нет, судим по возрасту рукопожатия.
       if (status.m_handshake == 0 ||
           (now - status.m_handshake) <= LIVENESS_TIMEOUT_MSEC) {
         break;

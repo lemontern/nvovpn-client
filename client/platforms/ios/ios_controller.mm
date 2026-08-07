@@ -139,14 +139,25 @@ Vpn::ConnectionState iosStatusToState(NEVPNStatus status) {
 namespace {
 constexpr int kHandshakeTimeoutMs = 12000;
 
-// Контроль живости уже поднятого туннеля.
+// Контроль живости уже поднятого туннеля. Два признака обрыва, быстрый и медленный.
 //
-// Порог с большим запасом: клиент шлёт keepalive раз в минуту, а WireGuard при активном трафике
-// переустанавливает ключи примерно раз в две минуты — на живой связи рукопожатия не могут молчать
-// пять минут. Дополнительно страхуемся ростом rx: если данные от сервера идут, туннель считаем
-// живым, каким бы старым ни было рукопожатие. Оборвать исправное соединение хуже, чем не заметить
-// обрыв, а на простаивающем туннеле рукопожатие само по себе не обновляется.
-constexpr int kLivenessPollMs = 30000;
+// БЫСТРЫЙ — «шлём, а в ответ тишина». Если человек чем-то пользуется, tx растёт, и при живой
+// связи rx обязан расти тоже: любой TCP требует подтверждений. Когда DPI режет туннель, tx
+// продолжает набирать (система льёт трафик в захваченный маршрут), а rx замирает намертво.
+// Это ловится за секунды, а не за минуты — ради этого и опрашиваем часто.
+// Порог по tx отсекает простой: keepalive даёт около 32 байт в минуту, до килобайтов не дотянет.
+// Требуем несколько срабатываний подряд, чтобы короткий провал связи (метро, пересадка Wi-Fi)
+// не рвал исправный туннель.
+//
+// МЕДЛЕННЫЙ — молчащее рукопожатие. Нужен для случая, когда человек ничего не качает: тогда tx
+// почти не растёт и быстрый признак молчит. Здесь спешить незачем — раз трафика нет, человек
+// туннелем и не пользуется, поэтому порог с большим запасом (keepalive раз в минуту, ключи
+// переустанавливаются примерно раз в две минуты).
+//
+// В обоих случаях рост rx означает «живо» и гасит любые подозрения.
+constexpr int kLivenessPollMs = 5000;
+constexpr uint64_t kLivenessDeadTxBytes = 24576;
+constexpr int kLivenessDeadStreak = 4;
 constexpr long long kLivenessTimeoutSec = 300;
 bool isWireGuardBasedProto(amnezia::Proto proto) {
     return proto == amnezia::Proto::WireGuard || proto == amnezia::Proto::Awg;
@@ -446,9 +457,11 @@ void IosController::disconnectVpn()
  * то есть только когда система сообщает о смене статуса. При обрыве связи статус как раз
  * не меняется — NE продолжает считать туннель поднятым, — поэтому заводим собственный таймер.
  */
-void IosController::startLivenessWatch(uint64_t rxBytes)
+void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
 {
     m_livenessRxMark = rxBytes;
+    m_livenessTxMark = txBytes;
+    m_livenessDeadStreak = 0;
 
     if (!m_livenessTimer) {
         m_livenessTimer = new QTimer(this);
@@ -463,6 +476,8 @@ void IosController::stopLivenessWatch()
         m_livenessTimer->stop();
     }
     m_livenessRxMark = 0;
+    m_livenessTxMark = 0;
+    m_livenessDeadStreak = 0;
 }
 
 /**
@@ -472,14 +487,29 @@ void IosController::stopLivenessWatch()
  * DPI режет трафик молча, NE держит туннель вместе с дефолтным маршрутом, и пользователь
  * остаётся вообще без интернета, не понимая почему. После разрыва оркестратор уводит на VLESS.
  */
-void IosController::checkTunnelLiveness(uint64_t rxBytes, long long lastHandshakeSec)
+void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec)
 {
     // Данные от сервера идут — туннель живой, сколько бы ни было рукопожатию.
     if (rxBytes > m_livenessRxMark) {
         m_livenessRxMark = rxBytes;
+        m_livenessTxMark = txBytes;
+        m_livenessDeadStreak = 0;
         return;
     }
 
+    // Быстрый признак: заметно отправили и не получили в ответ ничего.
+    if (txBytes > m_livenessTxMark + kLivenessDeadTxBytes) {
+        m_livenessTxMark = txBytes;
+        if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
+            qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
+                       << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
+            stopLivenessWatch();
+            disconnectVpn();
+        }
+        return;
+    }
+
+    // Медленный признак: трафика почти нет, судим по возрасту рукопожатия.
     if (lastHandshakeSec <= 0) {
         return;  // значения нет или ошибка — не выдумываем обрыв
     }
@@ -551,7 +581,7 @@ void IosController::checkStatus()
                     emitConnectionStateIfChanged(Vpn::ConnectionState::Connected);
                     // Дальше туннель сторожит контроль живости: рукопожатие состоялось,
                     // но связь ещё может пропасть посреди сессии.
-                    startLivenessWatch(rxBytes);
+                    startLivenessWatch(rxBytes, txBytes);
                 } else if (m_handshakeTimer.isValid() &&
                            m_handshakeTimer.elapsed() > kHandshakeTimeoutMs) {
                     m_handshakeTimer.restart();
@@ -559,7 +589,7 @@ void IosController::checkStatus()
                     emitConnectionStateIfChanged(Vpn::ConnectionState::Reconnecting);
                 }
             } else if (isWireGuardBasedProto(m_proto) && m_handshakeConfirmed) {
-                checkTunnelLiveness(rxBytes, last_handshake_time_sec);
+                checkTunnelLiveness(rxBytes, txBytes, last_handshake_time_sec);
             }
 
             emit bytesChanged(rxBytes - m_rxBytes, txBytes - m_txBytes);
