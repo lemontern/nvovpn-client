@@ -506,6 +506,21 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         m_inFailover = false;
         m_failoverQueue.clear();
         setBusy(false);
+        // Признак маскировки — по ФАКТИЧЕСКОМУ протоколу из ответа, а не по запросу.
+        // Сервер мог сам подменить awg на vless (серверный фолбек для старых сборок): тогда
+        // человек должен увидеть «Подключено в режиме маскировки», а не гадать, почему стало
+        // медленнее. Заодно выравниваем m_lastProtocol — иначе оркестратор счёл бы туннель
+        // awg-шным и впустую запустил бы сторож рукопожатия на xray-туннеле.
+        const QString actualProto = root.value(QStringLiteral("protocol")).toString();
+        if (!actualProto.isEmpty()) {
+            m_lastProtocol = actualProto;
+            const bool viaStealth = (actualProto == QStringLiteral("vless"));
+            if (m_lastConnectViaStealth != viaStealth) {
+                m_lastConnectViaStealth = viaStealth;
+                emit lastConnectViaStealthChanged();
+            }
+        }
+
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
         emit configReady(config, serverId, server.value(QStringLiteral("name")).toString(),
                          root.value(QStringLiteral("vpn_key")).toString(),
