@@ -35,11 +35,15 @@ constexpr int HANDSHAKE_POLL_MSEC = 250;
 // и не пользуются, поэтому порог с запасом (keepalive раз в WG_KEEPALIVE_PERIOD, ключи
 // переустанавливаются примерно раз в две минуты).
 //
-// В обоих случаях рост rx означает «живо» и гасит любые подозрения: оборвать исправное
-// соединение хуже, чем не заметить обрыв.
-constexpr int LIVENESS_POLL_MSEC = 5000;
-constexpr qint64 LIVENESS_DEAD_TX_BYTES = 24576;
-constexpr int LIVENESS_DEAD_STREAK = 4;
+// Считаем ПРИРАЩЕНИЯ ЗА ИНТЕРВАЛ, а не накопленные суммы, и «живо» — это заметный прирост rx
+// (≥1 КБ), а не любой рост. Раньше здесь стояло `rx > lastRx`, и это ломало детект начисто:
+// при DPI-блоке rx всё равно капает крохами (ретрансмиты, keepalive) → счётчик обнулялся каждый
+// раз → обрыв не ловился НИКОГДА. Ровно этот баг был на Windows. Значения — те же, что проверены
+// на macOS: опрос раз в секунду, порог rx 1 КБ, порог tx 4 КБ, серия 10 (~10 сек до разрыва).
+constexpr int LIVENESS_POLL_MSEC = 1000;
+constexpr qint64 LIVENESS_ALIVE_RX_BYTES = 1024;
+constexpr qint64 LIVENESS_DEAD_TX_BYTES = 4096;
+constexpr int LIVENESS_DEAD_STREAK = 10;
 constexpr qint64 LIVENESS_TIMEOUT_MSEC = 300000;
 
 namespace {
@@ -684,17 +688,23 @@ void Daemon::checkLiveness() {
         continue;
       }
 
-      // Данные от сервера идут — туннель живой, независимо от возраста рукопожатия.
-      if (status.m_rxBytes > connection.m_lastRxBytes) {
-        connection.m_lastRxBytes = status.m_rxBytes;
-        connection.m_lastTxBytes = status.m_txBytes;
+      // Приращения ЗА ИНТЕРВАЛ (метки обновляем каждый опрос), а не накопленные суммы.
+      const qint64 rxDelta = status.m_rxBytes > connection.m_lastRxBytes
+          ? status.m_rxBytes - connection.m_lastRxBytes : 0;
+      const qint64 txDelta = status.m_txBytes > connection.m_lastTxBytes
+          ? status.m_txBytes - connection.m_lastTxBytes : 0;
+      connection.m_lastRxBytes = status.m_rxBytes;
+      connection.m_lastTxBytes = status.m_txBytes;
+
+      // Заметный прирост входящего — туннель живой. Именно ПОРОГ, а не «любой рост»:
+      // при обрыве rx капает крохами (ретрансмиты/keepalive), и они не должны обнулять счётчик.
+      if (rxDelta >= LIVENESS_ALIVE_RX_BYTES) {
         connection.m_deadStreak = 0;
         break;
       }
 
-      // Быстрый признак: заметно отправили и не получили в ответ ничего.
-      if (status.m_txBytes > connection.m_lastTxBytes + LIVENESS_DEAD_TX_BYTES) {
-        connection.m_lastTxBytes = status.m_txBytes;
+      // Быстрый признак: заметно отправили, а внятного ответа за этот интервал нет.
+      if (txDelta > LIVENESS_DEAD_TX_BYTES) {
         if (++connection.m_deadStreak >= LIVENESS_DEAD_STREAK) {
           logger.warning() << "Отправляем, ответа нет" << connection.m_deadStreak
                            << "проверок подряд — рвём соединение";
