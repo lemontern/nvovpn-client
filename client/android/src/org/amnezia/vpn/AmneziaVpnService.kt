@@ -492,8 +492,8 @@ open class AmneziaVpnService : VpnService() {
     // awg и молча уходим на кэшированный vless. Живёт в службе → работает и при свёрнутом приложении.
     private fun checkAwgLiveness(speed: TrafficStats.TrafficData) {
         if (currentProtoName != "amneziawg") { livenessDeadStreak = 0; return }
-        val fallback = Prefs.load(PREFS_FALLBACK_CONFIG)
-        if (fallback.isNullOrEmpty()) return               // некуда падать — не трогаем
+        val fallback = Prefs.load<String>(PREFS_FALLBACK_CONFIG)
+        if (fallback.isEmpty()) return                     // некуда падать — не трогаем
         if (speed.rx >= LIVENESS_ALIVE_RX) { livenessDeadStreak = 0; return }
         if (speed.tx > LIVENESS_DEAD_TX) {
             if (++livenessDeadStreak >= LIVENESS_DEAD_STREAK) {
