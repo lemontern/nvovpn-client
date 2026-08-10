@@ -95,7 +95,9 @@ void CoreSignalHandlers::initErrorMessagesHandler()
         // уже работает), а на Android ЛЮБАЯ ошибка коннекта — это generic «ErrorCode 1000». Не пугаем
         // пользователя этим диалогом на каждом запуске: если упавшая попытка была авто-стартовой —
         // тихо остаёмся отключёнными (юзер/фолбек подключат). Ошибки РУЧНЫХ попыток показываем как прежде.
-        if (!m_coreController->m_nvoApiController->takeAutoConnectFlag()) {
+        const bool wasAuto = m_coreController->m_nvoApiController->takeAutoConnectFlag();
+        const bool inGrace = m_coreController->m_nvoApiController->inStartupGrace();
+        if (!wasAuto && !inGrace) {
             emit m_coreController->m_pageController->showErrorMessage(errorCode);
         }
         m_coreController->m_connectionController->setConnectionState(Vpn::ConnectionState::Disconnected);

@@ -91,11 +91,18 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
         m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
     }
+
+    // Окно тишины после запуска: первые секунды авто-коннект и restoreConnection на Android часто
+    // падают по гонке инициализации (а на Android любая ошибка — generic ErrorCode 1000), тогда как
+    // ручной коннект секундой позже уже работает. Не пугаем пользователя этим диалогом на старте —
+    // гасим ошибки коннекта в этом окне. Дальше ошибки показываются как обычно.
+    QTimer::singleShot(8000, this, [this]() { m_startupGrace = false; });
 }
 
 bool NvoApiController::isAuthenticated() const { return !m_token.isEmpty(); }
 bool NvoApiController::isBusy() const { return m_busy; }
 int NvoApiController::stealthMode() const { return m_stealthMode; }
+bool NvoApiController::inStartupGrace() const { return m_startupGrace; }
 bool NvoApiController::lastConnectViaStealth() const { return m_lastConnectViaStealth; }
 int NvoApiController::lastConnectServerId() const { return m_lastConnectServerId; }
 QString NvoApiController::lastProtocol() const { return m_lastProtocol; }
