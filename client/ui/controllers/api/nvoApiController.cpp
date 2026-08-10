@@ -218,6 +218,26 @@ void NvoApiController::connectToSelected()
     tryNextFailover();
 }
 
+void NvoApiController::connectToSelectedAuto()
+{
+    // Помечаем попытку как авто-коннект при старте: если она упадёт (частая гонка инициализации
+    // на Android — ручной коннект секундой позже уже работает), диалог «ErrorCode» НЕ показываем.
+    m_autoConnectPending = true;
+    connectToSelected();
+}
+
+bool NvoApiController::takeAutoConnectFlag()
+{
+    const bool wasAuto = m_autoConnectPending;
+    m_autoConnectPending = false;
+    return wasAuto;
+}
+
+void NvoApiController::clearAutoConnectFlag()
+{
+    m_autoConnectPending = false;
+}
+
 void NvoApiController::tryNextFailover()
 {
     if (m_failoverQueue.isEmpty()) {

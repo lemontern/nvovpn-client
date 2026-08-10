@@ -101,7 +101,7 @@ PageType {
                     && !ConnectionController.isConnected
                     && !ConnectionController.isConnectionInProgress) {
                 root.autoConnectTried = true
-                NvoApi.connectToSelected()
+                NvoApi.connectToSelectedAuto()   // помечаем как авто-старт: его ошибку не показываем диалогом
             }
         }
     }

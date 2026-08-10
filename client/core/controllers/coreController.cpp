@@ -274,6 +274,7 @@ void CoreController::initControllers()
         }
         if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
+            m_nvoApiController->clearAutoConnectFlag();   // успешно подключились — «авто-старт» больше не в силе
             // Запоминаем, что живой awg-туннель БЫЛ: если он оборвётся сам, это повод уйти на VLESS.
             m_awgTunnelWasUp = (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg"));
             // Android: mid-session liveness теперь целиком в СЛУЖБЕ (v2, AmneziaVpnService.checkAwgLiveness) —

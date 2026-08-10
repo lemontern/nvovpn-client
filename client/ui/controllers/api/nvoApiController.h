@@ -80,6 +80,9 @@ public slots:
     void refreshUser();
     void requestConfig(int serverId, const QString &protocol = QStringLiteral("amneziawg")); // POST /connect → сигнал configReady
     void connectToSelected();                   // выбранный сервер или Авто → requestConfig
+    void connectToSelectedAuto();               // то же, но помечает попытку как АВТО-коннект при старте (ошибку не показываем)
+    bool takeAutoConnectFlag();                 // была ли текущая попытка авто-коннектом (возвращает и СБРАСЫВАЕТ флаг)
+    void clearAutoConnectFlag();                // сбросить флаг (напр. при успешном подключении)
     void setSelectedServerId(int serverId);
     void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
     void connectViaStealthFallback();           // повторить последний сервер по VLESS (вызывает оркестратор при таймауте AWG)
@@ -160,6 +163,7 @@ private:
     bool m_lastConnectViaStealth = false;
     int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
     QString m_lastProtocol = QStringLiteral("amneziawg");
+    bool m_autoConnectPending = false;           // текущая попытка — авто-коннект при старте: её ошибку гасим (диалог не показываем)
 
     // In-App Purchase (iOS): цены из StoreKit.
     bool m_iapReady = false;
