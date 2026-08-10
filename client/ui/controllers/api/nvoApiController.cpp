@@ -46,6 +46,10 @@ namespace
     constexpr char CONNECT_COUNT_KEY[] = "Conf/nvoConnectCount";
     constexpr char REVIEW_ASKED_KEY[] = "Conf/nvoReviewAsked";
     constexpr char STEALTH_MODE_KEY[] = "Conf/nvoStealthMode";
+    // Адаптивный коннект: «память» о недавнем провале awg по каждому серверу — следующую попытку
+    // на нём начинаем сразу с VLESS (не жжём таймаут там, где DPI режет awg). TTL 30 мин → пере-проба.
+    constexpr qint64 kAwgFailTtlSec = 1800;
+    QString awgFailKey(int serverId) { return QStringLiteral("Conf/nvoAwgFail/%1").arg(serverId); }
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -200,6 +204,9 @@ void NvoApiController::connectViaStealthFallback()
     if (m_lastProtocol == QStringLiteral("vless")) {
         return; // уже на VLESS — второго фолбека нет
     }
+    // awg на этом сервере не встал — помечаем провал: следующий коннект на него пойдёт сразу VLESS
+    // (адаптивно, без потери таймаута). Метка живёт kAwgFailTtlSec и снимается при удачном awg-коннекте.
+    recordAwgFailure(m_lastConnectServerId);
     // Keep-alive сокет, по которому ходил awg-запрос, к этому моменту протух: его пакеты успели уйти
     // в мёртвый туннель и остались без ACK. Переиспользование такого соединения = запрос в никуда,
     // поэтому пул соединений сбрасываем и открываем новое (авторизация/куки не трогаются).
@@ -207,15 +214,64 @@ void NvoApiController::connectViaStealthFallback()
     requestConfig(m_lastConnectServerId, QStringLiteral("vless"));
 }
 
+// Адаптивный выбор протокола для сервера: «Всегда Stealth» (2) — всегда VLESS; «Авто» (1) — VLESS,
+// если awg на этом сервере недавно провалился (иначе awg-first); «Выкл» (0) — только awg.
+QString NvoApiController::protoForServer(int serverId) const
+{
+    if (m_stealthMode == 2) {
+        return QStringLiteral("vless");
+    }
+    if (m_stealthMode == 1 && awgRecentlyFailed(serverId)) {
+        return QStringLiteral("vless");
+    }
+    return QStringLiteral("amneziawg");
+}
+
+bool NvoApiController::awgRecentlyFailed(int serverId) const
+{
+    if (serverId < 0) {
+        return false;
+    }
+    const qint64 ts = m_settings->value(awgFailKey(serverId)).toLongLong();
+    if (ts <= 0) {
+        return false;
+    }
+    return (QDateTime::currentSecsSinceEpoch() - ts) < kAwgFailTtlSec;
+}
+
+void NvoApiController::recordAwgFailure(int serverId)
+{
+    if (serverId < 0) {
+        return;
+    }
+    m_settings->setValue(awgFailKey(serverId), QDateTime::currentSecsSinceEpoch());
+}
+
+void NvoApiController::clearAwgFailure(int serverId)
+{
+    if (serverId < 0) {
+        return;
+    }
+    m_settings->remove(awgFailKey(serverId));
+}
+
+void NvoApiController::notifyConnected()
+{
+    // awg реально встал на этом сервере — снимаем метку провала, чтобы снова пробовать awg-first.
+    if (m_lastProtocol == QStringLiteral("amneziawg")) {
+        clearAwgFailure(m_lastConnectServerId);
+    }
+}
+
 void NvoApiController::connectToSelected()
 {
-    // «Всегда Stealth» (mode 2) — сразу VLESS, минуя AWG. Иначе основной AWG (фолбек — по таймауту).
-    const QString proto = (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg");
+    // Протокол выбирает protoForServer(): «Всегда Stealth» — VLESS; «Авто» — VLESS, если awg на
+    // сервере недавно провалился, иначе awg (фолбек по таймауту); «Выкл» — только awg.
     if (m_selectedServerId >= 0) {
         // Явный выбор страны — без failover (юзер хочет именно её).
         m_inFailover = false;
         m_failoverQueue.clear();
-        requestConfig(m_selectedServerId, proto);
+        requestConfig(m_selectedServerId, protoForServer(m_selectedServerId));
         return;
     }
 
@@ -253,7 +309,7 @@ void NvoApiController::tryNextFailover()
         return;
     }
     const int id = m_failoverQueue.takeFirst();
-    requestConfig(id, (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg"));
+    requestConfig(id, protoForServer(id));
 }
 
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const

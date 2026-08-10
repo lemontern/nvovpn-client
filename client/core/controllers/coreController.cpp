@@ -251,12 +251,13 @@ void CoreController::initControllers()
     setQmlContextProperty("NvoApi", m_nvoApiController);
 
     // Маскировка (VLESS-фолбек): watchdog handshake AWG. Штатный AmneziaWG-handshake проходит за 1-2 сек;
-    // если за 10 сек нет перехода в Connected (DPI режет UDP) — тихо пробуем VLESS того же сервера.
-    // Не стартует для не-AWG и в режиме «выкл»; гасится при первом же успешном/ошибочном исходе — то есть
-    // на рабочем AWG ведёт себя ровно как раньше.
+    // если за 3 сек нет перехода в Connected (DPI режет UDP) — тихо пробуем VLESS того же сервера.
+    // 3 сек (не 5): рабочий awg встаёт за 1-2 сек, а у большинства RF он вообще не встаёт (DPI) — нет смысла
+    // ждать дольше. Не стартует для не-AWG и в режиме «выкл»; гасится при первом же успешном/ошибочном
+    // исходе — то есть на рабочем AWG ведёт себя ровно как раньше.
     m_stealthWatchdog = new QTimer(this);
     m_stealthWatchdog->setSingleShot(true);
-    m_stealthWatchdog->setInterval(5000);
+    m_stealthWatchdog->setInterval(3000);
     connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
         // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
         if (!m_connectionUiController->isConnected()) {
@@ -275,6 +276,7 @@ void CoreController::initControllers()
         if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
             m_nvoApiController->clearAutoConnectFlag();   // успешно подключились — «авто-старт» больше не в силе
+            m_nvoApiController->notifyConnected();        // awg встал → снять «память» провала (снова awg-first)
             // Запоминаем, что живой awg-туннель БЫЛ: если он оборвётся сам, это повод уйти на VLESS.
             m_awgTunnelWasUp = (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg"));
             // Android: mid-session liveness теперь целиком в СЛУЖБЕ (v2, AmneziaVpnService.checkAwgLiveness) —

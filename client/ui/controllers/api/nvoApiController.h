@@ -83,6 +83,7 @@ public slots:
     void connectToSelectedAuto();               // то же, но помечает попытку как АВТО-коннект при старте (ошибку не показываем)
     bool takeAutoConnectFlag();                 // была ли текущая попытка авто-коннектом (возвращает и СБРАСЫВАЕТ флаг)
     void clearAutoConnectFlag();                // сбросить флаг (напр. при успешном подключении)
+    void notifyConnected();                     // успешный коннект: снять метку провала awg (адаптивный выбор)
     bool inStartupGrace() const;                // идёт ли окно тишины после запуска (ошибки коннекта гасим диалогом)
     void setSelectedServerId(int serverId);
     void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
@@ -132,6 +133,10 @@ signals:
 private:
     QNetworkRequest makeRequest(const QString &path, bool auth) const;
     void tryNextFailover();                     // следующий сервер в режиме Авто
+    QString protoForServer(int serverId) const; // awg/vless по режиму + «памяти» провала awg (адаптивно)
+    bool awgRecentlyFailed(int serverId) const; // был ли недавний провал awg на сервере (в пределах TTL)
+    void recordAwgFailure(int serverId);        // пометить провал awg на сервере (для VLESS-first)
+    void clearAwgFailure(int serverId);         // снять метку (awg снова встал)
     void setBusy(bool busy);
     void setToken(const QString &token);
     void applyUser(const QJsonObject &root);
