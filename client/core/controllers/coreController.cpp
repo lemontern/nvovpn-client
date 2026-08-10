@@ -276,9 +276,10 @@ void CoreController::initControllers()
             m_stealthWatchdog->stop();
             // Запоминаем, что живой awg-туннель БЫЛ: если он оборвётся сам, это повод уйти на VLESS.
             m_awgTunnelWasUp = (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg"));
-            // Android: включаем слежение за живостью только для awg в режиме «авто» — как awg-watchdog.
-            // (На Win/Linux/macOS/iOS это делает Daemon/IosController; на Android — по statisticsUpdated.)
-            m_androidLivenessArmed = m_awgTunnelWasUp && (m_nvoApiController->stealthMode() == 1);
+            // Android: mid-session liveness теперь целиком в СЛУЖБЕ (v2, AmneziaVpnService.checkAwgLiveness) —
+            // она жива и в фоне, где Qt-часть C++ засыпает. Поэтому C++-детектор (v1) на Android НЕ взводим,
+            // чтобы не дублировать разрыв/переключение. Код v1 оставлен (на случай других сценариев).
+            m_androidLivenessArmed = false;
             m_androidLivenessRxMark = 0;
             m_androidLivenessTxMark = 0;
             m_androidLivenessDeadStreak = 0;
