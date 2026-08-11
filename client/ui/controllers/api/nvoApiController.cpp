@@ -263,6 +263,30 @@ void NvoApiController::notifyConnected()
     }
 }
 
+// Проба живости туннеля: GET /ping ЧЕРЕЗ VPN (после «Подключено» весь трафик идёт в туннель).
+// Ответ есть → туннель реально несёт трафик. У «чёрной дыры» DPI запрос НЕ ошибётся быстро, а
+// зависнет — поэтому жёсткий таймаут (TransferTimeoutAttribute). Таймаут/ошибка после ретраев =
+// мёртвый туннель (см. CoreController: awg→фолбек на VLESS, VLESS→честный статус вместо «Подключено»).
+void NvoApiController::probeTunnel(int attemptsLeft)
+{
+    QNetworkRequest req = makeRequest(QStringLiteral("/ping"), false);
+    req.setAttribute(QNetworkRequest::TransferTimeoutAttribute, 6000);
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, attemptsLeft]() {
+        reply->deleteLater();
+        if (reply->error() == QNetworkReply::NoError) {
+            emit tunnelProbeFinished(true);
+            return;
+        }
+        if (attemptsLeft > 1) {
+            // Один ретрай — чтобы кратковременный сетевой блип не сорвал рабочий туннель.
+            QTimer::singleShot(1500, this, [this, attemptsLeft]() { probeTunnel(attemptsLeft - 1); });
+            return;
+        }
+        emit tunnelProbeFinished(false);
+    });
+}
+
 void NvoApiController::connectToSelected()
 {
     // Протокол выбирает protoForServer(): «Всегда Stealth» — VLESS; «Авто» — VLESS, если awg на

@@ -88,6 +88,7 @@ public slots:
     void setSelectedServerId(int serverId);
     void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
     void connectViaStealthFallback();           // повторить последний сервер по VLESS (вызывает оркестратор при таймауте AWG)
+    void probeTunnel(int attemptsLeft = 2);     // проба живости туннеля: GET /ping сквозь VPN → сигнал tunnelProbeFinished
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
@@ -124,6 +125,7 @@ signals:
     void subscriptionRequired(const QString &message, const QString &reason);  // 403 — отказ /connect (email_unverified|ip_used|trial_used|no_plan|no_subscription)
     void sessionExpired();                      // 401 — токен отозван/истёк (вход на другом устройстве)
     void errorOccurred(const QString &message);
+    void tunnelProbeFinished(bool alive);       // проба туннеля: false = «Подключено», но данные не идут (мёртвый туннель)
 
     // Промокод (/promo/redeem): granted → успех; иначе показываем готовый message бэкенда
     // (reason: already_active | code_invalid | code_used | code_empty | email_unverified | disposable).

@@ -26,6 +26,9 @@ namespace {
     // Замер на macOS: система возвращает дефолтный маршрут с utun на физический интерфейс за <1 сек.
     constexpr int kStealthRouteRestoreMs = 1200;
 
+    // Детектор «мёртвого туннеля»: пауза после «Подключено» перед активной пробой живости.
+    constexpr int kTunnelProbeDelayMs = 2500;
+
     // Android liveness (CoreController::checkAndroidLiveness) — значения выверены на iOS/macOS:
     // rx растёт на килобайты за интервал → связь жива; tx идёт, а rx стоит N интервалов → обрыв.
     constexpr quint64 kAndroidLivenessAliveRxBytes = 1024;
@@ -286,6 +289,13 @@ void CoreController::initControllers()
             m_androidLivenessRxMark = 0;
             m_androidLivenessTxMark = 0;
             m_androidLivenessDeadStreak = 0;
+            // Детектор «мёртвого туннеля»: активная проба через ~2.5с. «Чёрная дыра» DPI показывает
+            // «Подключено» без реального трафика — проба GET /ping сквозь туннель это ловит.
+            QTimer::singleShot(kTunnelProbeDelayMs, this, [this]() {
+                if (m_connectionUiController->isConnected() && !m_stealthFallbackPending) {
+                    m_nvoApiController->probeTunnel();
+                }
+            });
         } else if (m_stealthWatchdog->isActive() && !m_connectionUiController->isConnectionInProgress()) {
             m_stealthWatchdog->stop();
             // Туннель не поднялся вообще (нода недоступна/конфиг битый) — маршрут системы не захвачен,
@@ -301,6 +311,23 @@ void CoreController::initControllers()
             if (!m_connectionUiController->takeUserInitiatedClose()) {
                 m_nvoApiController->connectViaStealthFallback();
             }
+        }
+    });
+
+    // Результат пробы живости туннеля (детектор «мёртвого туннеля»): «Подключено», но данные не идут.
+    connect(m_nvoApiController, &NvoApiController::tunnelProbeFinished, this, [this](bool alive) {
+        if (alive || m_stealthFallbackPending || !m_connectionUiController->isConnected()) {
+            return;
+        }
+        if (m_awgTunnelWasUp && m_nvoApiController->stealthMode() == 1) {
+            // awg «подключён», но трафик не идёт → рвём awg и уходим на VLESS (teardown-first, как обычный фолбек).
+            startStealthFallback();
+        } else {
+            // VLESS/крайний протокол мёртв — фолбека нет. Честный статус вместо ложного «Подключено».
+            m_connectionUiController->closeConnection();
+            emit m_pageController->showErrorMessage(
+                tr("Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. "
+                   "Попробуйте другой сервер или другую сеть."));
         }
     });
 
