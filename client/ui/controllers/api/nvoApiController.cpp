@@ -12,6 +12,7 @@
 #include <QDesktopServices>
 #include <QTimer>
 #include <QRandomGenerator>
+#include <chrono>
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
@@ -270,7 +271,7 @@ void NvoApiController::notifyConnected()
 void NvoApiController::probeTunnel(int attemptsLeft)
 {
     QNetworkRequest req = makeRequest(QStringLiteral("/ping"), false);
-    req.setAttribute(QNetworkRequest::TransferTimeoutAttribute, 6000);
+    req.setTransferTimeout(std::chrono::milliseconds(6000));
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, attemptsLeft]() {
         reply->deleteLater();
