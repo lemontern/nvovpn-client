@@ -12,6 +12,7 @@
 #include "core/utils/constants/protocolConstants.h"
 #include "core/utils/selfhosted/sshSession.h"
 #include "core/models/protocols/xrayProtocolConfig.h"
+#include "core/utils/jsonRangeUtils.h"
 #include "logger.h"
 
 namespace
@@ -225,16 +226,9 @@ ErrorCode XrayInstaller::extractConfigFromContainer(DockerContainer container, c
             srv.xhttp.scMaxBufferedPosts = QString::number(xhttpObj.value("scMaxBufferedPosts").toVariant().toLongLong());
         }
 
-        auto readRange = [&](const char *key, QString &minOut, QString &maxOut) {
-            QJsonObject r = xhttpObj.value(QLatin1String(key)).toObject();
-            if (!r.isEmpty()) {
-                minOut = QString::number(r.value("from").toInt());
-                maxOut = QString::number(r.value("to").toInt());
-            }
-        };
-        readRange("scMaxEachPostBytes", srv.xhttp.scMaxEachPostBytesMin, srv.xhttp.scMaxEachPostBytesMax);
-        readRange("scMinPostsIntervalMs", srv.xhttp.scMinPostsIntervalMsMin, srv.xhttp.scMinPostsIntervalMsMax);
-        readRange("scStreamUpServerSecs", srv.xhttp.scStreamUpServerSecsMin, srv.xhttp.scStreamUpServerSecsMax);
+        JsonRangeUtils::readIntRange(xhttpObj, "scMaxEachPostBytes", srv.xhttp.scMaxEachPostBytesMin, srv.xhttp.scMaxEachPostBytesMax);
+        JsonRangeUtils::readIntRange(xhttpObj, "scMinPostsIntervalMs", srv.xhttp.scMinPostsIntervalMsMin, srv.xhttp.scMinPostsIntervalMsMax);
+        JsonRangeUtils::readIntRange(xhttpObj, "scStreamUpServerSecs", srv.xhttp.scStreamUpServerSecsMin, srv.xhttp.scStreamUpServerSecsMax);
 
         auto loadPaddingFromObject = [&](const QJsonObject &pad) {
             if (pad.contains(QLatin1String("xPaddingObfsMode")))
@@ -279,18 +273,11 @@ ErrorCode XrayInstaller::extractConfigFromContainer(DockerContainer container, c
             QJsonObject mux = xhttpObj.value("xmux").toObject();
             srv.xhttp.xmux.enabled = true;
 
-            auto readMuxRange = [&](const char *key, QString &minOut, QString &maxOut) {
-                QJsonObject r = mux.value(QLatin1String(key)).toObject();
-                if (!r.isEmpty()) {
-                    minOut = QString::number(r.value("from").toInt());
-                    maxOut = QString::number(r.value("to").toInt());
-                }
-            };
-            readMuxRange("maxConcurrency", srv.xhttp.xmux.maxConcurrencyMin, srv.xhttp.xmux.maxConcurrencyMax);
-            readMuxRange("maxConnections", srv.xhttp.xmux.maxConnectionsMin, srv.xhttp.xmux.maxConnectionsMax);
-            readMuxRange("cMaxReuseTimes", srv.xhttp.xmux.cMaxReuseTimesMin, srv.xhttp.xmux.cMaxReuseTimesMax);
-            readMuxRange("hMaxRequestTimes", srv.xhttp.xmux.hMaxRequestTimesMin, srv.xhttp.xmux.hMaxRequestTimesMax);
-            readMuxRange("hMaxReusableSecs", srv.xhttp.xmux.hMaxReusableSecsMin, srv.xhttp.xmux.hMaxReusableSecsMax);
+            JsonRangeUtils::readIntRange(mux, "maxConcurrency", srv.xhttp.xmux.maxConcurrencyMin, srv.xhttp.xmux.maxConcurrencyMax);
+            JsonRangeUtils::readIntRange(mux, "maxConnections", srv.xhttp.xmux.maxConnectionsMin, srv.xhttp.xmux.maxConnectionsMax);
+            JsonRangeUtils::readIntRange(mux, "cMaxReuseTimes", srv.xhttp.xmux.cMaxReuseTimesMin, srv.xhttp.xmux.cMaxReuseTimesMax);
+            JsonRangeUtils::readIntRange(mux, "hMaxRequestTimes", srv.xhttp.xmux.hMaxRequestTimesMin, srv.xhttp.xmux.hMaxRequestTimesMax);
+            JsonRangeUtils::readIntRange(mux, "hMaxReusableSecs", srv.xhttp.xmux.hMaxReusableSecsMin, srv.xhttp.xmux.hMaxReusableSecsMax);
 
             if (mux.contains(QLatin1String("hKeepAlivePeriod")))
                 srv.xhttp.xmux.hKeepAlivePeriod = QString::number(mux.value("hKeepAlivePeriod").toVariant().toLongLong());

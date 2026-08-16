@@ -8,6 +8,7 @@
 #include "core/utils/constants/configKeys.h"
 #include "core/utils/constants/protocolConstants.h"
 #include "core/utils/selfhosted/sshSession.h"
+#include "core/utils/configFileParser.h"
 
 using namespace amnezia;
 using namespace ProtocolUtils;
@@ -28,19 +29,7 @@ ErrorCode WireguardInstaller::extractConfigFromContainer(DockerContainer contain
         return errorCode;
     }
 
-    QMap<QString, QString> serverConfigMap;
-    auto serverConfigLines = serverConfig.split("\n");
-    for (auto &line : serverConfigLines) {
-        auto trimmedLine = line.trimmed();
-        if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
-            continue;
-        } else {
-            QStringList parts = trimmedLine.split(" = ");
-            if (parts.count() == 2) {
-                serverConfigMap.insert(parts[0].trimmed(), parts[1].trimmed());
-            }
-        }
-    }
+    QMap<QString, QString> serverConfigMap = ConfigFileParser::parseIniStyle(serverConfig);
 
     if (auto* wgConfig = config.getWireGuardProtocolConfig()) {
         wgConfig->serverConfig.subnetAddress = serverConfigMap.value("Address").remove("/24");

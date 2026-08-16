@@ -16,6 +16,7 @@
 #include "core/utils/selfhosted/sshSession.h"
 #include "core/utils/utilities.h"
 #include "core/models/protocols/awgProtocolConfig.h"
+#include "core/utils/configFileParser.h"
 
 using namespace amnezia;
 using namespace ProtocolUtils;
@@ -149,19 +150,7 @@ ErrorCode AwgInstaller::extractConfigFromContainer(DockerContainer container, co
         return errorCode;
     }
 
-    QMap<QString, QString> serverConfigMap;
-    auto serverConfigLines = serverConfig.split("\n");
-    for (auto &line : serverConfigLines) {
-        auto trimmedLine = line.trimmed();
-        if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
-            continue;
-        } else {
-            QStringList parts = trimmedLine.split(" = ");
-            if (parts.count() == 2) {
-                serverConfigMap.insert(parts[0].trimmed(), parts[1].trimmed());
-            }
-        }
-    }
+    QMap<QString, QString> serverConfigMap = ConfigFileParser::parseIniStyle(serverConfig);
 
     if (auto* awgConfig = config.getAwgProtocolConfig()) {
         QString addressValue = serverConfigMap.value("Address");

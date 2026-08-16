@@ -5,6 +5,7 @@
 #include "core/utils/constants/protocolConstants.h"
 #include "core/models/containerConfig.h"
 #include "core/models/protocols/awgProtocolConfig.h"
+#include "core/utils/configFileParser.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -43,19 +44,7 @@ ProtocolConfig AwgConfigurator::createConfig(const ServerCredentials &credential
     
     QString awgConfig = wgConfig->clientConfig->nativeConfig;
 
-    QMap<QString, QString> configMap;
-    auto configLines = awgConfig.split("\n");
-    for (auto &line : configLines) {
-        auto trimmedLine = line.trimmed();
-        if (trimmedLine.startsWith("[") && trimmedLine.endsWith("]")) {
-            continue;
-        } else {
-            QStringList parts = trimmedLine.split(" = ");
-            if (parts.count() == 2) {
-                configMap.insert(parts[0].trimmed(), parts[1].trimmed());
-            }
-        }
-    }
+    QMap<QString, QString> configMap = ConfigFileParser::parseIniStyle(awgConfig);
 
     AwgProtocolConfig protocolConfig;
     if (serverConfig) {

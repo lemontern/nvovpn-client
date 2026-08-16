@@ -8,6 +8,7 @@
 #include "core/utils/constants/configKeys.h"
 #include "core/utils/constants/protocolConstants.h"
 #include "core/utils/selfhosted/sshSession.h"
+#include "core/utils/configFileParser.h"
 
 using namespace amnezia;
 using namespace ProtocolUtils;
@@ -28,21 +29,7 @@ ErrorCode OpenVpnInstaller::extractConfigFromContainer(DockerContainer container
         return errorCode;
     }
 
-    QMap<QString, QString> serverConfigMap;
-    auto serverConfigLines = serverConfig.split("\n");
-    for (auto &line : serverConfigLines) {
-        auto trimmedLine = line.trimmed();
-        if (trimmedLine.startsWith("#") || trimmedLine.isEmpty()) {
-            continue;
-        } else {
-            QStringList parts = trimmedLine.split(" ");
-            if (parts.count() >= 2) {
-                QString key = parts[0];
-                QString value = parts.mid(1).join(" ");
-                serverConfigMap.insert(key, value);
-            }
-        }
-    }
+    QMap<QString, QString> serverConfigMap = ConfigFileParser::parseSpaceSeparated(serverConfig);
 
     if (auto* ovpnConfig = config.getOpenVpnProtocolConfig()) {
         QString serverValue = serverConfigMap.value("server");
