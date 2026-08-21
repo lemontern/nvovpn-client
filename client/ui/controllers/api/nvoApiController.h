@@ -133,6 +133,9 @@ signals:
     void promoFailed(const QString &message, const QString &reason);
 
 private:
+    QString apiBase() const;                    // текущая база API (nvovpn.com или резерв api.netguarder.net)
+    bool isConnectivityError(QNetworkReply *reply) const;  // сетевая недоступность (не HTTP-ошибка) → повод для фолбека базы
+    bool maybeSwitchBase(QNetworkReply *reply, int startBase);  // при недоступности основного → переключить на резерв (true = переключились, повторять)
     QNetworkRequest makeRequest(const QString &path, bool auth) const;
     void tryNextFailover();                     // следующий сервер в режиме Авто
     QString protoForServer(int serverId) const; // awg/vless по режиму + «памяти» провала awg (адаптивно)
@@ -151,6 +154,7 @@ private:
     SecureQSettings *m_settings;
     NvoServersModel *m_serversModel;
 
+    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=nvovpn.com, 1=резерв); переключается при недоступности
     QString m_token;
     QString m_userName;
     QString m_userEmail;

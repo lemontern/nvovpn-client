@@ -37,7 +37,13 @@ namespace
 {
     Logger logger("NvoApiController");
 
-    constexpr char API_BASE[] = "https://nvovpn.com/api/v1";
+    // Резервный домен API: провайдер может резать основной nvovpn.com (РФ-хостинг напрямую) →
+    // на СЕТЕВОЙ ошибке клиент переключается на api.netguarder.net (за Cloudflare, ECH, скрытый SNI).
+    constexpr const char *API_BASES[] = {
+        "https://nvovpn.com/api/v1",
+        "https://api.netguarder.net/api/v1",
+    };
+    constexpr int API_BASE_COUNT = 2;
     constexpr char SITE_BASE[] = "https://nvovpn.com";
     constexpr char GOOGLE_LOGIN_URL[] = "https://nvovpn.com/app/login/google";
     constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
@@ -339,13 +345,58 @@ void NvoApiController::tryNextFailover()
 
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const
 {
-    QNetworkRequest req(QUrl(QString::fromLatin1(API_BASE) + path));
+    QNetworkRequest req(QUrl(apiBase() + path));
+    // Таймаут: заблокированный домен не должен висеть вечно — быстрее упадёт в сетевую ошибку → фолбек.
+    req.setTransferTimeout(std::chrono::milliseconds(12000));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QByteArrayLiteral("application/json"));
     req.setRawHeader(QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json"));
     if (auth && !m_token.isEmpty()) {
         req.setRawHeader(QByteArrayLiteral("Authorization"), QByteArray("Bearer ") + m_token.toUtf8());
     }
     return req;
+}
+
+QString NvoApiController::apiBase() const
+{
+    return QString::fromLatin1(API_BASES[m_apiBaseIdx]);
+}
+
+// Сетевая ошибка (домен недоступен), а НЕ HTTP-ответ. 401/422/500 значат, что сервер доступен —
+// резерв тут не поможет, переключаться нельзя.
+bool NvoApiController::isConnectivityError(QNetworkReply *reply) const
+{
+    switch (reply->error()) {
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::OperationCanceledError:   // Qt: таймаут по setTransferTimeout приходит так
+    case QNetworkReply::SslHandshakeFailedError:
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::UnknownNetworkError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Основной домен недоступен → переключиться на резервный. Возвращает true, если базу сменили
+// (нами или параллельным запросом) и запрос стоит повторить. startBase — база на момент старта запроса.
+bool NvoApiController::maybeSwitchBase(QNetworkReply *reply, int startBase)
+{
+    if (!isConnectivityError(reply)) {
+        return false;
+    }
+    if (m_apiBaseIdx == startBase && m_apiBaseIdx + 1 < API_BASE_COUNT) {
+        ++m_apiBaseIdx;
+        logger.info() << "API base unreachable, switching to fallback:" << apiBase();
+    }
+    return m_apiBaseIdx != startBase;   // повторить, если база реально сменилась
 }
 
 void NvoApiController::setBusy(bool busy)
@@ -375,19 +426,25 @@ void NvoApiController::setToken(const QString &token)
 void NvoApiController::login(const QString &email, const QString &password)
 {
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "email", email }, { "password", password }, { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/login"), false),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, email, password, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной домен недоступен → резерв, повторяем вход
+                login(email, password);
+                return;
+            }
+            setBusy(false);
             // 401 и 422 (Laravel "Invalid credentials") → человеческое «неверный логин/пароль».
             emit loginFailed((status == 401 || status == 422) ? tr("Неверный email или пароль") : humanError(reply));
             return;
         }
+        setBusy(false);
         const QString token = root.value(QStringLiteral("token")).toString();
         if (token.isEmpty()) {
             emit loginFailed(tr("Не удалось войти, попробуйте ещё раз"));
@@ -458,20 +515,27 @@ void NvoApiController::refreshServers()
         return;
     }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->get(makeRequest(QStringLiteral("/servers"), true));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
         if (status == 401) {
+            setBusy(false);
             setToken(QString());
             emit sessionExpired();
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной недоступен → резерв, повторяем
+                refreshServers();
+                return;
+            }
+            setBusy(false);
             emit errorOccurred(humanError(reply));
             return;
         }
+        setBusy(false);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (m_serversModel) {
             m_serversModel->updateModel(root.value(QStringLiteral("servers")).toArray());
@@ -485,8 +549,9 @@ void NvoApiController::refreshUser()
     if (m_token.isEmpty()) {
         return;
     }
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->get(makeRequest(QStringLiteral("/user"), true));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
         const int status = httpStatus(reply);
         if (status == 401) {
@@ -495,6 +560,9 @@ void NvoApiController::refreshUser()
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной недоступен → резерв, повторяем
+                refreshUser();
+            }
             return;
         }
         applyUser(QJsonDocument::fromJson(reply->readAll()).object());
@@ -561,11 +629,12 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         emit lastConnectViaStealthChanged();
     }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "server_id", serverId }, { "protocol", protocol },
                              { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/connect"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, serverId]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, serverId, protocol, startBase]() {
         reply->deleteLater();
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
@@ -596,6 +665,12 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         const bool failed = (reply->error() != QNetworkReply::NoError) || config.isEmpty();
 
         if (failed) {
+            // Сначала: не заблокирован ли сам API-домен? Сетевая недоступность → резерв и повтор
+            // ТОГО ЖЕ сервера. Это не проблема ноды, перебор серверов (failover) тут бесполезен.
+            if (maybeSwitchBase(reply, startBase)) {
+                requestConfig(serverId, protocol);
+                return;
+            }
             // Режим «Авто» — молча пробуем следующую ноду (ТЗ §12.6).
             if (m_inFailover && !m_failoverQueue.isEmpty()) {
                 tryNextFailover();
