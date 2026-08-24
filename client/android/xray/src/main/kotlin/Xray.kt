@@ -95,9 +95,8 @@ class Xray : Protocol() {
         val xrayConfig = parseConfig(config, xrayJsonConfig, serverAddr)
 
         (xrayJsonConfig.optJSONObject("log") ?: JSONObject().also { xrayJsonConfig.put("log", it) })
-            .put("loglevel", "debug") // ДИАГНОСТИКА CDN: подробные логи
-            .put("access", "/storage/emulated/0/Android/data/com.nvovpn.app/files/xray-access.log")
-            .put("error", "/storage/emulated/0/Android/data/com.nvovpn.app/files/xray-error.log")
+            .put("loglevel", "warning")
+            .put("access", "none") // disable access log
 
         var xrayJsonConfigString = xrayJsonConfig.toString()
         if (hostName != serverIp) {
