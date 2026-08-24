@@ -31,7 +31,6 @@
 
     <application
         android:name=".AmneziaApplication"
-        android:debuggable="true"
         android:label="-- %%INSERT_APP_NAME%% --"
         android:icon="@mipmap/icon"
         android:roundIcon="@mipmap/icon_round"
