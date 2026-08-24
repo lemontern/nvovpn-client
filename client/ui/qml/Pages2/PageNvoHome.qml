@@ -238,7 +238,10 @@ PageType {
                 id: knobMouse
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                enabled: !root.busy
+                // Когда подключено — кнопка активна ВСЕГДА (можно отключить), даже если состояние
+                // на миг мигнуло в busy (у VLESS-CDN xray пересоздаёт WS-соединения). Иначе тап
+                // «Отключить» мог не сработать.
+                enabled: root.connected || !root.busy
                 hoverEnabled: true
                 onClicked: {
                     if (root.connected) {
