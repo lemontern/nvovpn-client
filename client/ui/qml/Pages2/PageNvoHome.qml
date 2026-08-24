@@ -152,8 +152,10 @@ PageType {
                 radius: width / 2
                 color: NvoStyle.color.transparent
                 border.width: 3
+                // Обход блокировки (VLESS) подсвечиваем фиолетовым — визуально отличаем от обычного awg-подключения (синий).
                 border.color: root.connected ? NvoStyle.color.connectedGreen
-                                              : (root.busy ? NvoStyle.color.nvoBlue
+                                              : (root.busy ? (NvoApi.lastConnectViaStealth ? NvoStyle.color.nvoViolet
+                                                                                           : NvoStyle.color.nvoBlue)
                                                            : NvoStyle.color.charcoalGray)
             }
 
@@ -224,7 +226,7 @@ PageType {
             horizontalAlignment: Text.AlignHCenter
             text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите, чтобы отключить")
                                                             : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
-                                 : (root.busy ? qsTr("Подключаем…")
+                                 : (root.busy ? (NvoApi.lastConnectViaStealth ? qsTr("Обхожу блокировку…") : qsTr("Подключаем…"))
                                               // iOS (3.1.3(f)): без намёка на платную подписку/триал.
                                               : ((NvoApi.hasSubscription || Qt.platform.os === "ios") ? qsTr("Нажмите, чтобы включить")
                                                                         : qsTr("Подключиться бесплатно (2 дня)")))
@@ -233,6 +235,44 @@ PageType {
             font.weight: 800
             font.pixelSize: 20
         }
+
+        // Пока идёт обход блокировки — спокойно поясняем, что происходит (это на пару секунд дольше awg).
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            horizontalAlignment: Text.AlignHCenter
+            visible: root.busy && NvoApi.lastConnectViaStealth
+            text: qsTr("Подключаемся через защищённый канал")
+            color: NvoStyle.color.mutedGray
+            font.pixelSize: 13
+        }
+
+        // Бейдж «Защищённый канал»: постоянно виден, когда подняли VLESS (обход блокировки или режим «Всегда»).
+        // Даёт уверенность, что защищены именно там, где обычный VPN не смог пробиться.
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 2
+            visible: root.connected && NvoApi.lastConnectViaStealth
+            implicitWidth: secureRow.implicitWidth + 28
+            implicitHeight: 32
+            radius: 16
+            color: NvoStyle.color.onyxBlack
+            border.width: 1
+            border.color: NvoStyle.color.connectedGreenDeep
+
+            RowLayout {
+                id: secureRow
+                anchors.centerIn: parent
+                spacing: 6
+                Text { text: "🔒"; font.pixelSize: 13 }
+                Text {
+                    text: qsTr("Защищённый канал")
+                    color: NvoStyle.color.connectedGreen
+                    font.pixelSize: 13
+                    font.weight: 600
+                }
+            }
+        }
+
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Ваш интернет защищён, IP скрыт")
@@ -298,6 +338,72 @@ PageType {
                 cursorShape: Qt.PointingHandCursor
                 enabled: !root.busy && !root.connected
                 onClicked: PageController.goToPage(PageEnum.PageNvoCountries)
+            }
+        }
+
+        // ---- «Плохо подключается?» → Максимальная надёжность (всегда через защищённый канал) ----
+        // Спрятано до нужды (§12.3 — одна кнопка): обычным юзерам не мешает, а тем, у кого режут всё,
+        // даёт понятный человеческий переключатель без слов «stealth / VLESS / протокол».
+        ColumnLayout {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 4
+            spacing: 8
+            visible: !root.connected && !root.busy
+
+            // Режим «Авто»: ненавязчивая ссылка — предлагаем максимальную надёжность одной строкой.
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                visible: NvoApi.stealthMode !== 2
+                text: qsTr("Плохо подключается? →")
+                color: NvoStyle.color.mutedGray
+                font.pixelSize: 14
+                font.underline: reliMouse.containsMouse
+                MouseArea {
+                    id: reliMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        NvoApi.stealthMode = 2
+                        PageController.showNotificationMessage(
+                            qsTr("Максимальная надёжность включена — всегда через защищённый канал"))
+                    }
+                }
+            }
+
+            // Включённый режим максимальной надёжности — спокойная плашка с возможностью вернуть «Авто».
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                visible: NvoApi.stealthMode === 2
+                implicitWidth: reliRow.implicitWidth + 32
+                implicitHeight: 44
+                radius: 22
+                color: NvoStyle.color.onyxBlack
+                border.width: 1
+                border.color: NvoStyle.color.connectedGreenDeep
+
+                RowLayout {
+                    id: reliRow
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text { text: "🛡"; font.pixelSize: 16 }
+                    Text {
+                        text: qsTr("Максимальная надёжность")
+                        color: NvoStyle.color.connectedGreen
+                        font.pixelSize: 14
+                        font.weight: 600
+                    }
+                    Text { text: "✕"; color: NvoStyle.color.mutedGray; font.pixelSize: 14 }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        NvoApi.stealthMode = 1
+                        PageController.showNotificationMessage(
+                            qsTr("Обычный режим — защита включится сама при блокировке"))
+                    }
+                }
             }
         }
     }
