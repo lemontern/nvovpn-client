@@ -101,7 +101,12 @@ class Xray : Protocol() {
 
         var xrayJsonConfigString = xrayJsonConfig.toString()
         if (hostName != serverIp) {
-            xrayJsonConfigString = xrayJsonConfigString.replace(hostName, serverIp)
+            // Заменяем домен на резолвнутый IP ТОЛЬКО в адресе подключения (чтобы xray не резолвил
+            // домен сам — не было DNS-петли). SNI (serverName) и Host-заголовок ОСТАВЛЯЕМ доменом:
+            // Cloudflare маршрутизирует CDN по SNI/Host = домену; если их затереть в IP, CF не
+            // сматчит зону и WS+TLS-сессия не поднимется = чёрная дыра. Раньше blunt-replace затирал
+            // домен ВЕЗДЕ (включая sni/Host) → VLESS-CDN на Android не работал.
+            xrayJsonConfigString = xrayJsonConfigString.replace("\"address\":\"$hostName\"", "\"address\":\"$serverIp\"")
         }
 
         start(xrayConfig, xrayJsonConfigString, vpnBuilder, protect)
