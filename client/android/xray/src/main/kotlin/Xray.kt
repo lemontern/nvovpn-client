@@ -84,18 +84,23 @@ class Xray : Protocol() {
 
         // Inject SOCKS5 auth before starting xray. Re-uses existing credentials if present.
         ensureInboundAuth(xrayJsonConfig)
-        val xrayConfig = parseConfig(config, xrayJsonConfig)
+
+        // Резолвим адрес сервера в IP ОДИН раз — и для подмены в xray-конфиге, и для excludeRoute.
+        // Для CDN hostName — домен (xr.*.doveluxe.com): раньше excludeRoute получал домен вместо IP,
+        // реальный CF-IP не исключался из туннеля 0.0.0.0/0, и сокет самого xray к серверу
+        // заворачивался обратно в туннель = петля = чёрная дыра (данные не шли).
+        val hostName = config.getString("hostName")
+        val serverAddr = parseInetAddress(hostName)
+        val serverIp = serverAddr.ip
+        val xrayConfig = parseConfig(config, xrayJsonConfig, serverAddr)
 
         (xrayJsonConfig.optJSONObject("log") ?: JSONObject().also { xrayJsonConfig.put("log", it) })
             .put("loglevel", "warning")
             .put("access", "none") // disable access log
 
         var xrayJsonConfigString = xrayJsonConfig.toString()
-        config.getString("hostName").let { hostName ->
-            val ipAddress = parseInetAddress(hostName).ip
-            if (hostName != ipAddress) {
-                xrayJsonConfigString = xrayJsonConfigString.replace(hostName, ipAddress)
-            }
+        if (hostName != serverIp) {
+            xrayJsonConfigString = xrayJsonConfigString.replace(hostName, serverIp)
         }
 
         start(xrayConfig, xrayJsonConfigString, vpnBuilder, protect)
@@ -103,7 +108,7 @@ class Xray : Protocol() {
         isRunning = true
     }
 
-    private fun parseConfig(config: JSONObject, xrayJsonConfig: JSONObject): XrayConfig {
+    private fun parseConfig(config: JSONObject, xrayJsonConfig: JSONObject, serverAddr: InetAddress): XrayConfig {
         return XrayConfig.build {
             addAddress(XrayConfig.DEFAULT_IPV4_ADDRESS)
 
@@ -117,9 +122,9 @@ class Xray : Protocol() {
 
             addRoute(InetNetwork("0.0.0.0", 0))
             addRoute(InetNetwork("2000::0", 3))
-            config.getString("hostName").let {
-                excludeRoute(InetNetwork(it, 32))
-            }
+            // Исключаем из туннеля именно резолвнутый IP сервера (а не домен) — иначе сокет xray
+            // к CDN-серверу (домен за Cloudflare) заворачивается обратно в туннель = петля.
+            excludeRoute(InetNetwork(serverAddr))
 
             config.optString("mtu").let {
                 if (it.isNotBlank()) setMtu(it.toInt())
