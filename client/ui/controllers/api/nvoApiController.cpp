@@ -46,10 +46,10 @@ namespace
         "https://nvovpn.com/api/v1",
     };
     constexpr int API_BASE_COUNT = 2;
-    // Site/OAuth URL строим динамически от активной базы (siteBase()) — чтобы в РФ вход и веб-кабинет
-    // шли через тот же незаблокированный домен. Apple-вход пока на nvovpn.com (нужен отдельный
-    // redirect_uri в Apple Developer + бэкенде — TODO).
-    constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
+    // Site/OAuth URL (Google/Apple/веб-кабинет) строим динамически от активной базы (siteBase()) —
+    // чтобы в РФ всё шло через тот же незаблокированный домен, а не хардкод nvovpn.com.
+    // Apple: redirect_uri host-relative на бэкенде + домен api.netguarder.net заведён в Apple Developer
+    // (Services ID com.nvovpn.signin, Return URLs) и принят Apple — проверено.
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
     constexpr char FAVORITES_KEY[] = "Conf/nvoFavoriteCountries";
@@ -790,7 +790,7 @@ void NvoApiController::loginWithApple()
     }
     m_googleDs = ds;
 
-    QUrl url(QString::fromLatin1(APPLE_LOGIN_URL));
+    QUrl url(siteBase() + QStringLiteral("/app/login/apple"));
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("ds"), m_googleDs);
     url.setQuery(q);
