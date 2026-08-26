@@ -8,6 +8,7 @@
 #include <QStringList>
 #include <QList>
 #include <QElapsedTimer>
+#include <QTimer>
 #include <atomic>
 
 #ifdef __OBJC__
@@ -58,6 +59,10 @@ public:
 
     void getBackendLogs(std::function<void(const QString &)> &&callback);
     void checkStatus();
+    // Слежение за уже поднятым туннелем: см. комментарии в .mm.
+    void startLivenessWatch(uint64_t rxBytes, uint64_t txBytes);
+    void stopLivenessWatch();
+    void checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec);
 
     bool shareText(const QStringList &filesToSend);
     QString openFile();
@@ -132,8 +137,23 @@ private:
     bool m_handshakeAwaiting = false;
     bool m_handshakeConfirmed = false;
     QElapsedTimer m_handshakeTimer;
+    // Контроль живости УЖЕ поднятого туннеля. Проверка выше сторожит только первое рукопожатие
+    // и после него замолкает, поэтому обрыв посреди сессии оставался незамеченным: NE держит
+    // туннель, дефолтный маршрут в нём, а трафик уже режется. Своего таймера не заводим —
+    // VpnConnection и так опрашивает checkStatus() раз в секунду.
+    // rx на прошлой проверке: если растёт, туннель живой независимо от возраста рукопожатия.
+    uint64_t m_livenessRxMark = 0;
+    // tx на прошлой проверке и сколько раз подряд мы отправляли без единого ответа —
+    // это и есть быстрый признак обрыва.
+    uint64_t m_livenessTxMark = 0;
+    int m_livenessDeadStreak = 0;
+    // Разрыв уже запущен. Остановка таймера асинхронная (идёт в поток объекта), поэтому
+    // без этого флага таймер успевал сработать ещё раз и рвал соединение повторно.
+    bool m_livenessTearingDown = false;
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
+    // Когда ушёл запрос статуса: по нему выпускаем флаг, если расширение так и не ответило.
+    std::atomic<qint64> m_statusRequestStartedMs { 0 };
 };
 
 #endif // IOS_CONTROLLER_H

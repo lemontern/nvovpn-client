@@ -28,12 +28,18 @@ public:
     bool isConnected() const;
     bool isConnectionInProgress() const;
     QString connectionStateText() const;
+    // Забирает отметку «отключение запросил пользователь», сбрасывая её: следующий разрыв,
+    // если он случится сам по себе, снова будет считаться обрывом связи.
+    bool takeUserInitiatedClose();
 
 public slots:
     void toggleConnection();
 
     void openConnection();
     void closeConnection();
+    // Отключение, которое запросил сам пользователь. Нужно, чтобы оркестратор отличал его
+    // от обрыва связи: на обрыв он уходит на VLESS, а на осознанное «Отключить» — не лезет.
+    void closeConnectionByUser();
 
     bool isRevokeBlockedDuringActiveConnection(const QString &serverId, int containerIndex, const QString &clientId) const;
 
@@ -62,6 +68,7 @@ private:
 
     bool m_isConnected = false;
     bool m_isConnectionInProgress = false;
+    bool m_userInitiatedClose = false;
     QString m_connectionStateText = tr("Connect");
 
     Vpn::ConnectionState m_state;

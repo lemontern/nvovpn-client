@@ -80,9 +80,15 @@ public slots:
     void refreshUser();
     void requestConfig(int serverId, const QString &protocol = QStringLiteral("amneziawg")); // POST /connect → сигнал configReady
     void connectToSelected();                   // выбранный сервер или Авто → requestConfig
+    void connectToSelectedAuto();               // то же, но помечает попытку как АВТО-коннект при старте (ошибку не показываем)
+    bool takeAutoConnectFlag();                 // была ли текущая попытка авто-коннектом (возвращает и СБРАСЫВАЕТ флаг)
+    void clearAutoConnectFlag();                // сбросить флаг (напр. при успешном подключении)
+    void notifyConnected();                     // успешный коннект: снять метку провала awg (адаптивный выбор)
+    bool inStartupGrace() const;                // идёт ли окно тишины после запуска (ошибки коннекта гасим диалогом)
     void setSelectedServerId(int serverId);
     void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
     void connectViaStealthFallback();           // повторить последний сервер по VLESS (вызывает оркестратор при таймауте AWG)
+    void probeTunnel(int attemptsLeft = 2);     // проба живости туннеля: GET /ping сквозь VPN → сигнал tunnelProbeFinished
     bool handleDeepLink(const QString &url);    // nvovpn://login?code=XXXX → loginByCode
     QString token() const;
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
@@ -119,6 +125,7 @@ signals:
     void subscriptionRequired(const QString &message, const QString &reason);  // 403 — отказ /connect (email_unverified|ip_used|trial_used|no_plan|no_subscription)
     void sessionExpired();                      // 401 — токен отозван/истёк (вход на другом устройстве)
     void errorOccurred(const QString &message);
+    void tunnelProbeFinished(bool alive);       // проба туннеля: false = «Подключено», но данные не идут (мёртвый туннель)
 
     // Промокод (/promo/redeem): granted → успех; иначе показываем готовый message бэкенда
     // (reason: already_active | code_invalid | code_used | code_empty | email_unverified | disposable).
@@ -126,8 +133,15 @@ signals:
     void promoFailed(const QString &message, const QString &reason);
 
 private:
+    QString apiBase() const;                    // текущая база API (nvovpn.com или резерв api.netguarder.net)
+    bool isConnectivityError(QNetworkReply *reply) const;  // сетевая недоступность (не HTTP-ошибка) → повод для фолбека базы
+    bool maybeSwitchBase(QNetworkReply *reply, int startBase);  // при недоступности основного → переключить на резерв (true = переключились, повторять)
     QNetworkRequest makeRequest(const QString &path, bool auth) const;
     void tryNextFailover();                     // следующий сервер в режиме Авто
+    QString protoForServer(int serverId) const; // awg/vless по режиму + «памяти» провала awg (адаптивно)
+    bool awgRecentlyFailed(int serverId) const; // был ли недавний провал awg на сервере (в пределах TTL)
+    void recordAwgFailure(int serverId);        // пометить провал awg на сервере (для VLESS-first)
+    void clearAwgFailure(int serverId);         // снять метку (awg снова встал)
     void setBusy(bool busy);
     void setToken(const QString &token);
     void applyUser(const QJsonObject &root);
@@ -140,6 +154,7 @@ private:
     SecureQSettings *m_settings;
     NvoServersModel *m_serversModel;
 
+    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=nvovpn.com, 1=резерв); переключается при недоступности
     QString m_token;
     QString m_userName;
     QString m_userEmail;
@@ -160,6 +175,8 @@ private:
     bool m_lastConnectViaStealth = false;
     int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
     QString m_lastProtocol = QStringLiteral("amneziawg");
+    bool m_autoConnectPending = false;           // текущая попытка — авто-коннект при старте: её ошибку гасим (диалог не показываем)
+    bool m_startupGrace = true;                  // окно тишины после запуска: гасим ЛЮБЫЕ ошибки коннекта (restore/авто/Unknown)
 
     // In-App Purchase (iOS): цены из StoreKit.
     bool m_iapReady = false;

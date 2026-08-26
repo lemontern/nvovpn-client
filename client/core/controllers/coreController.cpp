@@ -25,6 +25,15 @@ namespace {
     // Сколько ждать после разрыва мёртвого awg-туннеля, прежде чем идти на бэкенд за VLESS-конфигом.
     // Замер на macOS: система возвращает дефолтный маршрут с utun на физический интерфейс за <1 сек.
     constexpr int kStealthRouteRestoreMs = 1200;
+
+    // Детектор «мёртвого туннеля»: пауза после «Подключено» перед активной пробой живости.
+    constexpr int kTunnelProbeDelayMs = 2500;
+
+    // Android liveness (CoreController::checkAndroidLiveness) — значения выверены на iOS/macOS:
+    // rx растёт на килобайты за интервал → связь жива; tx идёт, а rx стоит N интервалов → обрыв.
+    constexpr quint64 kAndroidLivenessAliveRxBytes = 1024;
+    constexpr quint64 kAndroidLivenessDeadTxBytes = 4096;
+    constexpr int kAndroidLivenessDeadStreak = 10;
 }
 
 CoreController::CoreController(const QSharedPointer<VpnConnection> &vpnConnection, SecureQSettings* settings,
@@ -245,12 +254,13 @@ void CoreController::initControllers()
     setQmlContextProperty("NvoApi", m_nvoApiController);
 
     // Маскировка (VLESS-фолбек): watchdog handshake AWG. Штатный AmneziaWG-handshake проходит за 1-2 сек;
-    // если за 10 сек нет перехода в Connected (DPI режет UDP) — тихо пробуем VLESS того же сервера.
-    // Не стартует для не-AWG и в режиме «выкл»; гасится при первом же успешном/ошибочном исходе — то есть
-    // на рабочем AWG ведёт себя ровно как раньше.
+    // если за 3 сек нет перехода в Connected (DPI режет UDP) — тихо пробуем VLESS того же сервера.
+    // 3 сек (не 5): рабочий awg встаёт за 1-2 сек, а у большинства RF он вообще не встаёт (DPI) — нет смысла
+    // ждать дольше. Не стартует для не-AWG и в режиме «выкл»; гасится при первом же успешном/ошибочном
+    // исходе — то есть на рабочем AWG ведёт себя ровно как раньше.
     m_stealthWatchdog = new QTimer(this);
     m_stealthWatchdog->setSingleShot(true);
-    m_stealthWatchdog->setInterval(5000);
+    m_stealthWatchdog->setInterval(3000);
     connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
         // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
         if (!m_connectionUiController->isConnected()) {
@@ -268,11 +278,56 @@ void CoreController::initControllers()
         }
         if (m_connectionUiController->isConnected()) {
             m_stealthWatchdog->stop();
+            m_nvoApiController->clearAutoConnectFlag();   // успешно подключились — «авто-старт» больше не в силе
+            m_nvoApiController->notifyConnected();        // awg встал → снять «память» провала (снова awg-first)
+            // Запоминаем, что живой awg-туннель БЫЛ: если он оборвётся сам, это повод уйти на VLESS.
+            m_awgTunnelWasUp = (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg"));
+            // Android: mid-session liveness теперь целиком в СЛУЖБЕ (v2, AmneziaVpnService.checkAwgLiveness) —
+            // она жива и в фоне, где Qt-часть C++ засыпает. Поэтому C++-детектор (v1) на Android НЕ взводим,
+            // чтобы не дублировать разрыв/переключение. Код v1 оставлен (на случай других сценариев).
+            m_androidLivenessArmed = false;
+            m_androidLivenessRxMark = 0;
+            m_androidLivenessTxMark = 0;
+            m_androidLivenessDeadStreak = 0;
+            // Детектор «мёртвого туннеля»: активная проба через ~2.5с. «Чёрная дыра» DPI показывает
+            // «Подключено» без реального трафика — проба GET /ping сквозь туннель это ловит.
+            QTimer::singleShot(kTunnelProbeDelayMs, this, [this]() {
+                if (m_connectionUiController->isConnected() && !m_stealthFallbackPending) {
+                    m_nvoApiController->probeTunnel();
+                }
+            });
         } else if (m_stealthWatchdog->isActive() && !m_connectionUiController->isConnectionInProgress()) {
             m_stealthWatchdog->stop();
             // Туннель не поднялся вообще (нода недоступна/конфиг битый) — маршрут системы не захвачен,
             // сеть жива, можно запрашивать VLESS сразу, без разрыва.
             m_nvoApiController->connectViaStealthFallback();
+        } else if (m_awgTunnelWasUp && !m_connectionUiController->isConnectionInProgress()) {
+            // Сюда попадаем, когда рабочий awg-туннель оборвался сам — демон увидел, что рукопожатия
+            // молчат, и деактивировал интерфейс (см. Daemon::checkLiveness). Раньше такого пути не было
+            // вовсе: приложение показывало «Подключено» до ручного отключения, хотя трафик уже резался.
+            // Осознанное «Отключить» сюда не приводит — его помечает closeConnectionByUser().
+            m_awgTunnelWasUp = false;
+            m_androidLivenessArmed = false;
+            if (!m_connectionUiController->takeUserInitiatedClose()) {
+                m_nvoApiController->connectViaStealthFallback();
+            }
+        }
+    });
+
+    // Результат пробы живости туннеля (детектор «мёртвого туннеля»): «Подключено», но данные не идут.
+    connect(m_nvoApiController, &NvoApiController::tunnelProbeFinished, this, [this](bool alive) {
+        if (alive || m_stealthFallbackPending || !m_connectionUiController->isConnected()) {
+            return;
+        }
+        if (m_awgTunnelWasUp && m_nvoApiController->stealthMode() == 1) {
+            // awg «подключён», но трафик не идёт → рвём awg и уходим на VLESS (teardown-first, как обычный фолбек).
+            startStealthFallback();
+        } else {
+            // VLESS/крайний протокол мёртв — фолбека нет. Честный статус вместо ложного «Подключено».
+            m_connectionUiController->closeConnection();
+            emit m_pageController->showErrorMessage(
+                tr("Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. "
+                   "Попробуйте другой сервер или другую сеть."));
         }
     });
 
@@ -283,6 +338,10 @@ void CoreController::initControllers()
                 m_stealthWatchdog->stop();
                 // Пришёл свежий конфиг — отложенный (ещё не ушедший) фолбек больше не актуален.
                 m_stealthFallbackPending = false;
+                // Прежний туннель сейчас будет снесён ради нового: разрыв запланированный,
+                // принимать его за обрыв связи нельзя (иначе смена страны уводила бы на VLESS).
+                m_awgTunnelWasUp = false;
+                m_androidLivenessArmed = false;
                 while (m_serversController->getServersCount() > 0) {
                     m_serversController->removeServer(m_serversController->getServerId(0));
                 }
@@ -324,6 +383,38 @@ void CoreController::startStealthFallback()
     });
 }
 
+// Android-аналог Daemon::checkLiveness / IosController::checkTunnelLiveness. Пороги и логика те же:
+// сравниваем приращения rx/tx ЗА ИНТЕРВАЛ (служба шлёт статистику туннеля раз в секунду), а не суммы.
+// Живой awg — rx растёт на килобайты; DPI-обрыв — система ещё льёт в мёртвый туннель (tx идёт),
+// а внятного ответа нет (rx стоит). N интервалов подряд «отправляем, ответа нет» → рвём awg через
+// startStealthFallback() (он вернёт маршрут и уведёт на VLESS). Первый замер после взвода трактуется
+// как «живой» (mark=0 → большая дельта) — это осознанная пропущенная итерация для установки базы.
+void CoreController::checkAndroidLiveness(quint64 rxBytes, quint64 txBytes)
+{
+    if (!m_androidLivenessArmed || m_stealthFallbackPending) {
+        return;
+    }
+
+    const quint64 rxDelta = rxBytes > m_androidLivenessRxMark ? rxBytes - m_androidLivenessRxMark : 0;
+    const quint64 txDelta = txBytes > m_androidLivenessTxMark ? txBytes - m_androidLivenessTxMark : 0;
+    m_androidLivenessRxMark = rxBytes;
+    m_androidLivenessTxMark = txBytes;
+
+    if (rxDelta >= kAndroidLivenessAliveRxBytes) {
+        m_androidLivenessDeadStreak = 0;
+        return;
+    }
+
+    if (txDelta > kAndroidLivenessDeadTxBytes) {
+        if (++m_androidLivenessDeadStreak >= kAndroidLivenessDeadStreak) {
+            qWarning() << "CoreController: Android awg — отправляем, ответа нет"
+                       << m_androidLivenessDeadStreak << "проверок подряд; рвём awg, уходим на VLESS";
+            m_androidLivenessArmed = false;
+            startStealthFallback();
+        }
+    }
+}
+
 void CoreController::initAndroidController()
 {
 #ifdef Q_OS_ANDROID
@@ -336,6 +427,10 @@ void CoreController::initAndroidController()
     if (!AndroidController::instance()->initialize()) {
         qFatal("Android controller initialization failed");
     }
+
+    // Служба шлёт статистику туннеля (rx/tx) раз в секунду — на ней сторожим живость awg.
+    connect(AndroidController::instance(), &AndroidController::statisticsUpdated, this,
+            [this](quint64 rxBytes, quint64 txBytes) { checkAndroidLiveness(rxBytes, txBytes); });
 
     if (m_engine) {
         m_engine->addImageProvider(QLatin1String("installedAppImage"), new InstalledAppsImageProvider);

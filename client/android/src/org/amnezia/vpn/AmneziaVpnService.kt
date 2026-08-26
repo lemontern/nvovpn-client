@@ -49,6 +49,8 @@ import org.amnezia.vpn.protocol.ProtocolState.RECONNECTING
 import org.amnezia.vpn.protocol.ProtocolState.UNKNOWN
 import org.amnezia.vpn.protocol.VpnException
 import org.amnezia.vpn.protocol.VpnStartException
+import org.amnezia.vpn.protocol.Statistics
+import org.amnezia.vpn.protocol.putStatistics
 import org.amnezia.vpn.protocol.putStatus
 import org.amnezia.vpn.util.LoadLibraryException
 import org.amnezia.vpn.util.Log
@@ -72,7 +74,15 @@ const val AFTER_PERMISSION_CHECK = "AFTER_PERMISSION_CHECK"
 private const val PREFS_CONFIG_KEY = "LAST_CONF"
 private const val PREFS_SERVER_NAME = "LAST_SERVER_NAME"
 private const val PREFS_SERVER_INDEX = "LAST_SERVER_INDEX"
-// private const val STATISTICS_SENDING_TIMEOUT = 1000L
+// v2 фоновый liveness awg→VLESS: детекция И переключение живут в СЛУЖБЕ, потому что Qt-часть
+// (где крутился v1) на Android в фоне засыпает и обрыв при свёрнутом приложении не ловит.
+// Кэшируем последний vless-конфиг, что служба сама получала (формат гарантированно валиден —
+// она его же и поднимает), и на dead-обрыве awg молча уходим на него.
+private const val PREFS_FALLBACK_CONFIG = "NVO_FALLBACK_CONF"
+private const val LIVENESS_ALIVE_RX = 1024L    // rx/сек ≥ этого → связь жива
+private const val LIVENESS_DEAD_TX = 4096L      // tx/сек > этого без ответа → кандидат в «мёртвые»
+private const val LIVENESS_DEAD_STREAK = 10     // столько секунд подряд «шлём, ответа нет» → рвём awg
+private const val STATISTICS_SENDING_TIMEOUT = 1000L
 private const val TRAFFIC_STATS_UPDATE_TIMEOUT = 1000L
 private const val DISCONNECT_TIMEOUT = 5000L
 private const val STOP_SERVICE_TIMEOUT = 5000L
@@ -100,7 +110,9 @@ open class AmneziaVpnService : VpnService() {
     private var connectionJob: Job? = null
     private var disconnectionJob: Job? = null
     private var trafficStatsUpdateJob: Job? = null
-    // private var statisticsSendingJob: Job? = null
+    private var statisticsSendingJob: Job? = null
+    private var livenessDeadStreak = 0
+    private var currentProtoName: String? = null
     private lateinit var networkState: NetworkState
     private lateinit var trafficStats: TrafficStats
     private var controlReceiver: BroadcastReceiver? = null
@@ -145,13 +157,13 @@ open class AmneziaVpnService : VpnService() {
                         val messenger = IpcMessenger(msg.replyTo, clientName)
                         clientMessengers[msg.replyTo] = messenger
                         Log.d(TAG, "Messenger client '$clientName' was registered")
-                        // if (clientName == ACTIVITY_MESSENGER_NAME && isConnected) launchSendingStatistics()
+                        if (clientName == ACTIVITY_MESSENGER_NAME && isConnected) launchSendingStatistics()
                     }
 
                     Action.UNREGISTER_CLIENT -> {
                         clientMessengers.remove(msg.replyTo)?.let {
                             Log.d(TAG, "Messenger client '${it.name}' was unregistered")
-                            // if (it.name == ACTIVITY_MESSENGER_NAME) stopSendingStatistics()
+                            if (it.name == ACTIVITY_MESSENGER_NAME) stopSendingStatistics()
                         }
                     }
 
@@ -381,26 +393,26 @@ open class AmneziaVpnService : VpnService() {
                 when (protocolState) {
                     CONNECTED -> {
                         networkState.bindNetworkListener()
-                        // if (isActivityConnected) launchSendingStatistics()
+                        if (isActivityConnected) launchSendingStatistics()
                         launchTrafficStatsUpdate()
                     }
 
                     DISCONNECTED -> {
                         networkState.unbindNetworkListener()
                         stopTrafficStatsUpdateJob()
-                        // stopSendingStatistics()
+                        stopSendingStatistics()
                         if (!isServiceBound) stopService()
                     }
 
                     DISCONNECTING -> {
                         networkState.unbindNetworkListener()
                         stopTrafficStatsUpdateJob()
-                        // stopSendingStatistics()
+                        stopSendingStatistics()
                     }
 
                     RECONNECTING -> {
                         stopTrafficStatsUpdateJob()
-                        // stopSendingStatistics()
+                        stopSendingStatistics()
                     }
 
                     CONNECTING, UNKNOWN -> {}
@@ -409,14 +421,14 @@ open class AmneziaVpnService : VpnService() {
         }
     }
 
-/*  @MainThread
+    @MainThread
     private fun launchSendingStatistics() {
         if (isServiceBound && isConnected) {
             statisticsSendingJob = mainScope.launch {
                 while (true) {
-                    clientMessenger.send {
+                    clientMessengers.send {
                         ServiceEvent.STATISTICS_UPDATE.packToMessage {
-                            putStatistics(protocol?.statistics ?: Statistics.EMPTY_STATISTICS)
+                            putStatistics(vpnProto?.protocol?.statistics ?: Statistics.EMPTY_STATISTICS)
                         }
                     }
                     delay(STATISTICS_SENDING_TIMEOUT)
@@ -428,7 +440,7 @@ open class AmneziaVpnService : VpnService() {
     @MainThread
     private fun stopSendingStatistics() {
         statisticsSendingJob?.cancel()
-    } */
+    }
 
     @MainThread
     private fun enableNotification() {
@@ -465,11 +477,40 @@ open class AmneziaVpnService : VpnService() {
                     trafficStats.getSpeed().let { speed ->
                         if (isConnected) {
                             serviceNotification.updateSpeed(speed)
+                            checkAwgLiveness(speed)
                         }
                     }
                     delay(TRAFFIC_STATS_UPDATE_TIMEOUT)
                 }
             }
+        }
+    }
+
+    // v2 liveness (аналог Daemon::checkLiveness / IosController): раз в секунду сравниваем скорость.
+    // Живой awg — rx растёт на килобайты; DPI-обрыв — система ещё льёт в мёртвый туннель (tx идёт),
+    // а внятного ответа нет (rx стоит). LIVENESS_DEAD_STREAK секунд подряд «шлём, ответа нет» → рвём
+    // awg и молча уходим на кэшированный vless. Живёт в службе → работает и при свёрнутом приложении.
+    private fun checkAwgLiveness(speed: TrafficStats.TrafficData) {
+        if (currentProtoName != "amneziawg") { livenessDeadStreak = 0; return }
+        val fallback = Prefs.load<String>(PREFS_FALLBACK_CONFIG)
+        if (fallback.isEmpty()) return                     // некуда падать — не трогаем
+        if (speed.rx >= LIVENESS_ALIVE_RX) { livenessDeadStreak = 0; return }
+        if (speed.tx > LIVENESS_DEAD_TX) {
+            if (++livenessDeadStreak >= LIVENESS_DEAD_STREAK) {
+                Log.w(TAG, "awg молчит $livenessDeadStreak сек — уходим на VLESS-фолбек")
+                livenessDeadStreak = 0
+                switchToFallback(fallback)
+            }
+        }
+    }
+
+    // Разрыв awg + подъём кэшированного vless. connect() внутри connectToVpn дожидается завершения
+    // disconnect через disconnectionJob.join(), поэтому последовательный вызов корректен.
+    private fun switchToFallback(fallbackConfig: String) {
+        currentProtoName = null   // чтобы детекция не срабатывала во время переключения
+        mainScope.launch {
+            disconnect()
+            connect(fallbackConfig)
         }
     }
 
@@ -510,6 +551,14 @@ open class AmneziaVpnService : VpnService() {
             onError("Invalid VPN config: ${e.message}")
             protocolState.value = DISCONNECTED
             return
+        }
+
+        // v2 liveness: запоминаем протокол коннекта; если это vless (есть xray_config_data) —
+        // кэшируем конфиг как фолбек, на него уйдём при DPI-обрыве awg (в т.ч. со свёрнутым приложением).
+        currentProtoName = config.getString("protocol")
+        livenessDeadStreak = 0
+        if (config.has("xray_config_data") || config.has("ssxray_config_data")) {
+            Prefs.save(PREFS_FALLBACK_CONFIG, vpnConfig)
         }
 
         protocolState.value = CONNECTING

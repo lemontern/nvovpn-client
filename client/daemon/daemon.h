@@ -77,6 +77,9 @@ class Daemon : public QObject {
                               QStringList& list);
 
   void checkHandshake();
+  // Контроль живости уже поднятого туннеля: checkHandshake() следит только за первым
+  // рукопожатием, из-за чего обрыв посреди сессии оставался незамеченным.
+  void checkLiveness();
 
   class ConnectionState {
    public:
@@ -84,10 +87,18 @@ class Daemon : public QObject {
     ConnectionState(const InterfaceConfig& config) { m_config = config; }
     QDateTime m_date;
     InterfaceConfig m_config;
+    // Счётчик принятых байт на прошлой проверке живости: если растёт, туннель заведомо
+    // работает, даже когда рукопожатие давнее.
+    qint64 m_lastRxBytes = 0;
+    // Отправленные байты на прошлой проверке и сколько раз подряд мы слали без единого
+    // ответа — быстрый признак обрыва.
+    qint64 m_lastTxBytes = 0;
+    int m_deadStreak = 0;
   };
   QMap<InterfaceConfig::HopType, ConnectionState> m_connections;
   QHash<IPAddress, int> m_excludedAddrSet;
   QTimer m_handshakeTimer;
+  QTimer m_livenessTimer;
 };
 
 #endif  // DAEMON_H

@@ -18,6 +18,34 @@
 constexpr const char* JSON_ALLOWEDIPADDRESSRANGES = "allowedIPAddressRanges";
 constexpr int HANDSHAKE_POLL_MSEC = 250;
 
+// Контроль живости УЖЕ поднятого туннеля. Два признака обрыва, быстрый и медленный.
+//
+// checkHandshake() следит только за первым рукопожатием и после него замолкает навсегда,
+// поэтому обрыв посреди сессии клиент не замечал: интерфейс поднят, DPI молча режет трафик,
+// а приложение показывает «Подключено», пока человек сам не нажмёт «Отключить».
+//
+// БЫСТРЫЙ признак — «шлём, а в ответ тишина». Если человек чем-то пользуется, tx растёт, и при
+// живой связи rx обязан расти тоже: любой TCP требует подтверждений. Когда DPI режет туннель,
+// tx продолжает набирать (система льёт трафик в захваченный маршрут), а rx замирает намертво.
+// Ловится за секунды. Порог по tx отсекает простой: keepalive даёт около 32 байт в минуту.
+// Несколько срабатываний подряд нужны, чтобы короткий провал связи не рвал исправный туннель.
+//
+// МЕДЛЕННЫЙ признак — молчащее рукопожатие. Для случая, когда человек ничего не качает: тогда
+// tx почти не растёт и быстрый признак молчит. Спешить тут незачем — раз трафика нет, туннелем
+// и не пользуются, поэтому порог с запасом (keepalive раз в WG_KEEPALIVE_PERIOD, ключи
+// переустанавливаются примерно раз в две минуты).
+//
+// Считаем ПРИРАЩЕНИЯ ЗА ИНТЕРВАЛ, а не накопленные суммы, и «живо» — это заметный прирост rx
+// (≥1 КБ), а не любой рост. Раньше здесь стояло `rx > lastRx`, и это ломало детект начисто:
+// при DPI-блоке rx всё равно капает крохами (ретрансмиты, keepalive) → счётчик обнулялся каждый
+// раз → обрыв не ловился НИКОГДА. Ровно этот баг был на Windows. Значения — те же, что проверены
+// на macOS: опрос раз в секунду, порог rx 1 КБ, порог tx 4 КБ, серия 10 (~10 сек до разрыва).
+constexpr int LIVENESS_POLL_MSEC = 1000;
+constexpr qint64 LIVENESS_ALIVE_RX_BYTES = 1024;
+constexpr qint64 LIVENESS_DEAD_TX_BYTES = 4096;
+constexpr int LIVENESS_DEAD_STREAK = 10;
+constexpr qint64 LIVENESS_TIMEOUT_MSEC = 300000;
+
 namespace {
 
 Logger logger("Daemon");
@@ -36,6 +64,9 @@ Daemon::Daemon(QObject* parent) : QObject(parent) {
 
   m_handshakeTimer.setSingleShot(true);
   connect(&m_handshakeTimer, &QTimer::timeout, this, &Daemon::checkHandshake);
+
+  m_livenessTimer.setSingleShot(true);
+  connect(&m_livenessTimer, &QTimer::timeout, this, &Daemon::checkLiveness);
 }
 
 Daemon::~Daemon() {
@@ -447,6 +478,9 @@ bool Daemon::parseConfig(const QJsonObject& obj, InterfaceConfig& config) {
 bool Daemon::deactivate(bool emitSignals) {
   Q_ASSERT(wgutils() != nullptr);
 
+  // Туннеля больше не будет — сторожить нечего.
+  m_livenessTimer.stop();
+
   // Deactivate the main interface.
   if (!m_connections.isEmpty()) {
     const ConnectionState& state = m_connections.first();
@@ -605,7 +639,13 @@ void Daemon::checkHandshake() {
       }
       if (status.m_handshake != 0) {
         connection.m_date.setMSecsSinceEpoch(status.m_handshake);
+        connection.m_lastRxBytes = status.m_rxBytes;
+        connection.m_lastTxBytes = status.m_txBytes;
+        connection.m_deadStreak = 0;
         emit connected(status.m_pubkey);
+        // Дальше за этим соединением следит checkLiveness(): рукопожатие состоялось,
+        // но связь ещё может пропасть посреди сессии.
+        m_livenessTimer.start(LIVENESS_POLL_MSEC);
       }
     }
 
@@ -618,4 +658,75 @@ void Daemon::checkHandshake() {
   if (pendingHandshakes > 0) {
     m_handshakeTimer.start(HANDSHAKE_POLL_MSEC);
   }
+}
+
+/**
+ * Следит за уже поднятым туннелем и рвёт его, если связь пропала.
+ *
+ * Без этого приложение показывало «Подключено» до тех пор, пока пользователь сам не отключится:
+ * DPI режет трафик молча, интерфейс при этом остаётся поднятым, а дефолтный маршрут — в нём,
+ * то есть человек сидит вообще без интернета и не понимает почему.
+ *
+ * Рвём соединение штатной деактивацией: маршрут возвращается на физический интерфейс, клиент
+ * получает disconnected и может уйти на VLESS.
+ */
+void Daemon::checkLiveness() {
+  if (m_connections.isEmpty() || wgutils() == nullptr) {
+    return;
+  }
+
+  const qint64 now = QDateTime::currentMSecsSinceEpoch();
+  QList<WireguardUtils::PeerStatus> peers = wgutils()->getPeerStatus();
+
+  for (ConnectionState& connection : m_connections) {
+    if (!connection.m_date.isValid()) {
+      continue;  // ещё не подключились — это забота checkHandshake()
+    }
+
+    for (const WireguardUtils::PeerStatus& status : peers) {
+      if (connection.m_config.m_serverPublicKey != status.m_pubkey) {
+        continue;
+      }
+
+      // Приращения ЗА ИНТЕРВАЛ (метки обновляем каждый опрос), а не накопленные суммы.
+      const qint64 rxDelta = status.m_rxBytes > connection.m_lastRxBytes
+          ? status.m_rxBytes - connection.m_lastRxBytes : 0;
+      const qint64 txDelta = status.m_txBytes > connection.m_lastTxBytes
+          ? status.m_txBytes - connection.m_lastTxBytes : 0;
+      connection.m_lastRxBytes = status.m_rxBytes;
+      connection.m_lastTxBytes = status.m_txBytes;
+
+      // Заметный прирост входящего — туннель живой. Именно ПОРОГ, а не «любой рост»:
+      // при обрыве rx капает крохами (ретрансмиты/keepalive), и они не должны обнулять счётчик.
+      if (rxDelta >= LIVENESS_ALIVE_RX_BYTES) {
+        connection.m_deadStreak = 0;
+        break;
+      }
+
+      // Быстрый признак: заметно отправили, а внятного ответа за этот интервал нет.
+      if (txDelta > LIVENESS_DEAD_TX_BYTES) {
+        if (++connection.m_deadStreak >= LIVENESS_DEAD_STREAK) {
+          logger.warning() << "Отправляем, ответа нет" << connection.m_deadStreak
+                           << "проверок подряд — рвём соединение";
+          deactivate(true);
+          return;
+        }
+        break;
+      }
+
+      // Медленный признак: трафика почти нет, судим по возрасту рукопожатия.
+      if (status.m_handshake == 0 ||
+          (now - status.m_handshake) <= LIVENESS_TIMEOUT_MSEC) {
+        break;
+      }
+
+      logger.warning() << "Туннель молчит дольше допустимого — рвём соединение;"
+                       << "последнее рукопожатие"
+                       << (now - status.m_handshake) / 1000 << "сек назад";
+      deactivate(true);
+      return;
+    }
+  }
+
+  m_livenessTimer.start(LIVENESS_POLL_MSEC);
 }

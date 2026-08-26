@@ -12,6 +12,7 @@
 #include <QDesktopServices>
 #include <QTimer>
 #include <QRandomGenerator>
+#include <chrono>
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
@@ -36,7 +37,13 @@ namespace
 {
     Logger logger("NvoApiController");
 
-    constexpr char API_BASE[] = "https://nvovpn.com/api/v1";
+    // Резервный домен API: провайдер может резать основной nvovpn.com (РФ-хостинг напрямую) →
+    // на СЕТЕВОЙ ошибке клиент переключается на api.netguarder.net (за Cloudflare, ECH, скрытый SNI).
+    constexpr const char *API_BASES[] = {
+        "https://nvovpn.com/api/v1",
+        "https://api.netguarder.net/api/v1",
+    };
+    constexpr int API_BASE_COUNT = 2;
     constexpr char SITE_BASE[] = "https://nvovpn.com";
     constexpr char GOOGLE_LOGIN_URL[] = "https://nvovpn.com/app/login/google";
     constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
@@ -46,6 +53,10 @@ namespace
     constexpr char CONNECT_COUNT_KEY[] = "Conf/nvoConnectCount";
     constexpr char REVIEW_ASKED_KEY[] = "Conf/nvoReviewAsked";
     constexpr char STEALTH_MODE_KEY[] = "Conf/nvoStealthMode";
+    // Адаптивный коннект: «память» о недавнем провале awg по каждому серверу — следующую попытку
+    // на нём начинаем сразу с VLESS (не жжём таймаут там, где DPI режет awg). TTL 30 мин → пере-проба.
+    constexpr qint64 kAwgFailTtlSec = 1800;
+    QString awgFailKey(int serverId) { return QStringLiteral("Conf/nvoAwgFail/%1").arg(serverId); }
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -91,11 +102,18 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
         m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
     }
+
+    // Окно тишины после запуска: первые секунды авто-коннект и restoreConnection на Android часто
+    // падают по гонке инициализации (а на Android любая ошибка — generic ErrorCode 1000), тогда как
+    // ручной коннект секундой позже уже работает. Не пугаем пользователя этим диалогом на старте —
+    // гасим ошибки коннекта в этом окне. Дальше ошибки показываются как обычно.
+    QTimer::singleShot(8000, this, [this]() { m_startupGrace = false; });
 }
 
 bool NvoApiController::isAuthenticated() const { return !m_token.isEmpty(); }
 bool NvoApiController::isBusy() const { return m_busy; }
 int NvoApiController::stealthMode() const { return m_stealthMode; }
+bool NvoApiController::inStartupGrace() const { return m_startupGrace; }
 bool NvoApiController::lastConnectViaStealth() const { return m_lastConnectViaStealth; }
 int NvoApiController::lastConnectServerId() const { return m_lastConnectServerId; }
 QString NvoApiController::lastProtocol() const { return m_lastProtocol; }
@@ -193,6 +211,9 @@ void NvoApiController::connectViaStealthFallback()
     if (m_lastProtocol == QStringLiteral("vless")) {
         return; // уже на VLESS — второго фолбека нет
     }
+    // awg на этом сервере не встал — помечаем провал: следующий коннект на него пойдёт сразу VLESS
+    // (адаптивно, без потери таймаута). Метка живёт kAwgFailTtlSec и снимается при удачном awg-коннекте.
+    recordAwgFailure(m_lastConnectServerId);
     // Keep-alive сокет, по которому ходил awg-запрос, к этому моменту протух: его пакеты успели уйти
     // в мёртвый туннель и остались без ACK. Переиспользование такого соединения = запрос в никуда,
     // поэтому пул соединений сбрасываем и открываем новое (авторизация/куки не трогаются).
@@ -200,15 +221,88 @@ void NvoApiController::connectViaStealthFallback()
     requestConfig(m_lastConnectServerId, QStringLiteral("vless"));
 }
 
+// Адаптивный выбор протокола для сервера: «Всегда Stealth» (2) — всегда VLESS; «Авто» (1) — VLESS,
+// если awg на этом сервере недавно провалился (иначе awg-first); «Выкл» (0) — только awg.
+QString NvoApiController::protoForServer(int serverId) const
+{
+    if (m_stealthMode == 2) {
+        return QStringLiteral("vless");
+    }
+    if (m_stealthMode == 1 && awgRecentlyFailed(serverId)) {
+        return QStringLiteral("vless");
+    }
+    return QStringLiteral("amneziawg");
+}
+
+bool NvoApiController::awgRecentlyFailed(int serverId) const
+{
+    if (serverId < 0) {
+        return false;
+    }
+    const qint64 ts = m_settings->value(awgFailKey(serverId)).toLongLong();
+    if (ts <= 0) {
+        return false;
+    }
+    return (QDateTime::currentSecsSinceEpoch() - ts) < kAwgFailTtlSec;
+}
+
+void NvoApiController::recordAwgFailure(int serverId)
+{
+    if (serverId < 0) {
+        return;
+    }
+    m_settings->setValue(awgFailKey(serverId), QDateTime::currentSecsSinceEpoch());
+}
+
+void NvoApiController::clearAwgFailure(int serverId)
+{
+    if (serverId < 0) {
+        return;
+    }
+    m_settings->remove(awgFailKey(serverId));
+}
+
+void NvoApiController::notifyConnected()
+{
+    // awg реально встал на этом сервере — снимаем метку провала, чтобы снова пробовать awg-first.
+    if (m_lastProtocol == QStringLiteral("amneziawg")) {
+        clearAwgFailure(m_lastConnectServerId);
+    }
+}
+
+// Проба живости туннеля: GET /ping ЧЕРЕЗ VPN (после «Подключено» весь трафик идёт в туннель).
+// Ответ есть → туннель реально несёт трафик. У «чёрной дыры» DPI запрос НЕ ошибётся быстро, а
+// зависнет — поэтому жёсткий таймаут (TransferTimeoutAttribute). Таймаут/ошибка после ретраев =
+// мёртвый туннель (см. CoreController: awg→фолбек на VLESS, VLESS→честный статус вместо «Подключено»).
+void NvoApiController::probeTunnel(int attemptsLeft)
+{
+    QNetworkRequest req = makeRequest(QStringLiteral("/ping"), false);
+    req.setTransferTimeout(std::chrono::milliseconds(6000));
+    QNetworkReply *reply = m_nam->get(req);
+    connect(reply, &QNetworkReply::finished, this, [this, reply, attemptsLeft]() {
+        reply->deleteLater();
+        if (reply->error() == QNetworkReply::NoError) {
+            emit tunnelProbeFinished(true);
+            return;
+        }
+        if (attemptsLeft > 1) {
+            // Один ретрай — чтобы кратковременный сетевой блип не сорвал рабочий туннель.
+            QTimer::singleShot(1500, this, [this, attemptsLeft]() { probeTunnel(attemptsLeft - 1); });
+            return;
+        }
+        emit tunnelProbeFinished(false);
+    });
+}
+
 void NvoApiController::connectToSelected()
 {
-    // «Всегда Stealth» (mode 2) — сразу VLESS, минуя AWG. Иначе основной AWG (фолбек — по таймауту).
-    const QString proto = (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg");
+    // Протокол выбирает protoForServer(): «Всегда Stealth» — VLESS; «Авто» — VLESS, если awg на
+    // сервере недавно провалился, иначе awg (фолбек по таймауту); «Выкл» — только awg.
     if (m_selectedServerId >= 0) {
         // Явный выбор страны — без failover (юзер хочет именно её).
         m_inFailover = false;
         m_failoverQueue.clear();
-        requestConfig(m_selectedServerId, proto);
+        requestConfig(m_selectedServerId, protoForServer(m_selectedServerId));
         return;
     }
 
@@ -216,6 +310,26 @@ void NvoApiController::connectToSelected()
     m_failoverQueue = m_serversModel ? m_serversModel->onlineServerIdsByLoad() : QList<int>();
     m_inFailover = true;
     tryNextFailover();
+}
+
+void NvoApiController::connectToSelectedAuto()
+{
+    // Помечаем попытку как авто-коннект при старте: если она упадёт (частая гонка инициализации
+    // на Android — ручной коннект секундой позже уже работает), диалог «ErrorCode» НЕ показываем.
+    m_autoConnectPending = true;
+    connectToSelected();
+}
+
+bool NvoApiController::takeAutoConnectFlag()
+{
+    const bool wasAuto = m_autoConnectPending;
+    m_autoConnectPending = false;
+    return wasAuto;
+}
+
+void NvoApiController::clearAutoConnectFlag()
+{
+    m_autoConnectPending = false;
 }
 
 void NvoApiController::tryNextFailover()
@@ -226,18 +340,63 @@ void NvoApiController::tryNextFailover()
         return;
     }
     const int id = m_failoverQueue.takeFirst();
-    requestConfig(id, (m_stealthMode == 2) ? QStringLiteral("vless") : QStringLiteral("amneziawg"));
+    requestConfig(id, protoForServer(id));
 }
 
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const
 {
-    QNetworkRequest req(QUrl(QString::fromLatin1(API_BASE) + path));
+    QNetworkRequest req(QUrl(apiBase() + path));
+    // Таймаут: заблокированный домен не должен висеть вечно — быстрее упадёт в сетевую ошибку → фолбек.
+    req.setTransferTimeout(std::chrono::milliseconds(12000));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QByteArrayLiteral("application/json"));
     req.setRawHeader(QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json"));
     if (auth && !m_token.isEmpty()) {
         req.setRawHeader(QByteArrayLiteral("Authorization"), QByteArray("Bearer ") + m_token.toUtf8());
     }
     return req;
+}
+
+QString NvoApiController::apiBase() const
+{
+    return QString::fromLatin1(API_BASES[m_apiBaseIdx]);
+}
+
+// Сетевая ошибка (домен недоступен), а НЕ HTTP-ответ. 401/422/500 значат, что сервер доступен —
+// резерв тут не поможет, переключаться нельзя.
+bool NvoApiController::isConnectivityError(QNetworkReply *reply) const
+{
+    switch (reply->error()) {
+    case QNetworkReply::ConnectionRefusedError:
+    case QNetworkReply::RemoteHostClosedError:
+    case QNetworkReply::HostNotFoundError:
+    case QNetworkReply::TimeoutError:
+    case QNetworkReply::OperationCanceledError:   // Qt: таймаут по setTransferTimeout приходит так
+    case QNetworkReply::SslHandshakeFailedError:
+    case QNetworkReply::TemporaryNetworkFailureError:
+    case QNetworkReply::NetworkSessionFailedError:
+    case QNetworkReply::UnknownNetworkError:
+    case QNetworkReply::ProxyConnectionRefusedError:
+    case QNetworkReply::ProxyConnectionClosedError:
+    case QNetworkReply::ProxyNotFoundError:
+    case QNetworkReply::ProxyTimeoutError:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Основной домен недоступен → переключиться на резервный. Возвращает true, если базу сменили
+// (нами или параллельным запросом) и запрос стоит повторить. startBase — база на момент старта запроса.
+bool NvoApiController::maybeSwitchBase(QNetworkReply *reply, int startBase)
+{
+    if (!isConnectivityError(reply)) {
+        return false;
+    }
+    if (m_apiBaseIdx == startBase && m_apiBaseIdx + 1 < API_BASE_COUNT) {
+        ++m_apiBaseIdx;
+        logger.info() << "API base unreachable, switching to fallback:" << apiBase();
+    }
+    return m_apiBaseIdx != startBase;   // повторить, если база реально сменилась
 }
 
 void NvoApiController::setBusy(bool busy)
@@ -267,19 +426,25 @@ void NvoApiController::setToken(const QString &token)
 void NvoApiController::login(const QString &email, const QString &password)
 {
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "email", email }, { "password", password }, { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/login"), false),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, email, password, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной домен недоступен → резерв, повторяем вход
+                login(email, password);
+                return;
+            }
+            setBusy(false);
             // 401 и 422 (Laravel "Invalid credentials") → человеческое «неверный логин/пароль».
             emit loginFailed((status == 401 || status == 422) ? tr("Неверный email или пароль") : humanError(reply));
             return;
         }
+        setBusy(false);
         const QString token = root.value(QStringLiteral("token")).toString();
         if (token.isEmpty()) {
             emit loginFailed(tr("Не удалось войти, попробуйте ещё раз"));
@@ -350,20 +515,27 @@ void NvoApiController::refreshServers()
         return;
     }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->get(makeRequest(QStringLiteral("/servers"), true));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
         if (status == 401) {
+            setBusy(false);
             setToken(QString());
             emit sessionExpired();
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной недоступен → резерв, повторяем
+                refreshServers();
+                return;
+            }
+            setBusy(false);
             emit errorOccurred(humanError(reply));
             return;
         }
+        setBusy(false);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (m_serversModel) {
             m_serversModel->updateModel(root.value(QStringLiteral("servers")).toArray());
@@ -377,8 +549,9 @@ void NvoApiController::refreshUser()
     if (m_token.isEmpty()) {
         return;
     }
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->get(makeRequest(QStringLiteral("/user"), true));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
         const int status = httpStatus(reply);
         if (status == 401) {
@@ -387,6 +560,9 @@ void NvoApiController::refreshUser()
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной недоступен → резерв, повторяем
+                refreshUser();
+            }
             return;
         }
         applyUser(QJsonDocument::fromJson(reply->readAll()).object());
@@ -453,11 +629,12 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         emit lastConnectViaStealthChanged();
     }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "server_id", serverId }, { "protocol", protocol },
                              { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/connect"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply, serverId]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, serverId, protocol, startBase]() {
         reply->deleteLater();
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
@@ -488,6 +665,12 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         const bool failed = (reply->error() != QNetworkReply::NoError) || config.isEmpty();
 
         if (failed) {
+            // Сначала: не заблокирован ли сам API-домен? Сетевая недоступность → резерв и повтор
+            // ТОГО ЖЕ сервера. Это не проблема ноды, перебор серверов (failover) тут бесполезен.
+            if (maybeSwitchBase(reply, startBase)) {
+                requestConfig(serverId, protocol);
+                return;
+            }
             // Режим «Авто» — молча пробуем следующую ноду (ТЗ §12.6).
             if (m_inFailover && !m_failoverQueue.isEmpty()) {
                 tryNextFailover();
@@ -506,6 +689,21 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         m_inFailover = false;
         m_failoverQueue.clear();
         setBusy(false);
+        // Признак маскировки — по ФАКТИЧЕСКОМУ протоколу из ответа, а не по запросу.
+        // Сервер мог сам подменить awg на vless (серверный фолбек для старых сборок): тогда
+        // человек должен увидеть «Подключено в режиме маскировки», а не гадать, почему стало
+        // медленнее. Заодно выравниваем m_lastProtocol — иначе оркестратор счёл бы туннель
+        // awg-шным и впустую запустил бы сторож рукопожатия на xray-туннеле.
+        const QString actualProto = root.value(QStringLiteral("protocol")).toString();
+        if (!actualProto.isEmpty()) {
+            m_lastProtocol = actualProto;
+            const bool viaStealth = (actualProto == QStringLiteral("vless"));
+            if (m_lastConnectViaStealth != viaStealth) {
+                m_lastConnectViaStealth = viaStealth;
+                emit lastConnectViaStealthChanged();
+            }
+        }
+
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
         emit configReady(config, serverId, server.value(QStringLiteral("name")).toString(),
                          root.value(QStringLiteral("vpn_key")).toString(),

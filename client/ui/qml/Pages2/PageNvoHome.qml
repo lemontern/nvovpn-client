@@ -101,7 +101,7 @@ PageType {
                     && !ConnectionController.isConnected
                     && !ConnectionController.isConnectionInProgress) {
                 root.autoConnectTried = true
-                NvoApi.connectToSelected()
+                NvoApi.connectToSelectedAuto()   // помечаем как авто-старт: его ошибку не показываем диалогом
             }
         }
     }
@@ -141,75 +141,114 @@ PageType {
         spacing: 24
         width: parent.width
 
+        // ---- Центр: анимированный орб (Canvas) — «дышит» в покое, сканирует при обходе, светится при защите ----
         Item {
+            id: orbHost
             Layout.alignment: Qt.AlignHCenter
-            implicitWidth: 240
-            implicitHeight: 240
+            implicitWidth: 280
+            implicitHeight: 280
 
-            // Внешнее кольцо
-            Rectangle {
-                anchors.fill: parent
-                radius: width / 2
-                color: NvoStyle.color.transparent
-                border.width: 3
-                border.color: root.connected ? NvoStyle.color.connectedGreen
-                                              : (root.busy ? NvoStyle.color.nvoBlue
-                                                           : NvoStyle.color.charcoalGray)
+            // Цвет орба по состоянию: зелёный = защита (красный при наведении = «отключить»),
+            // фиолетовый = обход блокировки (VLESS), синий = обычное подключение (awg), фиолетовый приглушённый = покой.
+            readonly property color orbColor: root.connected
+                    ? (knobMouse.containsMouse ? NvoStyle.color.dangerRed : NvoStyle.color.connectedGreen)
+                    : (root.busy ? (NvoApi.lastConnectViaStealth ? NvoStyle.color.nvoViolet : NvoStyle.color.nvoBlue)
+                                 : NvoStyle.color.nvoViolet)
+            property real t: 0
+
+            // Драйвер анимации: чаще при коннекте, экономно в покое (батарея); пауза, когда экран не виден.
+            Timer {
+                interval: root.busy ? 16 : (root.connected ? 33 : 70)
+                running: root.visible
+                repeat: true
+                onTriggered: { orbHost.t += root.busy ? 0.07 : 0.02; orb.requestPaint() }
             }
 
-            // Тело кнопки
-            Rectangle {
-                id: knob
+            Canvas {
+                id: orb
+                anchors.fill: parent
+                antialiasing: true
+                onPaint: {
+                    var ctx = getContext("2d")
+                    var w = width, h = height, cx = w / 2, cy = h / 2, R = 94
+                    var c = orbHost.orbColor
+                    var busy = root.busy, conn = root.connected, t = orbHost.t
+                    ctx.reset()
+                    ctx.clearRect(0, 0, w, h)
+                    var breathe = 1 + Math.sin(t * (busy ? 2.2 : 1)) * (busy ? 0.03 : 0.015)
+                    // внешнее свечение
+                    var g = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * 1.45 * breathe)
+                    g.addColorStop(0, Qt.rgba(c.r, c.g, c.b, conn ? 0.30 : 0.20))
+                    g.addColorStop(1, Qt.rgba(c.r, c.g, c.b, 0))
+                    ctx.fillStyle = g
+                    ctx.beginPath(); ctx.arc(cx, cy, R * 1.45 * breathe, 0, Math.PI * 2); ctx.fill()
+                    // концентрические кольца
+                    for (var i = 0; i < 3; i++) {
+                        ctx.beginPath(); ctx.arc(cx, cy, R * (0.72 + i * 0.15) * breathe, 0, Math.PI * 2)
+                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.12 - i * 0.03); ctx.lineWidth = 1.5; ctx.stroke()
+                    }
+                    // основное кольцо
+                    ctx.beginPath(); ctx.arc(cx, cy, R * breathe, 0, Math.PI * 2)
+                    ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.6); ctx.lineWidth = 3; ctx.stroke()
+                    // внутренний диск
+                    var gd = ctx.createRadialGradient(cx, cy - R * 0.3, 10, cx, cy, R * 0.92)
+                    gd.addColorStop(0, conn ? "#163a2a" : "#221d3a")
+                    gd.addColorStop(1, "#0e0c17")
+                    ctx.beginPath(); ctx.arc(cx, cy, R * 0.92 * breathe, 0, Math.PI * 2); ctx.fillStyle = gd; ctx.fill()
+                    // скан-дуга + орбитальная точка + центральный спиннер при подключении
+                    if (busy) {
+                        ctx.beginPath(); ctx.arc(cx, cy, R * breathe, t * 2.2, t * 2.2 + 1.1)
+                        ctx.strokeStyle = c; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.stroke()
+                        var a = t * 1.6
+                        ctx.beginPath(); ctx.arc(cx + Math.cos(a) * R * 1.12, cy + Math.sin(a) * R * 1.12, 5, 0, Math.PI * 2)
+                        ctx.fillStyle = c; ctx.fill()
+                        ctx.beginPath(); ctx.arc(cx, cy, 22, t * 3, t * 3 + 4.2)
+                        ctx.strokeStyle = c; ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.stroke()
+                    }
+                    // пульс при защите
+                    if (conn) {
+                        var p = (t / (Math.PI * 2)) % 1
+                        ctx.beginPath(); ctx.arc(cx, cy, R * (1 + p * 0.5), 0, Math.PI * 2)
+                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.4 * (1 - p)); ctx.lineWidth = 3; ctx.stroke()
+                    }
+                }
+            }
+
+            // Центр: бренд-щит (покой/защита); при наведении на «защиту» показываем ✕ (отключить).
+            Image {
                 anchors.centerIn: parent
-                width: 200; height: 200
-                radius: width / 2
-                // Подключено: зелёная; при наведении — красноватый намёк, что нажатие отключит.
-                color: root.connected ? (knobMouse.containsMouse ? "#C7493F" : NvoStyle.color.connectedGreen)
-                                      : NvoStyle.color.onyxBlack
+                width: 104; height: 104
+                source: "qrc:/images/nvoAppIconRound.png"
+                sourceSize.width: 104; sourceSize.height: 104
+                fillMode: Image.PreserveAspectFit
+                visible: !root.busy && !(root.connected && knobMouse.containsMouse)
+            }
+            Text {
+                anchors.centerIn: parent
+                text: "✕"
+                font.pixelSize: 60
+                color: "white"
+                visible: root.connected && knobMouse.containsMouse && !root.busy
+            }
 
-                Behavior on color { ColorAnimation { duration: 250 } }
-                scale: knobMouse.pressed ? 0.96 : 1.0
-                Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
+            scale: knobMouse.pressed ? 0.96 : 1.0
+            Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutQuad } }
 
-                // Лого NvoVPN = весь круг кнопки (отключено). Готовый КРУГЛЫЙ PNG (обрезан в круг
-                // заранее через PIL) — надёжнее рантайм-масок (OpacityMask/MultiEffect не обрезали).
-                Image {
-                    anchors.fill: parent
-                    source: "qrc:/images/nvoAppIconRound.png"
-                    sourceSize.width: 200
-                    sourceSize.height: 200
-                    fillMode: Image.PreserveAspectFit
-                    visible: !root.busy && !root.connected
-                }
-
-                // По центру: галочка/крестик (подключено) или спиннер (подключаем).
-                Text {
-                    anchors.centerIn: parent
-                    text: knobMouse.containsMouse ? "✕" : "✓"
-                    font.pixelSize: 72
-                    color: "white"
-                    visible: !root.busy && root.connected
-                }
-                BusyIndicator {
-                    anchors.centerIn: parent
-                    running: root.busy
-                    visible: root.busy
-                    implicitWidth: 64
-                    implicitHeight: 64
-                }
-
-                MouseArea {
-                    id: knobMouse
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: !root.busy
-                    hoverEnabled: true
-                    onClicked: {
-                        if (root.connected) {
-                            ConnectionController.closeConnection()
-                        } else {
-                            NvoApi.connectToSelected()
-                        }
+            MouseArea {
+                id: knobMouse
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                // Когда подключено — кнопка активна ВСЕГДА (можно отключить), даже если состояние
+                // на миг мигнуло в busy (у VLESS-CDN xray пересоздаёт WS-соединения). Иначе тап
+                // «Отключить» мог не сработать.
+                enabled: root.connected || !root.busy
+                hoverEnabled: true
+                onClicked: {
+                    if (root.connected) {
+                        // Именно ByUser: осознанное отключение не должно уводить на VLESS, в отличие от обрыва.
+                        ConnectionController.closeConnectionByUser()
+                    } else {
+                        NvoApi.connectToSelected()
                     }
                 }
             }
@@ -222,7 +261,7 @@ PageType {
             horizontalAlignment: Text.AlignHCenter
             text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите, чтобы отключить")
                                                             : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
-                                 : (root.busy ? qsTr("Подключаем…")
+                                 : (root.busy ? (NvoApi.lastConnectViaStealth ? qsTr("Обхожу блокировку…") : qsTr("Подключаем…"))
                                               // iOS (3.1.3(f)): без намёка на платную подписку/триал.
                                               : ((NvoApi.hasSubscription || Qt.platform.os === "ios") ? qsTr("Нажмите, чтобы включить")
                                                                         : qsTr("Подключиться бесплатно (2 дня)")))
@@ -231,6 +270,44 @@ PageType {
             font.weight: 800
             font.pixelSize: 20
         }
+
+        // Пока идёт обход блокировки — спокойно поясняем, что происходит (это на пару секунд дольше awg).
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            horizontalAlignment: Text.AlignHCenter
+            visible: root.busy && NvoApi.lastConnectViaStealth
+            text: qsTr("Подключаемся через защищённый канал")
+            color: NvoStyle.color.mutedGray
+            font.pixelSize: 13
+        }
+
+        // Бейдж «Защищённый канал»: постоянно виден, когда подняли VLESS (обход блокировки или режим «Всегда»).
+        // Даёт уверенность, что защищены именно там, где обычный VPN не смог пробиться.
+        Rectangle {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 2
+            visible: root.connected && NvoApi.lastConnectViaStealth
+            implicitWidth: secureRow.implicitWidth + 28
+            implicitHeight: 32
+            radius: 16
+            color: NvoStyle.color.onyxBlack
+            border.width: 1
+            border.color: NvoStyle.color.connectedGreenDeep
+
+            RowLayout {
+                id: secureRow
+                anchors.centerIn: parent
+                spacing: 6
+                Text { text: "🔒"; font.pixelSize: 13 }
+                Text {
+                    text: qsTr("Защищённый канал")
+                    color: NvoStyle.color.connectedGreen
+                    font.pixelSize: 13
+                    font.weight: 600
+                }
+            }
+        }
+
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Ваш интернет защищён, IP скрыт")
@@ -296,6 +373,72 @@ PageType {
                 cursorShape: Qt.PointingHandCursor
                 enabled: !root.busy && !root.connected
                 onClicked: PageController.goToPage(PageEnum.PageNvoCountries)
+            }
+        }
+
+        // ---- «Плохо подключается?» → Максимальная надёжность (всегда через защищённый канал) ----
+        // Спрятано до нужды (§12.3 — одна кнопка): обычным юзерам не мешает, а тем, у кого режут всё,
+        // даёт понятный человеческий переключатель без слов «stealth / VLESS / протокол».
+        ColumnLayout {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.topMargin: 4
+            spacing: 8
+            visible: !root.connected && !root.busy
+
+            // Режим «Авто»: ненавязчивая ссылка — предлагаем максимальную надёжность одной строкой.
+            Text {
+                Layout.alignment: Qt.AlignHCenter
+                visible: NvoApi.stealthMode !== 2
+                text: qsTr("Плохо подключается? →")
+                color: NvoStyle.color.mutedGray
+                font.pixelSize: 14
+                font.underline: reliMouse.containsMouse
+                MouseArea {
+                    id: reliMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        NvoApi.stealthMode = 2
+                        PageController.showNotificationMessage(
+                            qsTr("Максимальная надёжность включена — всегда через защищённый канал"))
+                    }
+                }
+            }
+
+            // Включённый режим максимальной надёжности — спокойная плашка с возможностью вернуть «Авто».
+            Rectangle {
+                Layout.alignment: Qt.AlignHCenter
+                visible: NvoApi.stealthMode === 2
+                implicitWidth: reliRow.implicitWidth + 32
+                implicitHeight: 44
+                radius: 22
+                color: NvoStyle.color.onyxBlack
+                border.width: 1
+                border.color: NvoStyle.color.connectedGreenDeep
+
+                RowLayout {
+                    id: reliRow
+                    anchors.centerIn: parent
+                    spacing: 8
+                    Text { text: "🛡"; font.pixelSize: 16 }
+                    Text {
+                        text: qsTr("Максимальная надёжность")
+                        color: NvoStyle.color.connectedGreen
+                        font.pixelSize: 14
+                        font.weight: 600
+                    }
+                    Text { text: "✕"; color: NvoStyle.color.mutedGray; font.pixelSize: 14 }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        NvoApi.stealthMode = 1
+                        PageController.showNotificationMessage(
+                            qsTr("Обычный режим — защита включится сама при блокировке"))
+                    }
+                }
             }
         }
     }
