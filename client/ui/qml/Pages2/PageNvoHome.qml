@@ -18,6 +18,11 @@ PageType {
 
     readonly property bool connected: ConnectionController.isConnected
     readonly property bool busy: NvoApi.isBusy || ConnectionController.isConnectionInProgress
+    // «Сессия активна» = подключено ИЛИ идёт установка/переустановка (Connecting/Reconnecting/Disconnecting).
+    // У VLESS-CDN isConnected на миг мигает в false при пересоздании WS — тогда connected ложно false,
+    // но isConnectionInProgress true → сессия ещё активна, тап должен ОТКЛЮЧАТЬ, а не «включать».
+    // Используем isConnectionInProgress (состояние соединения), НЕ общий busy (тот включает и API-запросы).
+    readonly property bool connectionActive: connected || ConnectionController.isConnectionInProgress
 
     // §12.7: авто-подключение при запуске (один раз за сессию экрана), если включено в настройках.
     property bool autoConnectTried: false
@@ -238,14 +243,15 @@ PageType {
                 id: knobMouse
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                // Когда подключено — кнопка активна ВСЕГДА (можно отключить), даже если состояние
-                // на миг мигнуло в busy (у VLESS-CDN xray пересоздаёт WS-соединения). Иначе тап
-                // «Отключить» мог не сработать.
-                enabled: root.connected || !root.busy
+                // Пока сессия активна (подключено ИЛИ идёт установка/переустановка) — кнопка активна
+                // ВСЕГДА, чтобы можно было отключить/отменить. У VLESS-CDN isConnected на миг мигает в
+                // false при пересоздании WS; раньше `enabled: connected || !busy` в этот миг давал DISABLED
+                // → тап «Отключить» проглатывался. Теперь опираемся на connectionActive.
+                enabled: root.connectionActive || !root.busy
                 hoverEnabled: true
                 onClicked: {
-                    if (root.connected) {
-                        // Именно ByUser: осознанное отключение не должно уводить на VLESS, в отличие от обрыва.
+                    if (root.connectionActive) {
+                        // Именно ByUser: осознанное отключение/отмена не должно уводить на VLESS, в отличие от обрыва.
                         ConnectionController.closeConnectionByUser()
                     } else {
                         NvoApi.connectToSelected()
