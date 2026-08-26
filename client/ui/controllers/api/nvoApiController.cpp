@@ -37,15 +37,18 @@ namespace
 {
     Logger logger("NvoApiController");
 
-    // Резервный домен API: провайдер может резать основной nvovpn.com (РФ-хостинг напрямую) →
-    // на СЕТЕВОЙ ошибке клиент переключается на api.netguarder.net (за Cloudflare, ECH, скрытый SNI).
+    // РФ режет nvovpn.com по SNI → primary = незаблокированный api.netguarder.net (за Cloudflare,
+    // ECH, скрытый SNI), nvovpn.com остаётся резервом (на сетевой ошибке переключаемся на него).
+    // Раньше первым был nvovpn.com → каждая сессия в РФ висла 6-12с на таймауте, прежде чем
+    // переключиться = «бесконечная загрузка» у юзеров при входе.
     constexpr const char *API_BASES[] = {
-        "https://nvovpn.com/api/v1",
         "https://api.netguarder.net/api/v1",
+        "https://nvovpn.com/api/v1",
     };
     constexpr int API_BASE_COUNT = 2;
-    constexpr char SITE_BASE[] = "https://nvovpn.com";
-    constexpr char GOOGLE_LOGIN_URL[] = "https://nvovpn.com/app/login/google";
+    // Site/OAuth URL строим динамически от активной базы (siteBase()) — чтобы в РФ вход и веб-кабинет
+    // шли через тот же незаблокированный домен. Apple-вход пока на nvovpn.com (нужен отдельный
+    // redirect_uri в Apple Developer + бэкенде — TODO).
     constexpr char APPLE_LOGIN_URL[] = "https://nvovpn.com/app/login/apple";
     constexpr char TOKEN_KEY[] = "Conf/nvoToken";
     constexpr char ONBOARDING_KEY[] = "Conf/nvoOnboardingDone";
@@ -359,6 +362,15 @@ QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) co
 QString NvoApiController::apiBase() const
 {
     return QString::fromLatin1(API_BASES[m_apiBaseIdx]);
+}
+
+// Корень сайта/OAuth на ТОМ ЖЕ домене, что и активная API-база: "https://<host>/api/v1" → "https://<host>".
+// Важно для РФ — OAuth-вход и веб-кабинет идут через незаблокированный домен, а не хардкод nvovpn.com.
+QString NvoApiController::siteBase() const
+{
+    const QString b = apiBase();
+    const int i = b.lastIndexOf(QStringLiteral("/api/v1"));
+    return i > 0 ? b.left(i) : QStringLiteral("https://api.netguarder.net");
 }
 
 // Сетевая ошибка (домен недоступен), а НЕ HTTP-ответ. 401/422/500 значат, что сервер доступен —
@@ -749,7 +761,7 @@ void NvoApiController::loginWithGoogle()
     }
     m_googleDs = ds; // 40 hex символов
 
-    QUrl url(QString::fromLatin1(GOOGLE_LOGIN_URL));
+    QUrl url(siteBase() + QStringLiteral("/app/login/google"));
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("ds"), m_googleDs);
     url.setQuery(q);
@@ -849,7 +861,7 @@ void NvoApiController::pollGoogleLogin()
 void NvoApiController::openWebCabinet(const QString &redirect)
 {
     if (m_token.isEmpty()) {
-        QDesktopServices::openUrl(QUrl(QString::fromLatin1(SITE_BASE)));
+        QDesktopServices::openUrl(QUrl(siteBase()));
         return;
     }
     QJsonObject body;
@@ -870,7 +882,7 @@ void NvoApiController::openWebCabinet(const QString &redirect)
         const QString url = root.value(QStringLiteral("url")).toString();
         if (reply->error() != QNetworkReply::NoError || url.isEmpty()) {
             // Фолбэк: открыть сайт напрямую (юзер войдёт сам).
-            QDesktopServices::openUrl(QUrl(QString::fromLatin1(SITE_BASE)));
+            QDesktopServices::openUrl(QUrl(siteBase()));
             return;
         }
         QDesktopServices::openUrl(QUrl(url));
