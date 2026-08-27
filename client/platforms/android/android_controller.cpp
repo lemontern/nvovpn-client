@@ -9,6 +9,8 @@
 #include "android_controller.h"
 #include "android_utils.h"
 #include "ui/controllers/importUiController.h"
+#include "core/nvoServiceExtras.h"
+#include <QJsonArray>
 
 namespace
 {
@@ -96,6 +98,8 @@ bool AndroidController::initialize()
         {"onNotificationStateChanged", "()V", reinterpret_cast<void *>(onNotificationStateChanged)},
         {"onVpnStateChanged", "(I)V", reinterpret_cast<void *>(onVpnStateChanged)},
         {"onStatisticsUpdate", "(JJ)V", reinterpret_cast<void *>(onStatisticsUpdate)},
+        {"onProtoSwitching", "()V", reinterpret_cast<void *>(onProtoSwitching)},
+        {"onProtoSwitched", "(Ljava/lang/String;I)V", reinterpret_cast<void *>(onProtoSwitched)},
         {"onFileOpened", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onFileOpened)},
         {"onConfigImported", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onConfigImported)},
         {"onDeepLink", "(Ljava/lang/String;)V", reinterpret_cast<void *>(onDeepLink)},
@@ -138,7 +142,32 @@ void AndroidController::callActivityMethod(const char *methodName, const char *s
 ErrorCode AndroidController::start(const QJsonObject &vpnConfig)
 {
     isWaitingStatus = false;
-    auto config = QJsonDocument(vpnConfig).toJson();
+    // §5.7: подмешиваем службе кандидаты failover и параметры живости (см. NvoServiceExtras).
+    // Кандидаты — самостоятельные vpnConfig-JSON для xray; локальные настройки (DNS, split tunneling, mtu)
+    // берём из основного конфига, чтобы запасной путь вёл себя как основной.
+    QJsonObject merged = vpnConfig;
+    const QJsonObject extras = NvoServiceExtras::current();
+    if (!extras.isEmpty()) {
+        QJsonArray candidates;
+        for (const QJsonValue &v : extras.value(QStringLiteral("nvo_candidates")).toArray()) {
+            QJsonObject candidate = v.toObject();
+            QJsonObject cfg = QJsonDocument::fromJson(candidate.value(QStringLiteral("config")).toString().toUtf8()).object();
+            if (cfg.isEmpty()) {
+                continue;
+            }
+            for (const char *key : { "dns1", "dns2", "splitTunnelType", "splitTunnelSites", "appSplitTunnelType",
+                                     "splitTunnelApps", "mtu", "description", "serverIndex" }) {
+                if (vpnConfig.contains(QLatin1String(key))) {
+                    cfg[QLatin1String(key)] = vpnConfig.value(QLatin1String(key));
+                }
+            }
+            candidate[QStringLiteral("config")] = QString::fromUtf8(QJsonDocument(cfg).toJson(QJsonDocument::Compact));
+            candidates.append(candidate);
+        }
+        merged[QStringLiteral("nvo_candidates")] = candidates;
+        merged[QStringLiteral("nvo_liveness")] = extras.value(QStringLiteral("nvo_liveness"));
+    }
+    auto config = QJsonDocument(merged).toJson();
     callActivityMethod("start", "(Ljava/lang/String;)V",
                        QJniObject::fromString(config).object<jstring>());
 
@@ -513,6 +542,27 @@ void AndroidController::onStatisticsUpdate(JNIEnv *env, jobject thiz, jlong rxBy
     Q_UNUSED(thiz);
 
     emit AndroidController::instance()->statisticsUpdated((quint64) rxBytes, (quint64) txBytes);
+}
+
+// static
+void AndroidController::onProtoSwitching(JNIEnv *env, jobject thiz)
+{
+    Q_UNUSED(env);
+    Q_UNUSED(thiz);
+
+    emit AndroidController::instance()->protoSwitching();
+}
+
+// static
+void AndroidController::onProtoSwitched(JNIEnv *env, jobject thiz, jstring path, jint serverId)
+{
+    Q_UNUSED(thiz);
+
+    const char *chars = env->GetStringUTFChars(path, nullptr);
+    const QString pathStr = QString::fromUtf8(chars);
+    env->ReleaseStringUTFChars(path, chars);
+
+    emit AndroidController::instance()->protoSwitched(pathStr, (int) serverId);
 }
 
 // static

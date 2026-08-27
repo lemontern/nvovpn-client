@@ -20,6 +20,8 @@ object QtAndroidController {
     external fun onNotificationStateChanged()
     external fun onVpnStateChanged(stateCode: Int)
     external fun onStatisticsUpdate(rxBytes: Long, txBytes: Long)
+    external fun onProtoSwitching()
+    external fun onProtoSwitched(path: String, serverId: Int)
 
     external fun onFileOpened(uri: String)
 

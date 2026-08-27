@@ -133,6 +133,18 @@ class AmneziaActivity : QtActivity() {
                         // todo: add error reporting to Qt
                         QtAndroidController.onServiceError()
                     }
+
+                    ServiceEvent.PROTO_SWITCHING -> {
+                        Log.i(TAG, "From VpnService: proto switching from ${msg.data?.getString(MSG_PATH)}")
+                        QtAndroidController.onProtoSwitching()
+                    }
+
+                    ServiceEvent.PROTO_SWITCHED -> {
+                        val path = msg.data?.getString(MSG_PATH) ?: ""
+                        val serverId = msg.data?.getInt(MSG_SERVER_ID, -1) ?: -1
+                        Log.i(TAG, "From VpnService: proto switched to $path (server $serverId)")
+                        QtAndroidController.onProtoSwitched(path, serverId)
+                    }
                 }
             }
         }

@@ -18,10 +18,13 @@ import android.os.Message
 import android.os.Messenger
 import android.os.PowerManager
 import android.os.Process
+import android.os.SystemClock
 import androidx.annotation.MainThread
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
+import java.net.HttpURLConnection
+import java.net.URL
 import java.net.UnknownHostException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.LazyThreadSafetyMode.NONE
@@ -34,6 +37,8 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
@@ -57,6 +62,7 @@ import org.amnezia.vpn.util.Log
 import org.amnezia.vpn.util.Prefs
 import org.amnezia.vpn.util.net.NetworkState
 import org.amnezia.vpn.util.net.TrafficStats
+import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 
@@ -74,14 +80,39 @@ const val AFTER_PERMISSION_CHECK = "AFTER_PERMISSION_CHECK"
 private const val PREFS_CONFIG_KEY = "LAST_CONF"
 private const val PREFS_SERVER_NAME = "LAST_SERVER_NAME"
 private const val PREFS_SERVER_INDEX = "LAST_SERVER_INDEX"
-// v2 фоновый liveness awg→VLESS: детекция И переключение живут в СЛУЖБЕ, потому что Qt-часть
-// (где крутился v1) на Android в фоне засыпает и обрыв при свёрнутом приложении не ловит.
-// Кэшируем последний vless-конфиг, что служба сама получала (формат гарантированно валиден —
-// она его же и поднимает), и на dead-обрыве awg молча уходим на него.
-private const val PREFS_FALLBACK_CONFIG = "NVO_FALLBACK_CONF"
-private const val LIVENESS_ALIVE_RX = 1024L    // rx/сек ≥ этого → связь жива
-private const val LIVENESS_DEAD_TX = 4096L      // tx/сек > этого без ответа → кандидат в «мёртвые»
-private const val LIVENESS_DEAD_STREAK = 10     // столько секунд подряд «шлём, ответа нет» → рвём awg
+// §5.7 NvoVPN failover: живость туннеля и переключение awg → VLESS(direct) → VLESS(CDN) живут в СЛУЖБЕ —
+// Qt/C++ на Android в фоне спит и обрыв при свёрнутом приложении не ловит. Кандидаты (готовые vpnConfig-JSON)
+// и параметры живости приходят от C++ в connect-JSON ключами nvo_candidates / nvo_liveness (см. AndroidController::start).
+// Детектор: дельты UID-счётчиков (трафик к серверу, протокол-независимо; xray свою статистику не отдаёт)
+// по выверенному критерию «шлём, ответа нет» + активный проб GET /api/v1/ping ЧЕРЕЗ туннель как подтверждение,
+// чтобы не рвать живой awg в простое. Прежние v1 (C++) и v2 (здесь, сравнивал "amneziawg" с "awg") — снесены.
+private const val NVO_CANDIDATES_KEY = "nvo_candidates"
+private const val NVO_LIVENESS_KEY = "nvo_liveness"
+const val MSG_PATH = "PATH"
+const val MSG_SERVER_ID = "SERVER_ID"
+private const val LIVENESS_ALIVE_RX = 1024L               // rx за интервал ≥ → жив
+private const val LIVENESS_DEAD_TX = 4096L                // tx за интервал > без ответа → «шлём, ответа нет»
+private const val LIVENESS_DEAD_SECONDS_SCREEN_ON = 10    // секунд подряд (экран вкл, интервал 1с)
+private const val LIVENESS_DEAD_SECONDS_SCREEN_OFF = 45   // секунд подряд (экран выкл, интервал 15с)
+private const val LIVENESS_INTERVAL_ON_MS = 1000L
+private const val LIVENESS_INTERVAL_OFF_MS = 15000L
+private const val LIVENESS_IDLE_PROBE_MS = 60000L         // в простое — лёгкий активный проб раз в минуту
+private const val LIVENESS_PROBE_TIMEOUT_MS = 5000
+private const val LIVENESS_START_DELAY_MS = 3000L
+private const val SWITCH_CONNECT_TIMEOUT_MS = 12000L
+private const val SWITCH_PROBE_DELAY_MS = 2500L
+private const val SWITCH_MAX_CYCLES = 3                   // полных перебора кандидатов за сессию
+private const val TELEMETRY_QUEUE_MAX = 50
+
+private data class NvoCandidate(val path: String, val config: String)
+
+private data class NvoLiveness(
+    val pingUrls: List<String>,
+    val apiBase: String,
+    val token: String,
+    val serverId: Int,
+    var path: String
+)
 private const val STATISTICS_SENDING_TIMEOUT = 1000L
 private const val TRAFFIC_STATS_UPDATE_TIMEOUT = 1000L
 private const val DISCONNECT_TIMEOUT = 5000L
@@ -111,8 +142,20 @@ open class AmneziaVpnService : VpnService() {
     private var disconnectionJob: Job? = null
     private var trafficStatsUpdateJob: Job? = null
     private var statisticsSendingJob: Job? = null
-    private var livenessDeadStreak = 0
-    private var currentProtoName: String? = null
+    // §5.7 failover state (см. константы NVO_* выше)
+    private var nvoCandidates: List<NvoCandidate> = emptyList()
+    private var nvoLiveness: NvoLiveness? = null
+    private var livenessJob: Job? = null
+    private var switchJob: Job? = null
+    private var switching = false
+    private var switchCycles = 0
+    private var currentPath: String? = null
+    private var connectStartedMs = 0L
+    private var connectedAtMs = 0L
+    private val telemetryQueue = ArrayDeque<JSONObject>()
+    private val appVersion: String by lazy(NONE) {
+        try { packageManager.getPackageInfo(packageName, 0).versionName ?: "" } catch (e: Exception) { "" }
+    }
     private lateinit var networkState: NetworkState
     private lateinit var trafficStats: TrafficStats
     private var controlReceiver: BroadcastReceiver? = null
@@ -168,10 +211,12 @@ open class AmneziaVpnService : VpnService() {
                     }
 
                     Action.CONNECT -> {
+                        cancelSwitch("user connect")
                         connect(msg.data.getString(MSG_VPN_CONFIG))
                     }
 
                     Action.DISCONNECT -> {
+                        cancelSwitch("user disconnect")
                         disconnect()
                     }
 
@@ -395,24 +440,28 @@ open class AmneziaVpnService : VpnService() {
                         networkState.bindNetworkListener()
                         if (isActivityConnected) launchSendingStatistics()
                         launchTrafficStatsUpdate()
+                        onTunnelConnected()
                     }
 
                     DISCONNECTED -> {
                         networkState.unbindNetworkListener()
                         stopTrafficStatsUpdateJob()
                         stopSendingStatistics()
-                        if (!isServiceBound) stopService()
+                        stopLivenessJob()
+                        if (!isServiceBound && !switching) stopService()
                     }
 
                     DISCONNECTING -> {
                         networkState.unbindNetworkListener()
                         stopTrafficStatsUpdateJob()
                         stopSendingStatistics()
+                        stopLivenessJob()
                     }
 
                     RECONNECTING -> {
                         stopTrafficStatsUpdateJob()
                         stopSendingStatistics()
+                        stopLivenessJob()
                     }
 
                     CONNECTING, UNKNOWN -> {}
@@ -477,7 +526,6 @@ open class AmneziaVpnService : VpnService() {
                     trafficStats.getSpeed().let { speed ->
                         if (isConnected) {
                             serviceNotification.updateSpeed(speed)
-                            checkAwgLiveness(speed)
                         }
                     }
                     delay(TRAFFIC_STATS_UPDATE_TIMEOUT)
@@ -486,32 +534,278 @@ open class AmneziaVpnService : VpnService() {
         }
     }
 
-    // v2 liveness (аналог Daemon::checkLiveness / IosController): раз в секунду сравниваем скорость.
-    // Живой awg — rx растёт на килобайты; DPI-обрыв — система ещё льёт в мёртвый туннель (tx идёт),
-    // а внятного ответа нет (rx стоит). LIVENESS_DEAD_STREAK секунд подряд «шлём, ответа нет» → рвём
-    // awg и молча уходим на кэшированный vless. Живёт в службе → работает и при свёрнутом приложении.
-    private fun checkAwgLiveness(speed: TrafficStats.TrafficData) {
-        if (currentProtoName != "amneziawg") { livenessDeadStreak = 0; return }
-        val fallback = Prefs.load<String>(PREFS_FALLBACK_CONFIG)
-        if (fallback.isEmpty()) return                     // некуда падать — не трогаем
-        if (speed.rx >= LIVENESS_ALIVE_RX) { livenessDeadStreak = 0; return }
-        if (speed.tx > LIVENESS_DEAD_TX) {
-            if (++livenessDeadStreak >= LIVENESS_DEAD_STREAK) {
-                Log.w(TAG, "awg молчит $livenessDeadStreak сек — уходим на VLESS-фолбек")
-                livenessDeadStreak = 0
-                switchToFallback(fallback)
+    /**
+     * §5.7: failover внутри службы. Данные (кандидаты/параметры) — из connect-JSON, см. parseNvoExtras().
+     */
+    private fun parseNvoExtras(config: JSONObject) {
+        val cands: JSONArray? = config.optJSONArray(NVO_CANDIDATES_KEY)
+        val live: JSONObject? = config.optJSONObject(NVO_LIVENESS_KEY)
+        // Конфиг без §5.7-данных (кандидат при свитче, старый C++) — состояние не трогаем.
+        if (cands == null && live == null) return
+        nvoCandidates = buildList {
+            if (cands != null) for (i in 0 until cands.length()) {
+                val o = cands.optJSONObject(i) ?: continue
+                val path = o.optString("path"); val cfg = o.optString("config")
+                if (path.isNotEmpty() && cfg.isNotEmpty()) add(NvoCandidate(path, cfg))
+            }
+        }
+        nvoLiveness = live?.let { l ->
+            NvoLiveness(
+                pingUrls = buildList {
+                    val a = l.optJSONArray("ping_urls")
+                    if (a != null) for (i in 0 until a.length()) a.optString(i).takeIf { it.isNotEmpty() }?.let { add(it) }
+                },
+                apiBase = l.optString("api_base"),
+                token = l.optString("token"),
+                serverId = l.optInt("server_id", -1),
+                path = l.optString("path", "awg")
+            )
+        }
+        currentPath = nvoLiveness?.path
+        switchCycles = 0
+        Log.d(TAG, "nvo extras: path=$currentPath candidates=${nvoCandidates.map { it.path }} " +
+            "ping=${nvoLiveness?.pingUrls?.size ?: 0} server=${nvoLiveness?.serverId}")
+    }
+
+    @MainThread
+    private fun onTunnelConnected() {
+        connectedAtMs = SystemClock.elapsedRealtime()
+        if (switching) return   // свитчер сам дождётся CONNECTED, проверит пробом и перезапустит живость
+        val live = nvoLiveness
+        if (live != null) {
+            val ms = if (connectStartedMs > 0) (connectedAtMs - connectStartedMs).toInt() else 0
+            queueTelemetry(event("tunnel_up") { put("proto", currentPath); put("server_id", live.serverId); put("ms", ms) })
+        }
+        startLivenessJob()
+        flushTelemetry()
+    }
+
+    @MainThread
+    private fun startLivenessJob() {
+        stopLivenessJob()
+        val live = nvoLiveness ?: return
+        if (live.pingUrls.isEmpty()) return
+        val uid = Process.myUid()
+        Log.d(TAG, "liveness: start (path=$currentPath)")
+        livenessJob = connectionScope.launch {
+            var lastRx = android.net.TrafficStats.getUidRxBytes(uid)
+            var lastTx = android.net.TrafficStats.getUidTxBytes(uid)
+            val counters = lastRx >= 0 && lastTx >= 0
+            if (!counters) Log.w(TAG, "liveness: UID traffic counters unsupported — probe-only mode")
+            var deadSeconds = 0
+            var idleMs = 0L
+            delay(LIVENESS_START_DELAY_MS)
+            while (isActive) {
+                val screenOn = getSystemService<PowerManager>()?.isInteractive != false
+                val intervalMs = if (screenOn) LIVENESS_INTERVAL_ON_MS else LIVENESS_INTERVAL_OFF_MS
+                delay(intervalMs)
+                if (!isConnected || switching) continue
+                var suspect = false
+                if (counters) {
+                    val rx = android.net.TrafficStats.getUidRxBytes(uid)
+                    val tx = android.net.TrafficStats.getUidTxBytes(uid)
+                    val dRx = rx - lastRx; val dTx = tx - lastTx
+                    lastRx = rx; lastTx = tx
+                    // Критерий выверен на macOS/iOS/Android v1: у мёртвого туннеля rx капает крохами
+                    // (ретрансмиты), поэтому смотрим на СООТНОШЕНИЕ rx/tx, а не на факт роста rx.
+                    if (dRx >= LIVENESS_ALIVE_RX && dRx * 10 >= dTx) {
+                        deadSeconds = 0; idleMs = 0
+                    } else if (dTx > LIVENESS_DEAD_TX) {
+                        deadSeconds += (intervalMs / 1000).toInt(); idleMs = 0
+                    } else {
+                        idleMs += intervalMs
+                    }
+                    val limit = if (screenOn) LIVENESS_DEAD_SECONDS_SCREEN_ON else LIVENESS_DEAD_SECONDS_SCREEN_OFF
+                    suspect = deadSeconds >= limit
+                } else {
+                    idleMs += intervalMs
+                }
+                if (!suspect && idleMs < LIVENESS_IDLE_PROBE_MS) continue
+                idleMs = 0
+                // Подтверждение активным пробом ЧЕРЕЗ туннель (сокет службы не protect()-ится → идёт в tun).
+                if (probeTunnel(live.pingUrls)) { deadSeconds = 0; continue }
+                if (!isConnected || switching) continue
+                Log.w(TAG, "liveness: tunnel dead (path=$currentPath, ${if (suspect) "rx_stall" else "probe_fail"})")
+                withContext(Dispatchers.Main.immediate) { onTunnelDead(if (suspect) "rx_stall" else "probe_fail") }
+                return@launch
             }
         }
     }
 
-    // Разрыв awg + подъём кэшированного vless. connect() внутри connectToVpn дожидается завершения
-    // disconnect через disconnectionJob.join(), поэтому последовательный вызов корректен.
-    private fun switchToFallback(fallbackConfig: String) {
-        currentProtoName = null   // чтобы детекция не срабатывала во время переключения
-        mainScope.launch {
-            disconnect()
-            connect(fallbackConfig)
+    @MainThread
+    private fun stopLivenessJob() {
+        livenessJob?.cancel()
+        livenessJob = null
+    }
+
+    // GET ping-URL через туннель: 2xx/204 — жив. Два URL (разные домены — на случай блока одного).
+    private fun probeTunnel(urls: List<String>): Boolean {
+        for (u in urls) {
+            try {
+                val conn = URL(u).openConnection() as HttpURLConnection
+                conn.connectTimeout = LIVENESS_PROBE_TIMEOUT_MS
+                conn.readTimeout = LIVENESS_PROBE_TIMEOUT_MS
+                conn.instanceFollowRedirects = false
+                conn.useCaches = false
+                conn.setRequestProperty("Cache-Control", "no-cache")
+                val code = conn.responseCode
+                conn.disconnect()
+                if (code in 200..299) return true
+                Log.w(TAG, "probe $u -> HTTP $code")
+            } catch (e: Exception) {
+                Log.w(TAG, "probe $u failed: ${e.javaClass.simpleName}: ${e.message}")
+            }
         }
+        return false
+    }
+
+    @MainThread
+    private fun onTunnelDead(reason: String) {
+        val live = nvoLiveness ?: return
+        val aliveS = ((SystemClock.elapsedRealtime() - connectedAtMs) / 1000).toInt()
+        queueTelemetry(event("tunnel_dead") {
+            put("proto", currentPath); put("server_id", live.serverId); put("alive_s", aliveS); put("reason", reason)
+        })
+        val next = nvoCandidates.filter { it.path != currentPath }
+        if (next.isEmpty() || switchCycles >= SWITCH_MAX_CYCLES) {
+            Log.w(TAG, "liveness: no candidates to switch (cycles=$switchCycles)")
+            onError("Соединение потеряно, резервных каналов нет")
+            return
+        }
+        switchJob = mainScope.launch { switchTo(next) }
+    }
+
+    @MainThread
+    private fun cancelSwitch(why: String) {
+        if (switchJob != null || switching) Log.d(TAG, "switch cancelled: $why")
+        switchJob?.cancel()
+        switchJob = null
+        switching = false
+        stopLivenessJob()
+    }
+
+    // Последовательный перерейс по кандидатам: рвём мёртвый туннель → поднимаем следующий → подтверждаем пробом.
+    // Всё внутри ОДНОЙ службы/процесса (xray грузится в awg-процесс) — VpnService не пересоздаётся.
+    @MainThread
+    private suspend fun switchTo(cands: List<NvoCandidate>) {
+        if (switching) return
+        switching = true
+        switchCycles++
+        stopLivenessJob()
+        clientMessengers.send { ServiceEvent.PROTO_SWITCHING.packToMessage { putString(MSG_PATH, currentPath ?: "") } }
+        val live = nvoLiveness
+        try {
+            for (c in cands) {
+                val started = SystemClock.elapsedRealtime()
+                Log.i(TAG, "switch: $currentPath -> ${c.path}")
+                disconnectForSwitch()
+                if (!isDisconnected) {
+                    Log.w(TAG, "switch: tunnel did not stop, abort")
+                    break
+                }
+                connect(c.config)  // сохранится как LAST_CONF: после рестарта поднимется этот же путь
+                val up = try {
+                    withTimeout(SWITCH_CONNECT_TIMEOUT_MS) { protocolState.first { it == CONNECTED || it == DISCONNECTED } }
+                    isConnected
+                } catch (e: TimeoutCancellationException) {
+                    false
+                }
+                val ok = up && withContext(Dispatchers.IO) {
+                    delay(SWITCH_PROBE_DELAY_MS)
+                    probeTunnel(live?.pingUrls ?: emptyList())
+                }
+                val ms = (SystemClock.elapsedRealtime() - started).toInt()
+                queueTelemetry(event("switch") {
+                    put("proto", currentPath); put("to", c.path); put("server_id", live?.serverId ?: -1); put("ms", ms); put("ok", ok)
+                })
+                if (ok) {
+                    currentPath = c.path
+                    live?.path = c.path
+                    switching = false
+                    Log.i(TAG, "switch: OK -> ${c.path} in ${ms}ms")
+                    clientMessengers.send {
+                        ServiceEvent.PROTO_SWITCHED.packToMessage {
+                            putString(MSG_PATH, c.path); putInt(MSG_SERVER_ID, live?.serverId ?: -1)
+                        }
+                    }
+                    serviceNotification.updateNotification(serverName, vpnProto?.label, protocolState.value)
+                    startLivenessJob()
+                    flushTelemetry()
+                    return
+                }
+                Log.w(TAG, "switch: ${c.path} failed (up=$up)")
+            }
+            queueTelemetry(event("connect_fail") {
+                put("proto", currentPath); put("server_id", live?.serverId ?: -1); put("reason", "all_candidates_failed")
+            })
+            disconnectForSwitch()
+            onError("Соединение потеряно: ни один резервный канал не поднялся. Нажмите «Подключить».")
+        } finally {
+            switching = false
+            switchJob = null
+        }
+    }
+
+    // Как disconnect(), но без stopService()/kill процесса по таймауту — посреди свитча служба должна жить.
+    @MainThread
+    private suspend fun disconnectForSwitch() {
+        if (isUnknown || isDisconnected) return
+        protocolState.value = DISCONNECTING
+        connectionJob?.cancelAndJoin()
+        connectionJob = null
+        withContext(Dispatchers.IO) { vpnProto?.protocol?.stopVpn() }
+        try {
+            withTimeout(DISCONNECT_TIMEOUT) { protocolState.first { it == DISCONNECTED } }
+        } catch (e: TimeoutCancellationException) {
+            Log.w(TAG, "switch: disconnect timeout (service kept alive)")
+        }
+    }
+
+    /**
+     * Телеметрия сессий → POST /api/v1/connection/event (sanctum). Очередь: события копятся и уходят,
+     * когда туннель заведомо жив (после CONNECTED/успешного свитча) — иначе POST уйдёт в мёртвый туннель.
+     */
+    private fun event(name: String, fill: JSONObject.() -> Unit): JSONObject =
+        JSONObject().apply { put("event", name); put("app", appVersion); fill() }
+
+    private fun queueTelemetry(ev: JSONObject) {
+        synchronized(telemetryQueue) {
+            if (telemetryQueue.size >= TELEMETRY_QUEUE_MAX) telemetryQueue.removeFirst()
+            telemetryQueue.addLast(ev)
+        }
+    }
+
+    private fun flushTelemetry() {
+        val live = nvoLiveness ?: return
+        if (live.token.isEmpty() || live.apiBase.isEmpty()) return
+        connectionScope.launch {
+            while (true) {
+                val ev = synchronized(telemetryQueue) { telemetryQueue.removeFirstOrNull() } ?: break
+                if (!postTelemetry(live, ev)) {
+                    synchronized(telemetryQueue) { telemetryQueue.addFirst(ev) }
+                    break
+                }
+            }
+        }
+    }
+
+    private fun postTelemetry(live: NvoLiveness, ev: JSONObject): Boolean = try {
+        val conn = URL(live.apiBase + "/connection/event").openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.connectTimeout = 6000
+        conn.readTimeout = 6000
+        conn.instanceFollowRedirects = false
+        conn.setRequestProperty("Authorization", "Bearer " + live.token)
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("Accept", "application/json")
+        conn.doOutput = true
+        conn.outputStream.use { it.write(ev.toString().toByteArray()) }
+        val code = conn.responseCode
+        conn.disconnect()
+        code in 200..299
+    } catch (e: Exception) {
+        Log.w(TAG, "telemetry: ${e.javaClass.simpleName}: ${e.message}")
+        false
     }
 
     @MainThread
@@ -553,13 +847,9 @@ open class AmneziaVpnService : VpnService() {
             return
         }
 
-        // v2 liveness: запоминаем протокол коннекта; если это vless (есть xray_config_data) —
-        // кэшируем конфиг как фолбек, на него уйдём при DPI-обрыве awg (в т.ч. со свёрнутым приложением).
-        currentProtoName = config.getString("protocol")
-        livenessDeadStreak = 0
-        if (config.has("xray_config_data") || config.has("ssxray_config_data")) {
-            Prefs.save(PREFS_FALLBACK_CONFIG, vpnConfig)
-        }
+        // §5.7: кандидаты failover + параметры живости из connect-JSON (если есть — это новый коннект от C++).
+        parseNvoExtras(config)
+        connectStartedMs = SystemClock.elapsedRealtime()
 
         protocolState.value = CONNECTING
 

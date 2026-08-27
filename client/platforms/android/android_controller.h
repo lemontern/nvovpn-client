@@ -70,6 +70,8 @@ signals:
     void notificationStateChanged();
     void vpnStateChanged(ConnectionState state);
     void statisticsUpdated(quint64 rxBytes, quint64 txBytes);
+    void protoSwitching();                          // §5.7: служба начала перерейс пути (awg→VLESS…)
+    void protoSwitched(QString path, int serverId); // §5.7: перерейс удался: "vless-direct"|"vless-cdn"
     void fileOpened(QString uri);
     void configImported(QString config);
     void deepLinkReceived(QString url);   // nvovpn://login?code=... из браузера
@@ -104,6 +106,8 @@ private:
     static void onNotificationStateChanged(JNIEnv *env, jobject thiz);
     static void onVpnStateChanged(JNIEnv *env, jobject thiz, jint stateCode);
     static void onStatisticsUpdate(JNIEnv *env, jobject thiz, jlong rxBytes, jlong txBytes);
+    static void onProtoSwitching(JNIEnv *env, jobject thiz);
+    static void onProtoSwitched(JNIEnv *env, jobject thiz, jstring path, jint serverId);
     static void onConfigImported(JNIEnv *env, jobject thiz, jstring data);
     static void onDeepLink(JNIEnv *env, jobject thiz, jstring url);
     static void onFileOpened(JNIEnv *env, jobject thiz, jstring uri);
