@@ -213,6 +213,16 @@ QJsonObject Deserialize(const QString &str, QString *alias, QString *errMessage)
             QJsonIO::SetValue(stream, alpnArray, { tlsKey, "alpn" });
         }
     }
+    // uTLS-отпечаток (fp=chrome и т.п.) — для ЛЮБОГО security (tls/xtls/reality), не только reality:
+    // CDN-конфиги NvoVPN (VLESS+WS+TLS за Cloudflare) идут с security=tls и без fp клиент ходил
+    // «голым» Go-TLS к Cloudflare-IP — маркер для DPI. Ключ по tlsKey: tlsSettings/xtlsSettings/realitySettings.
+    if (security != "none" && query.hasQueryItem("fp"))
+    {
+        const auto fp = QUrl::fromPercentEncoding(query.queryItemValue("fp").toUtf8());
+        if (!fp.isEmpty()) {
+            QJsonIO::SetValue(stream, fp, { tlsKey, "fingerprint" });
+        }
+    }
     // xtls-specific
     if (security == "xtls" || security == "reality")
     {
@@ -222,11 +232,7 @@ QJsonObject Deserialize(const QString &str, QString *alias, QString *errMessage)
 
     if (security == "reality")
     {
-        if (query.hasQueryItem("fp"))
-        {
-            const auto fp = QUrl::fromPercentEncoding(query.queryItemValue("fp").toUtf8());
-            QJsonIO::SetValue(stream, fp, { "realitySettings", "fingerprint" });
-        }
+        // fp обрабатывается выше (общий блок под tlsKey); здесь только reality-специфичное.
         if (query.hasQueryItem("pbk"))
         {
             const auto pbk = QUrl::fromPercentEncoding(query.queryItemValue("pbk").toUtf8());
