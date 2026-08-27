@@ -96,7 +96,7 @@ private const val LIVENESS_DEAD_SECONDS_SCREEN_ON = 10    // секунд под
 private const val LIVENESS_DEAD_SECONDS_SCREEN_OFF = 45   // секунд подряд (экран выкл, интервал 15с)
 private const val LIVENESS_INTERVAL_ON_MS = 1000L
 private const val LIVENESS_INTERVAL_OFF_MS = 15000L
-private const val LIVENESS_IDLE_PROBE_MS = 60000L         // в простое — лёгкий активный проб раз в минуту
+private const val LIVENESS_IDLE_PROBE_MS = 30000L         // плановый активный проб не реже чем раз в 30с (по настенным часам)
 private const val LIVENESS_PROBE_TIMEOUT_MS = 5000
 private const val LIVENESS_START_DELAY_MS = 3000L
 private const val SWITCH_CONNECT_TIMEOUT_MS = 12000L
@@ -593,7 +593,10 @@ open class AmneziaVpnService : VpnService() {
             val counters = lastRx >= 0 && lastTx >= 0
             if (!counters) Log.w(TAG, "liveness: UID traffic counters unsupported — probe-only mode")
             var deadSeconds = 0
-            var idleMs = 0L
+            // Активный проб — по НАСТЕННЫМ часам: последний проб был >LIVENESS_IDLE_PROBE_MS назад.
+            // (Раньше таймер сбрасывался любым tx-всплеском → тихо-мёртвый туннель, который клиент
+            //  безуспешно долбит малым трафиком, мог не пробиться вовсе. Теперь всплески его не сбивают.)
+            var lastProbeMs = SystemClock.elapsedRealtime()
             delay(LIVENESS_START_DELAY_MS)
             while (isActive) {
                 val screenOn = getSystemService<PowerManager>()?.isInteractive != false
@@ -609,20 +612,19 @@ open class AmneziaVpnService : VpnService() {
                     // Критерий выверен на macOS/iOS/Android v1: у мёртвого туннеля rx капает крохами
                     // (ретрансмиты), поэтому смотрим на СООТНОШЕНИЕ rx/tx, а не на факт роста rx.
                     if (dRx >= LIVENESS_ALIVE_RX && dRx * 10 >= dTx) {
-                        deadSeconds = 0; idleMs = 0
+                        deadSeconds = 0
+                        lastProbeMs = SystemClock.elapsedRealtime()   // видим живой трафик — сдвигаем плановый проб
                     } else if (dTx > LIVENESS_DEAD_TX) {
-                        deadSeconds += (intervalMs / 1000).toInt(); idleMs = 0
-                    } else {
-                        idleMs += intervalMs
+                        deadSeconds += (intervalMs / 1000).toInt()     // шлём, ответа нет
                     }
                     val limit = if (screenOn) LIVENESS_DEAD_SECONDS_SCREEN_ON else LIVENESS_DEAD_SECONDS_SCREEN_OFF
                     suspect = deadSeconds >= limit
-                } else {
-                    idleMs += intervalMs
                 }
-                if (!suspect && idleMs < LIVENESS_IDLE_PROBE_MS) continue
-                idleMs = 0
+                // Плановый проб (настенные часы): ловит и «тихую смерть» без исходящего трафика.
+                val dueProbe = SystemClock.elapsedRealtime() - lastProbeMs >= LIVENESS_IDLE_PROBE_MS
+                if (!suspect && !dueProbe) continue
                 // Подтверждение активным пробом ЧЕРЕЗ туннель (сокет службы не protect()-ится → идёт в tun).
+                lastProbeMs = SystemClock.elapsedRealtime()
                 if (probeTunnel(live.pingUrls)) { deadSeconds = 0; continue }
                 if (!isConnected || switching) continue
                 Log.w(TAG, "liveness: tunnel dead (path=$currentPath, ${if (suspect) "rx_stall" else "probe_fail"})")
