@@ -187,7 +187,7 @@
     <name>CoreController</name>
     <message>
         <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
-        <translation type="unfinished"></translation>
+        <translation>Conexión establecida, pero no pasan datos: es probable que tu red esté bloqueando la VPN. Prueba con otro servidor u otra red.</translation>
     </message>
 </context>
 <context>
@@ -384,43 +384,43 @@ Already installed containers were found on the server. All installed containers 
     <name>NvoApiController</name>
     <message>
         <source>Не удалось подобрать сервер, попробуйте позже</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo encontrar un servidor, inténtalo más tarde</translation>
     </message>
     <message>
         <source>Неверный email или пароль</source>
-        <translation type="unfinished"></translation>
+        <translation>Correo o contraseña incorrectos</translation>
     </message>
     <message>
         <source>Не удалось войти, попробуйте ещё раз</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo iniciar sesión, inténtalo de nuevo</translation>
     </message>
     <message>
         <source>Код неверный или истёк</source>
-        <translation type="unfinished"></translation>
+        <translation>El código no es válido o ha caducado</translation>
     </message>
     <message>
         <source>Введите промокод</source>
-        <translation type="unfinished"></translation>
+        <translation>Introduce un código promocional</translation>
     </message>
     <message>
         <source>Промокод активирован</source>
-        <translation type="unfinished"></translation>
+        <translation>Código promocional activado</translation>
     </message>
     <message>
         <source>Не удалось активировать промокод</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo activar el código promocional</translation>
     </message>
     <message>
         <source>Сначала войдите в аккаунт</source>
-        <translation type="unfinished"></translation>
+        <translation>Primero inicia sesión</translation>
     </message>
     <message>
         <source>Этот сервер сейчас недоступен, выберите другой</source>
-        <translation type="unfinished"></translation>
+        <translation>Este servidor no está disponible ahora, elige otro</translation>
     </message>
     <message>
         <source>Не удалось подключиться, попробуйте позже</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo conectar, inténtalo más tarde</translation>
     </message>
     <message>
         <source>Не удалось войти через Google, попробуйте ещё раз</source>
@@ -432,31 +432,31 @@ Already installed containers were found on the server. All installed containers 
     </message>
     <message>
         <source>Нет интернета — проверьте подключение</source>
-        <translation type="unfinished"></translation>
+        <translation>Sin internet: comprueba tu conexión</translation>
     </message>
     <message>
         <source>Сервер не отвечает, попробуйте ещё раз</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor no responde, inténtalo de nuevo</translation>
     </message>
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
-        <translation type="unfinished"></translation>
+        <translation>Algo salió mal, inténtalo de nuevo</translation>
     </message>
     <message>
         <source>Покупка не завершена</source>
-        <translation type="unfinished"></translation>
+        <translation>Compra no completada</translation>
     </message>
     <message>
         <source>Активных покупок не найдено</source>
-        <translation type="unfinished"></translation>
+        <translation>No se encontraron compras activas</translation>
     </message>
     <message>
         <source>Подписка активирована</source>
-        <translation type="unfinished"></translation>
+        <translation>Suscripción activada</translation>
     </message>
     <message>
         <source>Не удалось активировать подписку</source>
-        <translation type="unfinished"></translation>
+        <translation>No se pudo activar la suscripción</translation>
     </message>
 </context>
 <context>
@@ -528,7 +528,7 @@ Already installed containers were found on the server. All installed containers 
     </message>
     <message>
         <source>Сервер подберётся автоматически</source>
-        <translation type="unfinished"></translation>
+        <translation>El servidor se elige automáticamente</translation>
     </message>
     <message>
         <source>Лучший сервер автоматически</source>
@@ -706,11 +706,11 @@ y estás protegido</translation>
     </message>
     <message>
         <source>Ожидаем вход через Apple…</source>
-        <translation type="unfinished"></translation>
+        <translation>Esperando el inicio de sesión con Apple…</translation>
     </message>
     <message>
         <source>Войти через Apple</source>
-        <translation type="unfinished"></translation>
+        <translation>Iniciar sesión con Apple</translation>
     </message>
     <message>
         <source>У меня есть код для входа</source>
@@ -769,7 +769,7 @@ y estás protegido</translation>
     </message>
     <message>
         <source>Сейчас нет активной подписки.</source>
-        <translation type="unfinished"></translation>
+        <translation>No tienes una suscripción activa.</translation>
     </message>
     <message>
         <source>Продлите подписку на сайте, чтобы снова пользоваться защитой. Это займёт минуту.</source>
@@ -777,35 +777,35 @@ y estás protegido</translation>
     </message>
     <message>
         <source>Оформить подписку</source>
-        <translation type="unfinished"></translation>
+        <translation>Suscribirse</translation>
     </message>
     <message>
         <source>1 год — %1</source>
-        <translation type="unfinished"></translation>
+        <translation>1 año — %1</translation>
     </message>
     <message>
         <source> (%1/мес)</source>
-        <translation type="unfinished"></translation>
+        <translation> (%1/mes)</translation>
     </message>
     <message>
         <source>1 год</source>
-        <translation type="unfinished"></translation>
+        <translation>1 año</translation>
     </message>
     <message>
         <source>1 месяц — %1</source>
-        <translation type="unfinished"></translation>
+        <translation>1 mes — %1</translation>
     </message>
     <message>
         <source>1 месяц</source>
-        <translation type="unfinished"></translation>
+        <translation>1 mes</translation>
     </message>
     <message>
         <source>Восстановить покупки</source>
-        <translation type="unfinished"></translation>
+        <translation>Restaurar compras</translation>
     </message>
     <message>
         <source>Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.</source>
-        <translation type="unfinished"></translation>
+        <translation>El pago se cargará a tu Apple ID. La suscripción se renueva automáticamente a menos que la canceles en los ajustes de tu Apple ID al menos 24 horas antes de que finalice el período.</translation>
     </message>
     <message>
         <source>Управление подпиской</source>
@@ -817,19 +817,19 @@ y estás protegido</translation>
     </message>
     <message>
         <source>Есть промокод?</source>
-        <translation type="unfinished"></translation>
+        <translation>¿Tienes un código promocional?</translation>
     </message>
     <message>
         <source>Например, NVO12345</source>
-        <translation type="unfinished"></translation>
+        <translation>Por ejemplo, NVO12345</translation>
     </message>
     <message>
         <source>Активируем…</source>
-        <translation type="unfinished"></translation>
+        <translation>Activando…</translation>
     </message>
     <message>
         <source>Активировать промокод</source>
-        <translation type="unfinished"></translation>
+        <translation>Activar código promocional</translation>
     </message>
     <message>
         <source>Баланс: %1</source>
@@ -2725,7 +2725,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Ввести промокод</source>
-        <translation type="unfinished"></translation>
+        <translation>Introducir código promocional</translation>
     </message>
     <message>
         <source>Close application</source>
@@ -2780,7 +2780,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>NvoVPN защищает ваш интернет — быстро, безопасно и без ограничений.</source>
-        <translation type="unfinished"></translation>
+        <translation>NvoVPN protege tu internet: rápido, seguro y sin restricciones.</translation>
     </message>
     <message>
         <source>Software version: %1</source>
@@ -3263,11 +3263,11 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Блокировать интернет, если VPN отключился</source>
-        <translation type="unfinished"></translation>
+        <translation>Bloquear internet si la VPN se desconecta</translation>
     </message>
     <message>
         <source>Сначала отключитесь, чтобы изменить Kill Switch</source>
-        <translation type="unfinished"></translation>
+        <translation>Desconéctate primero para cambiar el Kill Switch</translation>
     </message>
     <message>
         <source>Auto start</source>
@@ -4629,7 +4629,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Сессия завершена — возможно, выполнен вход на другом устройстве. Войдите снова.</source>
-        <translation type="unfinished"></translation>
+        <translation>Sesión finalizada: es posible que hayas iniciado sesión en otro dispositivo. Inicia sesión de nuevo.</translation>
     </message>
 </context>
 <context>
