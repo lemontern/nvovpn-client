@@ -219,21 +219,23 @@ PageType {
                 }
             }
 
-            // Центр: бренд-щит (покой/защита); при наведении на «защиту» показываем ✕ (отключить).
+            // Центр: бренд-щит когда защита ВЫКЛючена; квадрат-СТОП когда ВКЛючена (тап = отключить).
             Image {
                 anchors.centerIn: parent
                 width: 104; height: 104
                 source: "qrc:/images/nvoAppIconRound.png"
                 sourceSize.width: 104; sourceSize.height: 104
                 fillMode: Image.PreserveAspectFit
-                visible: !root.busy && !(root.connected && knobMouse.containsMouse)
+                visible: !root.busy && !root.connected
             }
-            Text {
+            // Квадрат «стоп» (как на плеере): ясно, что кнопка теперь отключает. На тач наведения нет,
+            // поэтому показываем всегда при подключении (красный — при наведении на десктопе).
+            Rectangle {
                 anchors.centerIn: parent
-                text: "✕"
-                font.pixelSize: 60
-                color: "white"
-                visible: root.connected && knobMouse.containsMouse && !root.busy
+                width: 60; height: 60
+                radius: 12
+                color: knobMouse.containsMouse ? NvoStyle.color.dangerRed : "white"
+                visible: root.connected && !root.busy
             }
 
             scale: knobMouse.pressed ? 0.96 : 1.0
