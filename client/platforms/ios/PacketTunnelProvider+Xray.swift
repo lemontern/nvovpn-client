@@ -1,58 +1,6 @@
 import Darwin
 import Foundation
 import NetworkExtension
-import os
-
-// NvoVPN: индекс активного физического интерфейса живёт В ПРОЦЕССЕ, а не в объекте провайдера.
-//
-// Указатель на sock-колбэк отдаётся Go-рантайму xray, и тот зовёт колбэк из СВОИХ потоков на
-// каждый исходящий сокет — в том числе после остановки туннеля и после освобождения провайдера
-// (в одном системном расширении macOS последовательно живут несколько сессий: awg → VLESS →
-// смена страны). Раньше в колбэк отдавался Unmanaged.passUnretained(self), поэтому обращение к
-// уже освобождённому провайдеру роняло расширение целиком:
-//   EXC_BAD_ACCESS (SIGQUIT), KERN_INVALID_ADDRESS at 0x20
-//   closure #1 in PacketTunnelProvider.setupAndStartXray ← amnezia_xray_invokesockcallback
-// (крэш AmneziaVPNNetworkExtension 01.09.2026, туннель умирал через несколько минут работы).
-//
-// Колбэк больше НЕ разыменовывает объекты — только читает это значение, поэтому пережить
-// провайдера он не может. Заодно снимается гонка: индекс пишется на pathMonitorQueue,
-// а читается из потока xray.
-private let nvoIfaceIdxLock: UnsafeMutablePointer<os_unfair_lock_s> = {
-    let lock = UnsafeMutablePointer<os_unfair_lock_s>.allocate(capacity: 1)
-    lock.initialize(to: os_unfair_lock_s())
-    return lock
-}()
-
-private let nvoIfaceIdxBox: UnsafeMutablePointer<UInt32> = {
-    let box = UnsafeMutablePointer<UInt32>.allocate(capacity: 1)
-    box.initialize(to: 0)
-    return box
-}()
-
-func nvoSetActiveIfaceIdx(_ value: UInt32) {
-    os_unfair_lock_lock(nvoIfaceIdxLock)
-    nvoIfaceIdxBox.pointee = value
-    os_unfair_lock_unlock(nvoIfaceIdxLock)
-}
-
-func nvoActiveIfaceIdx() -> UInt32 {
-    os_unfair_lock_lock(nvoIfaceIdxLock)
-    let value = nvoIfaceIdxBox.pointee
-    os_unfair_lock_unlock(nvoIfaceIdxLock)
-    return value
-}
-
-// Привязка исходящего сокета xray к активному физическому интерфейсу (защита от петли
-// маршрутизации). Свободная функция без захвата контекста — вызывается из потоков Go.
-func nvoBindSocketToActiveInterface(_ fd: uintptr_t) {
-    var idx = nvoActiveIfaceIdx()
-    guard idx != 0 else { return }
-
-    withUnsafePointer(to: &idx) { ptr in
-        setsockopt(Int32(fd), IPPROTO_IP, IP_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
-        setsockopt(Int32(fd), IPPROTO_IPV6, IPV6_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
-    }
-}
 
 enum XrayErrors: Error {
     case noXrayConfig
@@ -345,7 +293,7 @@ extension PacketTunnelProvider {
         // остановки туннеля, а провайдер к тому моменту уже освобождён — это роняло расширение
         // (см. nvoBindSocketToActiveInterface). Контекстом отдаём вечно живущий бокс индекса,
         // сам колбэк его не читает.
-        let ctx = UnsafeMutableRawPointer(nvoIfaceIdxBox)
+        let ctx = nvoIfaceIdxContext()
         let cb: amnezia_xray_sockcallback = { (fd, _) in
             nvoBindSocketToActiveInterface(fd)
         }
