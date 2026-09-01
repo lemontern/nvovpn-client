@@ -214,13 +214,29 @@ extension PacketTunnelProvider {
         completionHandler()
     }
 
-    func sockCallback(fd: uintptr_t) {
-        if activeIfaceIdx != 0 {
-            withUnsafePointer(to: activeIfaceIdx) { ptr in
-                setsockopt(Int32(fd), IPPROTO_IP, IP_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
-                setsockopt(Int32(fd), IPPROTO_IPV6, IPV6_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
-            }
+    /// Статус stealth-туннеля (xray). У hev-socks5-tunnel своей статистики нет, поэтому берём
+    /// счётчики самого utun-интерфейса. Рукопожатия у xray нет — отдаём -1, приложение для
+    /// не-WireGuard протоколов это значение не использует.
+    func handleXrayStatusMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
+        guard let completionHandler = completionHandler else { return }
+
+        var rx: UInt64 = 0
+        var tx: UInt64 = 0
+        if let name = Socks5Tunnel.interfaceName, let counters = nvoInterfaceCounters(name) {
+            rx = counters.rx
+            tx = counters.tx
         }
+
+        let response: [String: Any] = [
+            "rx_bytes": String(rx),
+            "tx_bytes": String(tx),
+            "last_handshake_time_sec": Int64(-1)
+        ]
+        completionHandler(try? JSONSerialization.data(withJSONObject: response, options: []))
+    }
+
+    func sockCallback(fd: uintptr_t) {
+        nvoBindSocketToActiveInterface(fd)
     }
 
     private struct SocksCredentials {
@@ -294,12 +310,13 @@ extension PacketTunnelProvider {
         updateActiveInterfaceIndexForCurrentPath()
 
         // Колбэк защиты сокетов xray от петли маршрутизации (bind исходящих к активному интерфейсу).
-        let ctx = Unmanaged.passUnretained(self).toOpaque()
-        let cb: amnezia_xray_sockcallback = { (fd, ctx) in
-            guard let ctx = ctx else { return }
-            let instance = Unmanaged<PacketTunnelProvider>.fromOpaque(ctx).takeUnretainedValue()
-
-            instance.sockCallback(fd: fd)
+        // Указатель на провайдера сюда НЕ передаётся: xray зовёт колбэк из своих потоков и после
+        // остановки туннеля, а провайдер к тому моменту уже освобождён — это роняло расширение
+        // (см. nvoBindSocketToActiveInterface). Контекстом отдаём вечно живущий бокс индекса,
+        // сам колбэк его не читает.
+        let ctx = nvoIfaceIdxContext()
+        let cb: amnezia_xray_sockcallback = { (fd, _) in
+            nvoBindSocketToActiveInterface(fd)
         }
         if let err = amnezia_xray_setsockcallback(cb, ctx) {
             let msg = String(cString: err); amnezia_xray_free(UnsafeMutableRawPointer(err))

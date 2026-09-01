@@ -84,6 +84,10 @@ public slots:
     bool takeAutoConnectFlag();                 // была ли текущая попытка авто-коннектом (возвращает и СБРАСЫВАЕТ флаг)
     void clearAutoConnectFlag();                // сбросить флаг (напр. при успешном подключении)
     void notifyConnected();                     // успешный коннект: снять метку провала awg (адаптивный выбор)
+    void noteProtoSwitching();                  // §5.7: служба начала перерейс — оркестратор молчит
+    void noteProtoSwitched(const QString &path, int serverId); // §5.7: перерейс удался (vless-direct|vless-cdn)
+    bool serviceSwitching() const;              // §5.7: идёт перерейс в службе
+    bool preferCdn(int serverId) const;         // §5.7: липкая память «здесь работает только CDN» (14 дней)
     bool inStartupGrace() const;                // идёт ли окно тишины после запуска (ошибки коннекта гасим диалогом)
     void setSelectedServerId(int serverId);
     void setStealthMode(int mode);              // сохранить режим маскировки (0/1/2)
@@ -176,6 +180,9 @@ private:
     bool m_lastConnectViaStealth = false;
     int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
     QString m_lastProtocol = QStringLiteral("amneziawg");
+    bool m_serviceSwitching = false;             // §5.7: служба переключает путь — состояния разрыва игнорируем
+    QString vlessUriToServiceConfig(const QString &uri, const QString &description) const; // vless:// → vpnConfig-JSON службы
+    void publishServiceExtras(const QJsonObject &root, int serverId, const QString &actualProto, const QString &serverName);
     bool m_autoConnectPending = false;           // текущая попытка — авто-коннект при старте: её ошибку гасим (диалог не показываем)
     bool m_startupGrace = true;                  // окно тишины после запуска: гасим ЛЮБЫЕ ошибки коннекта (restore/авто/Unknown)
 

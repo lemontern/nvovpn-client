@@ -81,11 +81,22 @@ PageType {
             spacing: 12
             visible: root.isIos && !root.active
 
+            // App Store 3.1.2(c): на экране покупки обязаны быть название подписки,
+            // её длительность, цена (и цена за единицу), И понятное описание того,
+            // что человек получает за эти деньги. Иначе отказ ревью.
             CaptionTextType {
                 Layout.alignment: Qt.AlignHCenter
                 horizontalAlignment: Text.AlignHCenter
                 color: NvoStyle.color.paleGray
-                text: qsTr("Оформить подписку")
+                text: qsTr("Подписка NvoVPN Premium")
+            }
+
+            ParagraphTextType {
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: NvoStyle.color.mutedGray
+                text: qsTr("Что входит: безлимитный трафик без ограничения скорости, серверы в 7 странах, до 5 устройств одновременно.")
             }
 
             // Год — сверху (выгоднее)
@@ -138,8 +149,21 @@ PageType {
                 wrapMode: Text.WordWrap
                 color: NvoStyle.color.mutedGray
                 font.pixelSize: 11
-                text: qsTr("Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.")
+                text: qsTr("Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.")
             }
+        }
+
+        // App Store 3.1.2(c): рабочие ссылки на условия использования (EULA) и политику
+        // конфиденциальности обязаны быть В САМОМ приложении. Показываем на iOS всегда,
+        // не только при отсутствии подписки.
+        TermsAndPrivacyText {
+            visible: root.isIos
+            Layout.fillWidth: true
+            Layout.leftMargin: 24
+            Layout.rightMargin: 24
+            Layout.topMargin: 12
+            termsUrl: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+            privacyUrl: "https://nvovpn.com/privacy"
         }
 
         // Баланс (мультивалютный — форматирует бэкенд: «0 ₽» / «0 €»)

@@ -133,6 +133,18 @@ class AmneziaActivity : QtActivity() {
                         // todo: add error reporting to Qt
                         QtAndroidController.onServiceError()
                     }
+
+                    ServiceEvent.PROTO_SWITCHING -> {
+                        Log.i(TAG, "From VpnService: proto switching from ${msg.data?.getString(MSG_PATH)}")
+                        QtAndroidController.onProtoSwitching()
+                    }
+
+                    ServiceEvent.PROTO_SWITCHED -> {
+                        val path = msg.data?.getString(MSG_PATH) ?: ""
+                        val serverId = msg.data?.getInt(MSG_SERVER_ID, -1) ?: -1
+                        Log.i(TAG, "From VpnService: proto switched to $path (server $serverId)")
+                        QtAndroidController.onProtoSwitched(path, serverId)
+                    }
                 }
             }
         }
@@ -735,6 +747,16 @@ class AmneziaActivity : QtActivity() {
     private fun disconnectFromVpn() {
         Log.d(TAG, "Disconnect from VPN")
         vpnServiceMessenger.send(Action.DISCONNECT)
+        // NvoVPN fix (EMUI/Huawei): при заморозке foreground-сервиса onServiceConnected может не
+        // прийти -> vpnServiceMessenger не привязан -> send() молча теряется (messenger?.sendMsg).
+        // Дублируем команду тем же широковещательным Intent, что и кнопка «Отключить» в
+        // уведомлении (ServiceNotification) — сервис ловит ACTION_DISCONNECT своим receiver'ом
+        // независимо от состояния биндинга. Идемпотентно: повторный disconnect безвреден.
+        try {
+            sendBroadcast(Intent(ACTION_DISCONNECT).setPackage(packageName))
+        } catch (e: Exception) {
+            Log.e(TAG, "Broadcast disconnect fallback failed: $e")
+        }
     }
 
     /**

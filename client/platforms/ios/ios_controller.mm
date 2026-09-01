@@ -572,8 +572,10 @@ void IosController::checkStatus()
                    << (nowMs - m_statusRequestStartedMs) / 1000
                    << "сек — сбрасываем застрявший запрос";
         // Молчащее расширение при поднятом туннеле — само по себе подозрительно,
-        // засчитываем как попытку без ответа.
-        if (m_handshakeConfirmed && !m_livenessTearingDown) {
+        // засчитываем как попытку без ответа. Но ТОЛЬКО для WireGuard-протоколов: у VLESS/xray
+        // рвать соединение по этому признаку нельзя — фолбека дальше нет, а «молчание» может
+        // ничего не значить (проверка симметрична ветке пустого ответа ниже).
+        if (isWireGuardBasedProto(m_proto) && m_handshakeConfirmed && !m_livenessTearingDown) {
             if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
                 qWarning() << "IosController: статус недоступен" << m_livenessDeadStreak
                            << "проверок подряд — рвём соединение, чтобы уйти на VLESS";

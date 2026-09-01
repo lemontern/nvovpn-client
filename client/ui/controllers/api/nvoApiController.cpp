@@ -13,6 +13,8 @@
 #include <QTimer>
 #include <QRandomGenerator>
 #include <chrono>
+#include <algorithm>
+#include <QDebug>
 
 #if defined(Q_OS_ANDROID)
     #include <QJniObject>
@@ -30,6 +32,9 @@ namespace {
 }
 
 #include "secureQSettings.h"
+#include "core/nvoServiceExtras.h"
+#include "core/utils/serialization/serialization.h"
+#include <QRegularExpression>
 #include "ui/models/api/nvoServersModel.h"
 #include "logger.h"
 
@@ -60,6 +65,9 @@ namespace
     // на нём начинаем сразу с VLESS (не жжём таймаут там, где DPI режет awg). TTL 30 мин → пере-проба.
     constexpr qint64 kAwgFailTtlSec = 1800;
     QString awgFailKey(int serverId) { return QStringLiteral("Conf/nvoAwgFail/%1").arg(serverId); }
+    // §5.7: липкая память «на этом сервере работает только CDN» (сеть режет прямые IP). 14 дней — сети меняются.
+    constexpr qint64 kPreferCdnTtlSec = 14 * 24 * 3600;
+    QString preferCdnKey(int serverId) { return QStringLiteral("Conf/nvoPreferCdn/%1").arg(serverId); }
 
     int httpStatus(QNetworkReply *reply)
     {
@@ -234,7 +242,45 @@ QString NvoApiController::protoForServer(int serverId) const
     if (m_stealthMode == 1 && awgRecentlyFailed(serverId)) {
         return QStringLiteral("vless");
     }
+    // §5.7: здесь уже переключались на CDN — awg/прямой путь у этой сети мёртв, сразу VLESS (сервер отдаст CDN первым).
+    if (m_stealthMode != 0 && preferCdn(serverId)) {
+        return QStringLiteral("vless");
+    }
     return QStringLiteral("amneziawg");
+}
+
+bool NvoApiController::preferCdn(int serverId) const
+{
+    if (serverId < 0) {
+        return false;
+    }
+    const qint64 ts = m_settings->value(preferCdnKey(serverId)).toLongLong();
+    return ts > 0 && (QDateTime::currentSecsSinceEpoch() - ts) < kPreferCdnTtlSec;
+}
+
+bool NvoApiController::serviceSwitching() const
+{
+    return m_serviceSwitching;
+}
+
+void NvoApiController::noteProtoSwitching()
+{
+    m_serviceSwitching = true;
+}
+
+void NvoApiController::noteProtoSwitched(const QString &path, int serverId)
+{
+    m_serviceSwitching = false;
+    // Фактический протокол теперь VLESS: оркестратор не должен считать туннель awg-шным.
+    m_lastProtocol = QStringLiteral("vless");
+    if (!m_lastConnectViaStealth) {
+        m_lastConnectViaStealth = true;
+        emit lastConnectViaStealthChanged();
+    }
+    if (path == QStringLiteral("vless-cdn") && serverId >= 0) {
+        m_settings->setValue(preferCdnKey(serverId), QDateTime::currentSecsSinceEpoch());
+    }
+    qInfo() << "NvoApiController: служба переключила путь на" << path << "сервер" << serverId;
 }
 
 bool NvoApiController::awgRecentlyFailed(int serverId) const
@@ -270,7 +316,94 @@ void NvoApiController::notifyConnected()
     // awg реально встал на этом сервере — снимаем метку провала, чтобы снова пробовать awg-first.
     if (m_lastProtocol == QStringLiteral("amneziawg")) {
         clearAwgFailure(m_lastConnectServerId);
+        // §5.7: прямой путь ожил — липкое «только CDN» на этом сервере больше не актуально.
+        if (m_lastConnectServerId >= 0) {
+            m_settings->remove(preferCdnKey(m_lastConnectServerId));
+        }
     }
+}
+
+// §5.7: vless:// (direct Reality или CDN ws+tls) → самостоятельный vpnConfig-JSON, который Android-служба
+// поднимает без участия C++ (тот же формат, что после import-пайплайна: protocol=xray + xray_config_data.config).
+// Локальные настройки (dns/split tunneling) доложит AndroidController::start из основного конфига.
+QString NvoApiController::vlessUriToServiceConfig(const QString &uri, const QString &description) const
+{
+    QString alias;
+    QString error;
+    const QJsonObject xray = amnezia::serialization::vless::Deserialize(uri, &alias, &error);
+    if (xray.isEmpty()) {
+        qWarning() << "NvoApiController: кандидат не разобран:" << error;
+        return QString();
+    }
+    const QString xrayJson = QString::fromUtf8(QJsonDocument(xray).toJson(QJsonDocument::Compact));
+    QString hostName;
+    static const QRegularExpression hostRe(QStringLiteral("\"address\":\\s*\"([^\"]+)"));
+    const QRegularExpressionMatch m = hostRe.match(xrayJson);
+    if (m.hasMatch()) {
+        hostName = m.captured(1);
+    }
+    QJsonObject cfg;
+    cfg[QStringLiteral("protocol")] = QStringLiteral("xray");
+    cfg[QStringLiteral("xray_config_data")] = QJsonObject { { QStringLiteral("config"), xrayJson } };
+    cfg[QStringLiteral("hostName")] = hostName;
+    cfg[QStringLiteral("description")] = description;
+    return QString::fromUtf8(QJsonDocument(cfg).toJson(QJsonDocument::Compact));
+}
+
+// §5.7: из ответа /connect собираем для службы кандидаты failover (candidates[] от бэкенда; для старого
+// бэкенда — fallback_config как единственный direct-кандидат) и параметры живости/телеметрии.
+void NvoApiController::publishServiceExtras(const QJsonObject &root, int serverId, const QString &actualProto,
+                                            const QString &serverName)
+{
+    const QString pathHint = root.value(QStringLiteral("path_hint")).toString();
+    const QString currentPath = (actualProto == QStringLiteral("vless"))
+            ? (pathHint.isEmpty() ? QStringLiteral("vless-direct") : pathHint)
+            : QStringLiteral("awg");
+
+    QList<QPair<QString, QString>> raw;   // (path, vless://)
+    for (const QJsonValue &v : root.value(QStringLiteral("candidates")).toArray()) {
+        const QJsonObject c = v.toObject();
+        const QString path = c.value(QStringLiteral("path")).toString();
+        const QString cfg = c.value(QStringLiteral("config")).toString();
+        if (!path.isEmpty() && cfg.startsWith(QStringLiteral("vless://"))) {
+            raw.append({ path, cfg });
+        }
+    }
+    if (raw.isEmpty()) {
+        const QString fb = root.value(QStringLiteral("fallback_config")).toString();
+        if (fb.startsWith(QStringLiteral("vless://"))) {
+            raw.append({ QStringLiteral("vless-direct"), fb });
+        }
+    }
+    // Липкая память клиента: CDN первым, если на этом сервере прямой путь уже оказывался мёртвым.
+    if (preferCdn(serverId)) {
+        std::stable_sort(raw.begin(), raw.end(), [](const QPair<QString, QString> &a, const QPair<QString, QString> &b) {
+            return (a.first == QStringLiteral("vless-cdn")) && (b.first != QStringLiteral("vless-cdn"));
+        });
+    }
+
+    QJsonArray candidates;
+    for (const auto &pair : raw) {
+        const QString cfg = vlessUriToServiceConfig(pair.second, serverName);
+        if (!cfg.isEmpty()) {
+            candidates.append(QJsonObject { { QStringLiteral("path"), pair.first }, { QStringLiteral("config"), cfg } });
+        }
+    }
+
+    QJsonArray pingUrls;
+    for (int i = 0; i < API_BASE_COUNT; ++i) {
+        pingUrls.append(QString::fromLatin1(API_BASES[(m_apiBaseIdx + i) % API_BASE_COUNT]) + QStringLiteral("/ping"));
+    }
+    const QJsonObject liveness {
+        { QStringLiteral("ping_urls"), pingUrls },
+        { QStringLiteral("api_base"), apiBase() },
+        { QStringLiteral("token"), m_token },
+        { QStringLiteral("server_id"), serverId },
+        { QStringLiteral("path"), currentPath },
+    };
+    NvoServiceExtras::set(QJsonObject { { QStringLiteral("nvo_candidates"), candidates },
+                                        { QStringLiteral("nvo_liveness"), liveness } });
+    qInfo() << "NvoApiController: служба получит кандидатов failover:" << candidates.size() << "путь:" << currentPath;
 }
 
 // Проба живости туннеля: GET /ping ЧЕРЕЗ VPN (после «Подключено» весь трафик идёт в туннель).
@@ -717,6 +850,9 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         }
 
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
+        // §5.7: кандидаты failover + параметры живости для службы — до configReady (import → start службы).
+        m_serviceSwitching = false;
+        publishServiceExtras(root, serverId, actualProto, server.value(QStringLiteral("name")).toString());
         emit configReady(config, serverId, server.value(QStringLiteral("name")).toString(),
                          root.value(QStringLiteral("vpn_key")).toString(),
                          root.value(QStringLiteral("awg_ip")).toString());

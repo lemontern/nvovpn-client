@@ -178,6 +178,29 @@ PageType {
                     Qt.openUrlExternally("https://nvovpn.com/privacy")
                 }
             }
+
+            // App Store 3.1.2(c): рабочая ссылка на условия использования (EULA) обязана быть
+            // в самом приложении. Подписки идут через Apple IAP → стандартный Apple EULA.
+            BasicButtonType {
+                id: termsOfUseButton
+
+                Layout.alignment: Qt.AlignHCenter
+                Layout.bottomMargin: 16
+                Layout.topMargin: -15
+                implicitHeight: 25
+
+                defaultColor: NvoStyle.color.transparent
+                hoveredColor: NvoStyle.color.translucentWhite
+                pressedColor: NvoStyle.color.sheerWhite
+                disabledColor: NvoStyle.color.mutedGray
+                textColor: NvoStyle.color.goldenApricot
+
+                text: qsTr("Terms of Use (EULA)")
+
+                clickedFunc: function() {
+                    Qt.openUrlExternally("https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+                }
+            }
         }
     }
     

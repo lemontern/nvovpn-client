@@ -8,6 +8,82 @@ import Darwin
 import OpenVPNAdapter
 #endif
 
+// NvoVPN: индекс активного физического интерфейса живёт В ПРОЦЕССЕ, а не в объекте провайдера.
+//
+// Указатель на sock-колбэк отдаётся Go-рантайму xray, и тот зовёт колбэк из СВОИХ потоков на
+// каждый исходящий сокет — в том числе после остановки туннеля и после освобождения провайдера
+// (в одном системном расширении macOS последовательно живут несколько сессий: awg → VLESS →
+// смена страны). Раньше в колбэк отдавался Unmanaged.passUnretained(self), поэтому обращение к
+// уже освобождённому провайдеру роняло расширение целиком:
+//   EXC_BAD_ACCESS (SIGQUIT), KERN_INVALID_ADDRESS at 0x20
+//   closure #1 in PacketTunnelProvider.setupAndStartXray ← amnezia_xray_invokesockcallback
+// (крэш AmneziaVPNNetworkExtension 01.09.2026, туннель умирал через несколько минут работы).
+//
+// Колбэк больше НЕ разыменовывает объекты — только читает это значение, поэтому пережить
+// провайдера он не может. Заодно снимается гонка: индекс пишется на pathMonitorQueue,
+// а читается из потока xray.
+private let nvoIfaceIdxLock: UnsafeMutablePointer<os_unfair_lock_s> = {
+    let lock = UnsafeMutablePointer<os_unfair_lock_s>.allocate(capacity: 1)
+    lock.initialize(to: os_unfair_lock_s())
+    return lock
+}()
+
+private let nvoIfaceIdxBox: UnsafeMutablePointer<UInt32> = {
+    let box = UnsafeMutablePointer<UInt32>.allocate(capacity: 1)
+    box.initialize(to: 0)
+    return box
+}()
+
+func nvoSetActiveIfaceIdx(_ value: UInt32) {
+    os_unfair_lock_lock(nvoIfaceIdxLock)
+    nvoIfaceIdxBox.pointee = value
+    os_unfair_lock_unlock(nvoIfaceIdxLock)
+}
+
+func nvoActiveIfaceIdx() -> UInt32 {
+    os_unfair_lock_lock(nvoIfaceIdxLock)
+    let value = nvoIfaceIdxBox.pointee
+    os_unfair_lock_unlock(nvoIfaceIdxLock)
+    return value
+}
+
+// Привязка исходящего сокета xray к активному физическому интерфейсу (защита от петли
+// маршрутизации). Свободная функция без захвата контекста — вызывается из потоков Go.
+func nvoBindSocketToActiveInterface(_ fd: uintptr_t) {
+    var idx = nvoActiveIfaceIdx()
+    guard idx != 0 else { return }
+
+    withUnsafePointer(to: &idx) { ptr in
+        setsockopt(Int32(fd), IPPROTO_IP, IP_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
+        setsockopt(Int32(fd), IPPROTO_IPV6, IPV6_BOUND_IF, ptr, socklen_t(MemoryLayout<UInt32>.size))
+    }
+}
+
+/// Счётчики трафика сетевого интерфейса (rx/tx) по его имени.
+/// Нужны для статуса stealth-туннеля: у hev-socks5-tunnel своей статистики нет.
+func nvoInterfaceCounters(_ name: String) -> (rx: UInt64, tx: UInt64)? {
+    var head: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&head) == 0, let first = head else { return nil }
+    defer { freeifaddrs(head) }
+
+    var cursor: UnsafeMutablePointer<ifaddrs>? = first
+    while let entry = cursor {
+        defer { cursor = entry.pointee.ifa_next }
+        guard let rawName = entry.pointee.ifa_name,
+              String(cString: rawName) == name,
+              entry.pointee.ifa_addr?.pointee.sa_family == UInt8(AF_LINK),
+              let raw = entry.pointee.ifa_data else { continue }
+        let data = raw.assumingMemoryBound(to: if_data.self).pointee
+        return (UInt64(data.ifi_ibytes), UInt64(data.ifi_obytes))
+    }
+    return nil
+}
+
+/// Контекст для C-колбэка: указатель живёт всё время работы процесса, колбэк его не читает.
+func nvoIfaceIdxContext() -> UnsafeMutableRawPointer {
+    UnsafeMutableRawPointer(nvoIfaceIdxBox)
+}
+
 enum TunnelProtoType: String {
   case wireguard, openvpn, xray
 
@@ -77,7 +153,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     var stopHandler: (() -> Void)?
     var protoType: TunnelProtoType?
 
-    var activeIfaceIdx: UInt32 = 0
+    // Хранится в процессе, а не в объекте: значение читает sock-колбэк xray из потоков Go,
+    // который переживает провайдера (см. nvoActiveIfaceIdx в PacketTunnelProvider+Xray.swift).
+    var activeIfaceIdx: UInt32 {
+        get { nvoActiveIfaceIdx() }
+        set { nvoSetActiveIfaceIdx(newValue) }
+    }
 
 #if canImport(OpenVPNAdapter)
     func openVPNPacketFlow() -> OpenVPNAdapterPacketFlow {
@@ -284,7 +365,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             stopOpenVPN(with: reason,
                         completionHandler: completionHandler)
         case .xray:
-            stopXray(completionHandler: completionHandler)
+            stopXray {
+                completionHandler()
+                // hev-socks5-tunnel не переживает повторную инициализацию в ОДНОМ процессе:
+                // после quit() состояние lwIP не сбрасывается, и второй Socks5Tunnel.run()
+                // падает в netif_add по abort() — расширение умирает целиком.
+                //   EXC_CRASH (SIGABRT): netif_add ← hev_socks5_tunnel_init ← Socks5Tunnel.run
+                //   ← setupAndRunTun2socks   (крэш 02.09.2026 при повторном подключении)
+                // Поэтому после остановки stealth-туннеля завершаем процесс: следующее
+                // подключение система поднимет в свежем расширении, где lwIP чист.
+                // Система этого и ждёт — иначе в журнале «Extension exit timer expired …
+                // notify that extension failed».
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    exit(0)
+                }
+            }
         }
     }
   
@@ -300,7 +395,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         case .openvpn:
             handleOpenVPNStatusMessage(messageData, completionHandler: completionHandler)
         case .xray:
-            break;
+            // Раньше здесь стоял break БЕЗ вызова completionHandler: расширение просто не отвечало
+            // на запрос статуса, и приложение считало его «молчащим» (см. IosController::checkStatus).
+            handleXrayStatusMessage(messageData, completionHandler: completionHandler)
         }
     }
   

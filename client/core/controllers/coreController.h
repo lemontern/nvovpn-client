@@ -243,15 +243,6 @@ private:
     bool m_awgTunnelWasUp = false;
     void startStealthFallback();
 
-    // Android: своей liveness-детекции в туннеле нет — на Win/Linux её играет Daemon::checkLiveness,
-    // на macOS/iOS — IosController. Здесь гоним ту же выверенную логику приращений по сигналу
-    // statisticsUpdated от службы (rx/tx туннеля раз в секунду): tx растёт, а rx мёртв N интервалов
-    // подряд → рвём awg, дальше оркестратор уводит на VLESS штатным путём.
-    quint64 m_androidLivenessRxMark = 0;
-    quint64 m_androidLivenessTxMark = 0;
-    int m_androidLivenessDeadStreak = 0;
-    bool m_androidLivenessArmed = false;
-    void checkAndroidLiveness(quint64 rxBytes, quint64 txBytes);
 };
 
 #endif // CORECONTROLLER_H
