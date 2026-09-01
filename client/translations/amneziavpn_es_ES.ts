@@ -752,6 +752,18 @@ y estás protegido</translation>
 <context>
     <name>PageNvoSubscription</name>
     <message>
+        <source>Подписка NvoVPN Premium</source>
+        <translation>Suscripción NvoVPN Premium</translation>
+    </message>
+    <message>
+        <source>Что входит: безлимитный трафик без ограничения скорости, серверы в 7 странах, до 5 устройств одновременно.</source>
+        <translation>Incluye: tráfico ilimitado sin límite de velocidad, servidores en 7 países, hasta 5 dispositivos a la vez.</translation>
+    </message>
+    <message>
+        <source>Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.</source>
+        <translation>La suscripción de «1 mes» se renueva cada mes y la de «1 año», cada año. El pago se cargará a tu Apple ID al confirmar la compra. La renovación es automática salvo que canceles la suscripción en los ajustes de tu Apple ID al menos 24 horas antes de que finalice el periodo actual. Puedes gestionar la suscripción y desactivar la renovación en los ajustes de tu Apple ID.</translation>
+    </message>
+    <message>
         <source>Подписка активна</source>
         <translation>Suscripción activa</translation>
     </message>
@@ -2750,6 +2762,10 @@ Create one from the current settings.</source>
 </context>
 <context>
     <name>PageSettingsAbout</name>
+    <message>
+        <source>Terms of Use (EULA)</source>
+        <translation>Términos de uso (EULA)</translation>
+    </message>
     <message>
         <source>О приложении NvoVPN</source>
         <translation>Acerca de NvoVPN</translation>
