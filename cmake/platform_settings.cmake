@@ -4,7 +4,12 @@ if(APPLE)
         set(CONAN_INSTALL_BUILD_CONFIGURATIONS Release Debug MinSizeRel RelWithDebInfo)
     endif()
     if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        set(CMAKE_OSX_DEPLOYMENT_TARGET "14.0" CACHE STRING "" FORCE)
+        # Apple ITMS-90068: с весны 2027 бинарь с MinimumOSVersion ниже 15.0 не принимается
+        # в App Store Connect. Значение из командной строки (-DCMAKE_OSX_DEPLOYMENT_TARGET)
+        # раньше затиралось этим FORCE — CI задавал 15.0, а в Info.plist уезжало 14.0.
+        if(NOT CMAKE_OSX_DEPLOYMENT_TARGET OR CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "15.0")
+            set(CMAKE_OSX_DEPLOYMENT_TARGET "15.0" CACHE STRING "" FORCE)
+        endif()
         set(CMAKE_OSX_ARCHITECTURES "arm64" CACHE STRING "" FORCE)
     elseif(MACOS_NE)
         set(_CONAN_INSTALL_ARGS "-o=&:macos_ne=True")
