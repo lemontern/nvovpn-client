@@ -59,6 +59,26 @@ func nvoBindSocketToActiveInterface(_ fd: uintptr_t) {
     }
 }
 
+/// Счётчики трафика сетевого интерфейса (rx/tx) по его имени.
+/// Нужны для статуса stealth-туннеля: у hev-socks5-tunnel своей статистики нет.
+func nvoInterfaceCounters(_ name: String) -> (rx: UInt64, tx: UInt64)? {
+    var head: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&head) == 0, let first = head else { return nil }
+    defer { freeifaddrs(head) }
+
+    var cursor: UnsafeMutablePointer<ifaddrs>? = first
+    while let entry = cursor {
+        defer { cursor = entry.pointee.ifa_next }
+        guard let rawName = entry.pointee.ifa_name,
+              String(cString: rawName) == name,
+              entry.pointee.ifa_addr?.pointee.sa_family == UInt8(AF_LINK),
+              let raw = entry.pointee.ifa_data else { continue }
+        let data = raw.assumingMemoryBound(to: if_data.self).pointee
+        return (UInt64(data.ifi_ibytes), UInt64(data.ifi_obytes))
+    }
+    return nil
+}
+
 /// Контекст для C-колбэка: указатель живёт всё время работы процесса, колбэк его не читает.
 func nvoIfaceIdxContext() -> UnsafeMutableRawPointer {
     UnsafeMutableRawPointer(nvoIfaceIdxBox)
@@ -361,7 +381,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         case .openvpn:
             handleOpenVPNStatusMessage(messageData, completionHandler: completionHandler)
         case .xray:
-            break;
+            // Раньше здесь стоял break БЕЗ вызова completionHandler: расширение просто не отвечало
+            // на запрос статуса, и приложение считало его «молчащим» (см. IosController::checkStatus).
+            handleXrayStatusMessage(messageData, completionHandler: completionHandler)
         }
     }
   

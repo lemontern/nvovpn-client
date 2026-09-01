@@ -214,6 +214,27 @@ extension PacketTunnelProvider {
         completionHandler()
     }
 
+    /// Статус stealth-туннеля (xray). У hev-socks5-tunnel своей статистики нет, поэтому берём
+    /// счётчики самого utun-интерфейса. Рукопожатия у xray нет — отдаём -1, приложение для
+    /// не-WireGuard протоколов это значение не использует.
+    func handleXrayStatusMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)? = nil) {
+        guard let completionHandler = completionHandler else { return }
+
+        var rx: UInt64 = 0
+        var tx: UInt64 = 0
+        if let name = Socks5Tunnel.interfaceName, let counters = nvoInterfaceCounters(name) {
+            rx = counters.rx
+            tx = counters.tx
+        }
+
+        let response: [String: Any] = [
+            "rx_bytes": String(rx),
+            "tx_bytes": String(tx),
+            "last_handshake_time_sec": Int64(-1)
+        ]
+        completionHandler(try? JSONSerialization.data(withJSONObject: response, options: []))
+    }
+
     func sockCallback(fd: uintptr_t) {
         nvoBindSocketToActiveInterface(fd)
     }
