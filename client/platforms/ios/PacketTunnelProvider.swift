@@ -77,7 +77,12 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     var stopHandler: (() -> Void)?
     var protoType: TunnelProtoType?
 
-    var activeIfaceIdx: UInt32 = 0
+    // Хранится в процессе, а не в объекте: значение читает sock-колбэк xray из потоков Go,
+    // который переживает провайдера (см. nvoActiveIfaceIdx в PacketTunnelProvider+Xray.swift).
+    var activeIfaceIdx: UInt32 {
+        get { nvoActiveIfaceIdx() }
+        set { nvoSetActiveIfaceIdx(newValue) }
+    }
 
 #if canImport(OpenVPNAdapter)
     func openVPNPacketFlow() -> OpenVPNAdapterPacketFlow {
