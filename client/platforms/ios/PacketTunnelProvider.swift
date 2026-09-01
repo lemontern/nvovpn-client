@@ -365,7 +365,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             stopOpenVPN(with: reason,
                         completionHandler: completionHandler)
         case .xray:
-            stopXray(completionHandler: completionHandler)
+            stopXray {
+                completionHandler()
+                // hev-socks5-tunnel не переживает повторную инициализацию в ОДНОМ процессе:
+                // после quit() состояние lwIP не сбрасывается, и второй Socks5Tunnel.run()
+                // падает в netif_add по abort() — расширение умирает целиком.
+                //   EXC_CRASH (SIGABRT): netif_add ← hev_socks5_tunnel_init ← Socks5Tunnel.run
+                //   ← setupAndRunTun2socks   (крэш 02.09.2026 при повторном подключении)
+                // Поэтому после остановки stealth-туннеля завершаем процесс: следующее
+                // подключение система поднимет в свежем расширении, где lwIP чист.
+                // Система этого и ждёт — иначе в журнале «Extension exit timer expired …
+                // notify that extension failed».
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    exit(0)
+                }
+            }
         }
     }
   
