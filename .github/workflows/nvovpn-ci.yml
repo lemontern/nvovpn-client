@@ -131,7 +131,8 @@ jobs:
     env:
       ANDROID_PLATFORM: android-28   # conan api_level / minSdk (НЕ менять: prebuilt libssh собран под api 28;
                                      # api 34 → conan пересобирает libssh из исходников и падает на openssl).
-                                     # compileSdk/targetSdk=34 задаются отдельно (SDK platform 34 + android.cmake).
+                                     # compileSdk/targetSdk=36 задаются отдельно (SDK platform 36 + android.cmake):
+                                     # Google Play с 31.08.2026 отклоняет targetSdk ниже 36 («Target SDK of artifact is too low»).
       NDK_VERSION: 27.0.11718014
       QT_VERSION: 6.10.1
       QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
@@ -195,7 +196,7 @@ jobs:
       - name: 'Setup Android SDK'
         uses: android-actions/setup-android@v4
         with:
-          packages: "platforms;android-35 build-tools;35.0.0 ndk;${{ env.NDK_VERSION }}"
+          packages: "platforms;android-36 build-tools;36.0.0 ndk;${{ env.NDK_VERSION }}"
 
       - name: 'Setup python (conan)'
         uses: actions/setup-python@v5
