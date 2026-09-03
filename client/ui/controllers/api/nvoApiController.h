@@ -44,6 +44,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(int stealthMode READ stealthMode WRITE setStealthMode NOTIFY stealthModeChanged)
     // true когда последнее подключение подняли через VLESS (для ненавязчивого уведомления в UI).
     Q_PROPERTY(bool lastConnectViaStealth READ lastConnectViaStealth NOTIFY lastConnectViaStealthChanged)
+    Q_PROPERTY(int activeServerId READ activeServerId NOTIFY activeServerChanged)  // нода ФАКТИЧЕСКОГО туннеля (после перерейса на запасную может отличаться от выбранной)
 
 public:
     explicit NvoApiController(SecureQSettings *settings, NvoServersModel *serversModel, QObject *parent = nullptr);
@@ -69,6 +70,7 @@ public:
     int stealthMode() const;                    // 0=выкл, 1=авто, 2=всегда (VLESS-фолбек)
     bool lastConnectViaStealth() const;         // последнее подключение — через VLESS?
     int lastConnectServerId() const;            // серверу последнего requestConfig (для фолбека)
+    int activeServerId() const;                 // нода фактического туннеля: -1 = не подключены/неизвестно
     QString lastProtocol() const;               // "amneziawg" | "vless" последнего requestConfig
 
 public slots:
@@ -130,6 +132,8 @@ signals:
     void sessionExpired();                      // 401 — токен отозван/истёк (вход на другом устройстве)
     void errorOccurred(const QString &message);
     void tunnelProbeFinished(bool alive);       // проба туннеля: false = «Подключено», но данные не идут (мёртвый туннель)
+    void activeServerChanged();                 // нода фактического туннеля сменилась (перерейс службы на запасную ноду)
+    void serverSwitched(int serverId);          // слой качества: служба увела туннель на ДРУГУЮ ноду из fallback_servers
 
     // Промокод (/promo/redeem): granted → успех; иначе показываем готовый message бэкенда
     // (reason: already_active | code_invalid | code_used | code_empty | email_unverified | disposable).
@@ -179,6 +183,7 @@ private:
     int m_stealthMode = 1;                       // дефолт: авто (фолбек только при провале AWG)
     bool m_lastConnectViaStealth = false;
     int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
+    int m_activeServerId = -1;                   // нода фактического туннеля (см. activeServerId)
     QString m_lastProtocol = QStringLiteral("amneziawg");
     bool m_serviceSwitching = false;             // §5.7: служба переключает путь — состояния разрыва игнорируем
     QString vlessUriToServiceConfig(const QString &uri, const QString &description) const; // vless:// → vpnConfig-JSON службы

@@ -281,6 +281,20 @@ void NvoApiController::noteProtoSwitched(const QString &path, int serverId)
         m_settings->setValue(preferCdnKey(serverId), QDateTime::currentSecsSinceEpoch());
     }
     qInfo() << "NvoApiController: служба переключила путь на" << path << "сервер" << serverId;
+    // Слой качества: служба могла увести туннель на ДРУГУЮ ноду (fallback_servers). Запоминаем фактическую ноду,
+    // чтобы UI показывал её, а фолбек по таймауту повторял именно её.
+    if (serverId >= 0 && serverId != m_activeServerId) {
+        m_activeServerId = serverId;
+        m_lastConnectServerId = serverId;
+        emit activeServerChanged();
+        emit serverSwitched(serverId);
+        qInfo() << "NvoApiController: туннель теперь на ноде" << serverId;
+    }
+}
+
+int NvoApiController::activeServerId() const
+{
+    return m_activeServerId;
 }
 
 bool NvoApiController::awgRecentlyFailed(int serverId) const
@@ -401,9 +415,42 @@ void NvoApiController::publishServiceExtras(const QJsonObject &root, int serverI
         { QStringLiteral("server_id"), serverId },
         { QStringLiteral("path"), currentPath },
     };
+    // Слой качества (03.09.2026, «автоматика от флапов»): запасные НОДЫ из ответа /connect (fallback_servers — до 2 живых
+    // нод с готовыми VLESS-конфигами, та же страна первой) и пороги детектора деградации для службы. Старый бэкенд поля
+    // не отдаёт — массив пустой, служба ведёт себя как раньше.
+    QJsonArray fallbackNodes;
+    for (const QJsonValue &v : root.value(QStringLiteral("fallback_servers")).toArray()) {
+        const QJsonObject f = v.toObject();
+        const QJsonObject srv = f.value(QStringLiteral("server")).toObject();
+        const QString cfgUri = f.value(QStringLiteral("config")).toString();
+        const int fid = srv.value(QStringLiteral("id")).toInt(-1);
+        const QString fname = srv.value(QStringLiteral("name")).toString();
+        if (fid < 0 || fid == serverId || !cfgUri.startsWith(QStringLiteral("vless://"))) {
+            continue;
+        }
+        const QString cfg = vlessUriToServiceConfig(cfgUri, fname);
+        if (!cfg.isEmpty()) {
+            fallbackNodes.append(QJsonObject { { QStringLiteral("path"), QStringLiteral("vless-direct") },
+                                               { QStringLiteral("config"), cfg },
+                                               { QStringLiteral("server_id"), fid },
+                                               { QStringLiteral("server_name"), fname } });
+        }
+    }
+    // Пороги: плановая проба через туннель каждые 20 с; окно 6 проб; 3 плохих (нет ответа или дольше 4 с) → деградация;
+    // после перерейса на другую ноду — не менять ноду снова 10 мин (анти-качели).
+    const QJsonObject quality {
+        { QStringLiteral("probe_interval_ms"), 20000 },
+        { QStringLiteral("window"), 6 },
+        { QStringLiteral("bad_fails"), 3 },
+        { QStringLiteral("bad_latency_ms"), 4000 },
+        { QStringLiteral("node_cooldown_ms"), 600000 },
+    };
     NvoServiceExtras::set(QJsonObject { { QStringLiteral("nvo_candidates"), candidates },
-                                        { QStringLiteral("nvo_liveness"), liveness } });
-    qInfo() << "NvoApiController: служба получит кандидатов failover:" << candidates.size() << "путь:" << currentPath;
+                                        { QStringLiteral("nvo_liveness"), liveness },
+                                        { QStringLiteral("nvo_fallback_servers"), fallbackNodes },
+                                        { QStringLiteral("nvo_quality"), quality } });
+    qInfo() << "NvoApiController: служба получит кандидатов failover:" << candidates.size() << "путь:" << currentPath
+            << "запасных нод:" << fallbackNodes.size();
 }
 
 // Проба живости туннеля: GET /ping ЧЕРЕЗ VPN (после «Подключено» весь трафик идёт в туннель).
@@ -852,6 +899,10 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
         // §5.7: кандидаты failover + параметры живости для службы — до configReady (import → start службы).
         m_serviceSwitching = false;
+        if (m_activeServerId != serverId) {
+            m_activeServerId = serverId;
+            emit activeServerChanged();
+        }
         publishServiceExtras(root, serverId, actualProto, server.value(QStringLiteral("name")).toString());
         emit configReady(config, serverId, server.value(QStringLiteral("name")).toString(),
                          root.value(QStringLiteral("vpn_key")).toString(),
