@@ -55,7 +55,7 @@ namespace
         "https://nvovpn.com/api/v1",
     };
     constexpr int API_BASE_COUNT = 3;
-    constexpr const char *API_BASE_IDX_KEY = "nvo/apiBaseIdx";
+    constexpr char API_BASE_IDX_KEY[] = "Conf/nvoApiBaseIdx";
     // Site/OAuth URL (Google/Apple/веб-кабинет) строим динамически от активной базы (siteBase()) —
     // чтобы в РФ всё шло через тот же незаблокированный домен, а не хардкод nvovpn.com.
     // Apple: redirect_uri host-relative на бэкенде + домен api.netguarder.net заведён в Apple Developer
