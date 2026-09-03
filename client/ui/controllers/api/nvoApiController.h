@@ -6,6 +6,7 @@
 #include <QStringList>
 #include <QList>
 #include <QNetworkRequest>
+#include <QElapsedTimer>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -159,7 +160,9 @@ private:
     SecureQSettings *m_settings;
     NvoServersModel *m_serversModel;
 
-    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net primary, 1=nvovpn.com резерв); переключается при недоступности
+    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net, 1=api.ntvshara.com резерв, 2=nvovpn.com — не для РФ); по кругу при недоступности, сохраняется
+    int m_baseSwitchStreak = 0;                  // переключений подряд без ответа сервера (защита от зацикливания цепочки повторов)
+    QElapsedTimer m_lastBaseSwitch;              // когда последний раз переключали базу (серия сбрасывается через минуту)
     QString m_token;
     QString m_userName;
     QString m_userEmail;

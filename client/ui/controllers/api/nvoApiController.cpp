@@ -46,11 +46,16 @@ namespace
     // ECH, скрытый SNI), nvovpn.com остаётся резервом (на сетевой ошибке переключаемся на него).
     // Раньше первым был nvovpn.com → каждая сессия в РФ висла 6-12с на таймауте, прежде чем
     // переключиться = «бесконечная загрузка» у юзеров при входе.
+    // 03.09.2026 (аудит): третья база на ОТДЕЛЬНОМ домене — блокировка netguarder.net (DNS/CF) больше не оставляет
+    // клиентов в РФ без входа. nvovpn.com из РФ за Cloudflare мёртв (TLS-таймаут), оставлен последним для не-РФ.
+    // Последняя база, на которую переключились, сохраняется (API_BASE_IDX_KEY) и становится стартовой при запуске.
     constexpr const char *API_BASES[] = {
         "https://api.netguarder.net/api/v1",
+        "https://api.ntvshara.com/api/v1",
         "https://nvovpn.com/api/v1",
     };
-    constexpr int API_BASE_COUNT = 2;
+    constexpr int API_BASE_COUNT = 3;
+    constexpr const char *API_BASE_IDX_KEY = "nvo/apiBaseIdx";
     // Site/OAuth URL (Google/Apple/веб-кабинет) строим динамически от активной базы (siteBase()) —
     // чтобы в РФ всё шло через тот же незаблокированный домен, а не хардкод nvovpn.com.
     // Apple: redirect_uri host-relative на бэкенде + домен api.netguarder.net заведён в Apple Developer
@@ -112,6 +117,8 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
         m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
+        // стартуем с последней рабочей базы API (03.09.2026); индекс всегда в границах массива
+        m_apiBaseIdx = qBound(0, m_settings->value(QString::fromLatin1(API_BASE_IDX_KEY), 0).toInt(), API_BASE_COUNT - 1);
     }
 
     // Окно тишины после запуска: первые секунды авто-коннект и restoreConnection на Android часто
@@ -535,10 +542,22 @@ bool NvoApiController::isConnectivityError(QNetworkReply *reply) const
 bool NvoApiController::maybeSwitchBase(QNetworkReply *reply, int startBase)
 {
     if (!isConnectivityError(reply)) {
+        m_baseSwitchStreak = 0;   // сервер ответил (пусть даже 4xx/5xx) — база достижима
         return false;
     }
-    if (m_apiBaseIdx == startBase && m_apiBaseIdx + 1 < API_BASE_COUNT) {
-        ++m_apiBaseIdx;
+    // 03.09.2026: базы перебираем по кругу (стартовая может быть любой — последняя рабочая сохранена), но не больше
+    // API_BASE_COUNT-1 переключений подряд без ответа сервера: цепочка повторов (login → maybeSwitchBase → login …)
+    // иначе зациклится. Серия сбрасывается через минуту тишины и при любом ответе сервера.
+    if (m_lastBaseSwitch.isValid() && m_lastBaseSwitch.elapsed() > 60 * 1000) {
+        m_baseSwitchStreak = 0;
+    }
+    if (m_apiBaseIdx == startBase && m_baseSwitchStreak < API_BASE_COUNT - 1) {
+        m_apiBaseIdx = (m_apiBaseIdx + 1) % API_BASE_COUNT;
+        ++m_baseSwitchStreak;
+        m_lastBaseSwitch.restart();
+        if (m_settings) {
+            m_settings->setValue(QString::fromLatin1(API_BASE_IDX_KEY), m_apiBaseIdx);
+        }
         logger.info() << "API base unreachable, switching to fallback:" << apiBase();
     }
     return m_apiBaseIdx != startBase;   // повторить, если база реально сменилась
