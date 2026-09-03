@@ -56,20 +56,31 @@ PageType {
         onTriggered: root.sessionSeconds++
     }
 
+    // Слой качества: после перерейса службы на запасную ноду показываем ФАКТИЧЕСКУЮ ноду туннеля,
+    // а не выбранную (иначе человек видит «Франция», сидя в Нидерландах).
+    function shownServerId() {
+        var id = NvoApi.selectedServerId
+        if (root.connected && NvoApi.activeServerId >= 0 && id >= 0 && NvoApi.activeServerId !== id)
+            id = NvoApi.activeServerId
+        return id
+    }
+
     function currentCountryText() {
         // Google Play Metadata policy: слова «лучший/best» в UI трактуются как
         // рейтинговое утверждение (отказ 2026-07-07) — формулировки нейтральные.
-        if (NvoApi.selectedServerId < 0)
+        var id = shownServerId()
+        if (id < 0)
             return qsTr("Авто (подбор сервера)")
-        var idx = NvoServersModel.indexOfServerId(NvoApi.selectedServerId)
+        var idx = NvoServersModel.indexOfServerId(id)
         var name = NvoServersModel.nameAt(idx)
         return name === "" ? qsTr("Авто (подбор сервера)") : name
     }
 
     function currentCountryCode() {
-        if (NvoApi.selectedServerId < 0)
+        var id = shownServerId()
+        if (id < 0)
             return ""
-        var idx = NvoServersModel.indexOfServerId(NvoApi.selectedServerId)
+        var idx = NvoServersModel.indexOfServerId(id)
         return NvoServersModel.countryCodeAt(idx).toUpperCase()
     }
 

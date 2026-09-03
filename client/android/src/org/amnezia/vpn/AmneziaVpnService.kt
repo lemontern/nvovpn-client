@@ -88,8 +88,14 @@ private const val PREFS_SERVER_INDEX = "LAST_SERVER_INDEX"
 // чтобы не рвать живой awg в простое. Прежние v1 (C++) и v2 (здесь, сравнивал "amneziawg" с "awg") — снесены.
 private const val NVO_CANDIDATES_KEY = "nvo_candidates"
 private const val NVO_LIVENESS_KEY = "nvo_liveness"
+// Слой качества (03.09.2026, «автоматика от флапов»): запасные НОДЫ (fallback_servers бэкенда, готовые vpnConfig-JSON)
+// и пороги детектора деградации приходят ключами nvo_fallback_servers / nvo_quality. Деградация = туннель жив, но
+// плановые пробы через него проваливаются или отвечают медленно (флап аплинка: соединения открываются через раз).
+private const val NVO_FALLBACK_KEY = "nvo_fallback_servers"
+private const val NVO_QUALITY_KEY = "nvo_quality"
 const val MSG_PATH = "PATH"
 const val MSG_SERVER_ID = "SERVER_ID"
+const val MSG_SERVER_NAME = "SERVER_NAME"
 private const val LIVENESS_ALIVE_RX = 1024L               // rx за интервал ≥ → жив
 private const val LIVENESS_DEAD_TX = 4096L                // tx за интервал > без ответа → «шлём, ответа нет»
 private const val LIVENESS_DEAD_SECONDS_SCREEN_ON = 10    // секунд подряд (экран вкл, интервал 1с)
@@ -104,14 +110,24 @@ private const val SWITCH_PROBE_DELAY_MS = 2500L
 private const val SWITCH_MAX_CYCLES = 3                   // полных перебора кандидатов за сессию
 private const val TELEMETRY_QUEUE_MAX = 50
 
-private data class NvoCandidate(val path: String, val config: String)
+// serverId/serverName заданы только у запасных НОД (перерейс на другую ноду); у путей текущей ноды — -1/null.
+private data class NvoCandidate(val path: String, val config: String, val serverId: Int = -1, val serverName: String? = null)
 
 private data class NvoLiveness(
     val pingUrls: List<String>,
     val apiBase: String,
     val token: String,
-    val serverId: Int,
+    var serverId: Int,
     var path: String
+)
+
+// Пороги детектора качества (приходят от C++ в nvo_quality; дефолты — те же, что на бэкенде).
+private data class NvoQuality(
+    val probeIntervalMs: Long = 20000L,   // плановая проба через туннель
+    val window: Int = 6,                  // окно последних проб
+    val badFails: Int = 3,                // плохих в окне → деградация
+    val badLatencyMs: Long = 4000L,       // ответ дольше — плохой замер
+    val nodeCooldownMs: Long = 600000L    // не менять ноду чаще (анти-качели)
 )
 private const val STATISTICS_SENDING_TIMEOUT = 1000L
 private const val TRAFFIC_STATS_UPDATE_TIMEOUT = 1000L
@@ -144,6 +160,11 @@ open class AmneziaVpnService : VpnService() {
     private var statisticsSendingJob: Job? = null
     // §5.7 failover state (см. константы NVO_* выше)
     private var nvoCandidates: List<NvoCandidate> = emptyList()
+    private var nvoFallback: List<NvoCandidate> = emptyList()      // запасные ноды (слой качества)
+    private var nvoQuality = NvoQuality()
+    private val qualityWindow = ArrayDeque<Boolean>()              // окно плановых проб: true = хороший замер
+    private var lastNodeSwitchMs = 0L                              // когда последний раз уходили на другую ноду
+    private var currentConfigJson: String? = null                  // конфиг живого туннеля — «вернуться», если запасные не поднялись
     private var nvoLiveness: NvoLiveness? = null
     private var livenessJob: Job? = null
     private var switchJob: Job? = null
@@ -549,6 +570,28 @@ open class AmneziaVpnService : VpnService() {
                 if (path.isNotEmpty() && cfg.isNotEmpty()) add(NvoCandidate(path, cfg))
             }
         }
+        // Слой качества: запасные ноды и пороги (старый C++ ключей не шлёт — списки пустые, поведение прежнее).
+        nvoFallback = buildList {
+            val fb = config.optJSONArray(NVO_FALLBACK_KEY)
+            if (fb != null) for (i in 0 until fb.length()) {
+                val o = fb.optJSONObject(i) ?: continue
+                val cfg = o.optString("config"); val sid = o.optInt("server_id", -1)
+                if (cfg.isNotEmpty() && sid >= 0) {
+                    add(NvoCandidate(o.optString("path", "vless-direct"), cfg, sid, o.optString("server_name").takeIf { it.isNotEmpty() }))
+                }
+            }
+        }
+        config.optJSONObject(NVO_QUALITY_KEY)?.let { q ->
+            nvoQuality = NvoQuality(
+                probeIntervalMs = q.optLong("probe_interval_ms", 20000L).coerceIn(5000L, 300000L),
+                window = q.optInt("window", 6).coerceIn(2, 20),
+                badFails = q.optInt("bad_fails", 3).coerceIn(1, 20),
+                badLatencyMs = q.optLong("bad_latency_ms", 4000L).coerceIn(500L, 30000L),
+                nodeCooldownMs = q.optLong("node_cooldown_ms", 600000L).coerceIn(0L, 3600000L)
+            )
+        }
+        synchronized(qualityWindow) { qualityWindow.clear() }
+        currentConfigJson = config.toString()
         nvoLiveness = live?.let { l ->
             NvoLiveness(
                 pingUrls = buildList {
@@ -564,7 +607,8 @@ open class AmneziaVpnService : VpnService() {
         currentPath = nvoLiveness?.path
         switchCycles = 0
         Log.d(TAG, "nvo extras: path=$currentPath candidates=${nvoCandidates.map { it.path }} " +
-            "ping=${nvoLiveness?.pingUrls?.size ?: 0} server=${nvoLiveness?.serverId}")
+            "ping=${nvoLiveness?.pingUrls?.size ?: 0} server=${nvoLiveness?.serverId} " +
+            "fallbackNodes=${nvoFallback.map { "#${it.serverId}" }} quality=$nvoQuality")
     }
 
     @MainThread
@@ -593,6 +637,7 @@ open class AmneziaVpnService : VpnService() {
             val counters = lastRx >= 0 && lastTx >= 0
             if (!counters) Log.w(TAG, "liveness: UID traffic counters unsupported — probe-only mode")
             var deadSeconds = 0
+            var probeFailStreak = 0   // провалов плановой пробы подряд (без rx-stall)
             // Активный проб — по НАСТЕННЫМ часам: последний проб был >LIVENESS_IDLE_PROBE_MS назад.
             // (Раньше таймер сбрасывался любым tx-всплеском → тихо-мёртвый туннель, который клиент
             //  безуспешно долбит малым трафиком, мог не пробиться вовсе. Теперь всплески его не сбивают.)
@@ -621,12 +666,35 @@ open class AmneziaVpnService : VpnService() {
                     suspect = deadSeconds >= limit
                 }
                 // Плановый проб (настенные часы): ловит и «тихую смерть» без исходящего трафика.
-                val dueProbe = SystemClock.elapsedRealtime() - lastProbeMs >= LIVENESS_IDLE_PROBE_MS
+                val dueProbe = SystemClock.elapsedRealtime() - lastProbeMs >= nvoQuality.probeIntervalMs
                 if (!suspect && !dueProbe) continue
                 // Подтверждение активным пробом ЧЕРЕЗ туннель (сокет службы не protect()-ится → идёт в tun).
                 lastProbeMs = SystemClock.elapsedRealtime()
-                if (probeTunnel(live.pingUrls)) { deadSeconds = 0; continue }
+                val (probeOk, probeMs) = probeTunnelTimed(live.pingUrls)
+                if (probeOk) {
+                    deadSeconds = 0
+                    probeFailStreak = 0
+                    // Слой качества: ответ есть, но медленный — тоже плохой замер (флап аплинка).
+                    if (noteQuality(probeMs <= nvoQuality.badLatencyMs) && !switching) {
+                        Log.w(TAG, "quality: degraded (path=$currentPath, bad=${qualityBad()}/${qualityWindow.size}, last=${probeMs}ms)")
+                        withContext(Dispatchers.Main.immediate) { onTunnelDegraded(probeMs) }
+                        return@launch
+                    }
+                    continue
+                }
                 if (!isConnected || switching) continue
+                probeFailStreak++
+                val degraded = noteQuality(false)
+                // Одиночный провал ПЛАНОВОЙ пробы без rx-stall — ещё не смерть: при флапе туннель жив, но соединения
+                // открываются через раз. Смерть = rx-stall + провал, либо два провала плановой пробы подряд.
+                if (!suspect && probeFailStreak < 2) {
+                    if (degraded) {
+                        Log.w(TAG, "quality: degraded by probe failures (path=$currentPath, bad=${qualityBad()}/${qualityWindow.size})")
+                        withContext(Dispatchers.Main.immediate) { onTunnelDegraded(probeMs) }
+                        return@launch
+                    }
+                    continue
+                }
                 Log.w(TAG, "liveness: tunnel dead (path=$currentPath, ${if (suspect) "rx_stall" else "probe_fail"})")
                 withContext(Dispatchers.Main.immediate) { onTunnelDead(if (suspect) "rx_stall" else "probe_fail") }
                 return@launch
@@ -661,6 +729,45 @@ open class AmneziaVpnService : VpnService() {
         return false
     }
 
+    // Проба с замером времени (оба URL по очереди — как probeTunnel).
+    private fun probeTunnelTimed(urls: List<String>): Pair<Boolean, Long> {
+        val t0 = SystemClock.elapsedRealtime()
+        val ok = probeTunnel(urls)
+        return ok to (SystemClock.elapsedRealtime() - t0)
+    }
+
+    // Окно качества: возвращает true, когда плохих замеров в окне уже ≥ порога.
+    private fun noteQuality(good: Boolean): Boolean = synchronized(qualityWindow) {
+        qualityWindow.addLast(good)
+        while (qualityWindow.size > nvoQuality.window) qualityWindow.removeFirst()
+        qualityWindow.count { !it } >= nvoQuality.badFails
+    }
+
+    private fun qualityBad(): Int = synchronized(qualityWindow) { qualityWindow.count { !it } }
+
+    private fun fallbackNodes(): List<NvoCandidate> =
+        nvoFallback.filter { it.serverId >= 0 && it.serverId != (nvoLiveness?.serverId ?: -1) }
+
+    // Слой качества: туннель жив, но деградировал. Перерейс: другие пути этой ноды → запасные ноды (не чаще
+    // node_cooldown_ms — анти-качели) → «вернуться на исходный», если ничего лучше не поднялось (туннель-то был жив).
+    @MainThread
+    private fun onTunnelDegraded(lastProbeMs: Long) {
+        val live = nvoLiveness ?: return
+        queueTelemetry(event("degraded") {
+            put("proto", currentPath); put("server_id", live.serverId); put("fails", qualityBad()); put("latency_ms", lastProbeMs)
+        })
+        val cooldownOk = lastNodeSwitchMs == 0L || SystemClock.elapsedRealtime() - lastNodeSwitchMs >= nvoQuality.nodeCooldownMs
+        val next = nvoCandidates.filter { it.path != currentPath } + (if (cooldownOk) fallbackNodes() else emptyList())
+        synchronized(qualityWindow) { qualityWindow.clear() }
+        if (next.isEmpty() || switchCycles >= SWITCH_MAX_CYCLES) {
+            Log.w(TAG, "quality: nothing to switch to (cooldownOk=$cooldownOk, cycles=$switchCycles) — keep the tunnel")
+            startLivenessJob()
+            return
+        }
+        val back = currentConfigJson?.let { NvoCandidate(currentPath ?: "awg", it, live.serverId, serverName) }
+        switchJob = mainScope.launch { switchTo(if (back != null) next + back else next, "degraded") }
+    }
+
     @MainThread
     private fun onTunnelDead(reason: String) {
         val live = nvoLiveness ?: return
@@ -668,7 +775,8 @@ open class AmneziaVpnService : VpnService() {
         queueTelemetry(event("tunnel_dead") {
             put("proto", currentPath); put("server_id", live.serverId); put("alive_s", aliveS); put("reason", reason)
         })
-        val next = nvoCandidates.filter { it.path != currentPath }
+        // Мёртвый туннель: пути этой ноды, затем запасные ноды (слой качества).
+        val next = nvoCandidates.filter { it.path != currentPath } + fallbackNodes()
         if (next.isEmpty() || switchCycles >= SWITCH_MAX_CYCLES) {
             Log.w(TAG, "liveness: no candidates to switch (cycles=$switchCycles)")
             onError("Соединение потеряно, резервных каналов нет")
@@ -689,7 +797,7 @@ open class AmneziaVpnService : VpnService() {
     // Последовательный перерейс по кандидатам: рвём мёртвый туннель → поднимаем следующий → подтверждаем пробом.
     // Всё внутри ОДНОЙ службы/процесса (xray грузится в awg-процесс) — VpnService не пересоздаётся.
     @MainThread
-    private suspend fun switchTo(cands: List<NvoCandidate>) {
+    private suspend fun switchTo(cands: List<NvoCandidate>, reason: String = "dead") {
         if (switching) return
         switching = true
         switchCycles++
@@ -699,7 +807,7 @@ open class AmneziaVpnService : VpnService() {
         try {
             for (c in cands) {
                 val started = SystemClock.elapsedRealtime()
-                Log.i(TAG, "switch: $currentPath -> ${c.path}")
+                Log.i(TAG, "switch($reason): $currentPath -> ${c.path}" + (if (c.serverId >= 0) " node #${c.serverId} ${c.serverName}" else ""))
                 disconnectForSwitch()
                 if (!isDisconnected) {
                     Log.w(TAG, "switch: tunnel did not stop, abort")
@@ -719,15 +827,26 @@ open class AmneziaVpnService : VpnService() {
                 val ms = (SystemClock.elapsedRealtime() - started).toInt()
                 queueTelemetry(event("switch") {
                     put("proto", currentPath); put("to", c.path); put("server_id", live?.serverId ?: -1); put("ms", ms); put("ok", ok)
+                    put("reason", reason); if (c.serverId >= 0) put("to_server_id", c.serverId)
                 })
                 if (ok) {
                     currentPath = c.path
                     live?.path = c.path
+                    currentConfigJson = c.config
+                    synchronized(qualityWindow) { qualityWindow.clear() }
+                    if (c.serverId >= 0 && live != null && c.serverId != live.serverId) {
+                        // Ушли на другую ноду: телеметрия/UI/уведомление — про неё; кулдаун от качелей.
+                        live.serverId = c.serverId
+                        serverName = c.serverName ?: serverName
+                        lastNodeSwitchMs = SystemClock.elapsedRealtime()
+                        Log.i(TAG, "switch: now on node #${c.serverId} ${c.serverName}")
+                    }
                     switching = false
                     Log.i(TAG, "switch: OK -> ${c.path} in ${ms}ms")
                     clientMessengers.send {
                         ServiceEvent.PROTO_SWITCHED.packToMessage {
                             putString(MSG_PATH, c.path); putInt(MSG_SERVER_ID, live?.serverId ?: -1)
+                            putString(MSG_SERVER_NAME, serverName ?: "")
                         }
                     }
                     serviceNotification.updateNotification(serverName, vpnProto?.label, protocolState.value)
