@@ -244,7 +244,7 @@ void VpnConnection::addSitesRoutes(const QString &gw, amnezia::RouteMode mode)
                     }
                     IpcClient::withInterface([](QSharedPointer<IpcInterfaceReplica> iface) {
                         auto reply = iface->flushDns();
-                        if (reply.waitForFinished() || !reply.returnValue())
+                        if (!reply.waitForFinished() || !reply.returnValue())
                             qWarning() << "VpnConnection::addSitesRoutes: Failed to flush DNS";
                     });
                     break;

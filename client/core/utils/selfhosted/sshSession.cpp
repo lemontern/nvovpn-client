@@ -197,7 +197,10 @@ ErrorCode SshSession::uploadFileToHost(const ServerCredentials &credentials, con
     }
 
     QTemporaryFile localFile;
-    localFile.open();
+    if (!localFile.open()) {
+        qCritical() << "SshSession::uploadFileToHost: Failed to open temporary file for writing";
+        return ErrorCode::InternalError;
+    }
     localFile.write(data);
     localFile.close();
 

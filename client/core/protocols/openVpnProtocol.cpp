@@ -52,7 +52,7 @@ void OpenVpnProtocol::cleanupResources()
 #if defined(Q_OS_WIN) || defined(Q_OS_LINUX) || defined(Q_OS_MACOS)
     IpcClient::withInterface([](QSharedPointer<IpcInterfaceReplica> iface) {
         QRemoteObjectPendingReply<bool> reply = iface->disableKillSwitch();
-        if (!reply.waitForFinished(1000) && !reply.returnValue()) {
+        if (!reply.waitForFinished(1000) || !reply.returnValue()) {
             qWarning() << "OpenVpnProtocol::cleanupResources(): Failed to disable killswitch";
         }
     });
@@ -114,7 +114,10 @@ void OpenVpnProtocol::readOpenVpnConfiguration(const QJsonObject &configuration)
         m_configData = configuration;
         QJsonObject jConfig = configuration.value(ProtocolUtils::key_proto_config_data(Proto::OpenVpn)).toObject();
 
-        m_configFile.open();
+        if (!m_configFile.open()) {
+            qCritical() << "OpenVpnProtocol: Failed to open temporary config file for writing";
+            return;
+        }
         m_configFile.write(jConfig.value(configKey::config).toString().toUtf8());
         m_configFile.close();
         m_configFileName = m_configFile.fileName();
@@ -168,10 +171,15 @@ void OpenVpnProtocol::updateRouteGateway(QString line)
             m_routeGateway = params.at(3);
         }
     } else {
-        line = line.split("ROUTE_GATEWAY", Qt::SkipEmptyParts).at(1);
-        if (!line.contains("/"))
+        QStringList parts = line.split("ROUTE_GATEWAY", Qt::SkipEmptyParts);
+        if (parts.size() < 2) {
+            qWarning() << "OpenVpnProtocol::updateRouteGateway: unexpected ROUTE_GATEWAY format:" << line;
             return;
-        m_routeGateway = line.split("/", Qt::SkipEmptyParts).first();
+        }
+        QString gatewayPart = parts.at(1);
+        if (!gatewayPart.contains("/"))
+            return;
+        m_routeGateway = gatewayPart.split("/", Qt::SkipEmptyParts).first();
         m_routeGateway.replace(" ", "");
     }
     qDebug() << "Set VPN route gateway" << m_routeGateway;
