@@ -96,6 +96,7 @@ public:
                             QQmlApplicationEngine *engine, QObject *parent = nullptr);
 
     PageController* pageController() const;
+    NvoApiController* nvoApiController() const;   // 04.09.2026: нужен для nvovpn:// (вход по ссылке из письма)
     void setQmlRoot();
 
     void openConnectionByIndex(int serverIndex);
