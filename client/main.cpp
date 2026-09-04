@@ -17,12 +17,32 @@
 #endif
 
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS) && !defined(MACOS_NE)
-bool isAnotherInstanceRunning()
+// 04.09.2026: приложение могли запустить по ссылке nvovpn://login?code=… (кнопка «Открыть приложение» в письме).
+// Windows/Linux передают её аргументом командной строки; macOS — событием FileOpen (см. AmneziaApplication::event).
+static QString deepLinkFromArgs(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        const QString arg = QString::fromLocal8Bit(argv[i]).trimmed();
+        if (arg.startsWith(QStringLiteral("nvovpn://"), Qt::CaseInsensitive)) {
+            return arg;
+        }
+    }
+    return {};
+}
+
+bool isAnotherInstanceRunning(const QString &deepLink)
 {
     QLocalSocket socket;
     socket.connectToServer("AmneziaVPNInstance");
     if (socket.waitForConnected(500)) {
         qWarning() << "AmneziaVPN is already running";
+        // отдаём ссылку уже работающему экземпляру — он выполнит вход и поднимет окно
+        if (!deepLink.isEmpty()) {
+            socket.write(deepLink.toUtf8());
+            socket.flush();
+            socket.waitForBytesWritten(1000);
+            socket.disconnectFromServer();
+        }
         return true;
     }
     return false;
@@ -56,11 +76,15 @@ int main(int argc, char *argv[])
     });
 
 #if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS) && !defined(MACOS_NE)
-    if (isAnotherInstanceRunning()) {
+    const QString deepLink = deepLinkFromArgs(argc, argv);
+    if (isAnotherInstanceRunning(deepLink)) {
         QTimer::singleShot(1000, &app, [&]() { app.quit(); });
         return app.exec();
     }
     app.startLocalServer();
+    if (!deepLink.isEmpty()) {
+        app.handleDeepLink(deepLink);   // применится после init(), ядро ещё не поднято
+    }
 #endif
 
 // Allow to raise app window if secondary instance launched

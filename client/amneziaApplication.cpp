@@ -13,6 +13,8 @@
 #include <QTimer>
 #include <QTranslator>
 #include <QEvent>
+#include <QFileOpenEvent>
+#include <QUrl>
 #include <QDir>
 #include <QSettings>
 #include <QtQuick/QQuickWindow>  
@@ -138,6 +140,13 @@ void AmneziaApplication::init()
 
     m_coreController.reset(new CoreController(m_vpnConnection, m_settings, m_engine));
 
+    // ссылка nvovpn://, пришедшая до готовности ядра (запуск приложения по ссылке из письма)
+    if (!m_pendingDeepLink.isEmpty()) {
+        const QString pending = m_pendingDeepLink;
+        m_pendingDeepLink.clear();
+        QTimer::singleShot(0, this, [this, pending]() { handleDeepLink(pending); });
+    }
+
     m_engine->addImportPath("qrc:/ui/qml/Modules/");
 
     if (m_parser.isSet(m_optImport)) {
@@ -260,7 +269,17 @@ void AmneziaApplication::startLocalServer() {
     QObject::connect(server, &QLocalServer::newConnection, this, [server, this]() {
         if (server) {
             QLocalSocket *clientConnection = server->nextPendingConnection();
-            clientConnection->deleteLater();
+            if (clientConnection) {
+                // 04.09.2026: второй экземпляр, запущенный системой по ссылке nvovpn://, передаёт её сюда.
+                QObject::connect(clientConnection, &QLocalSocket::readyRead, this, [clientConnection, this]() {
+                    const QString payload = QString::fromUtf8(clientConnection->readAll()).trimmed();
+                    if (payload.startsWith(QStringLiteral("nvovpn://"), Qt::CaseInsensitive)) {
+                        handleDeepLink(payload);
+                    }
+                });
+                QObject::connect(clientConnection, &QLocalSocket::disconnected, clientConnection, &QLocalSocket::deleteLater);
+                QTimer::singleShot(2000, clientConnection, &QLocalSocket::deleteLater);
+            }
         }
         emit m_coreController->pageController()->raiseMainWindow(); //TODO
     });
@@ -296,6 +315,35 @@ void AmneziaApplication::forceQuit()
 QQmlApplicationEngine *AmneziaApplication::qmlEngine() const
 {
     return m_engine;
+}
+
+// 04.09.2026: вход по ссылке из письма (nvovpn://login?code=…). Разбор и сам вход — в NvoApiController::handleDeepLink,
+// он уже используется на Android. Если ядро ещё не поднято (ссылка пришла в момент старта), запоминаем и применяем после init().
+void AmneziaApplication::handleDeepLink(const QString &url)
+{
+    if (url.isEmpty()) {
+        return;
+    }
+    if (m_coreController && m_coreController->nvoApiController()) {
+        if (m_coreController->nvoApiController()->handleDeepLink(url) && m_coreController->pageController()) {
+            emit m_coreController->pageController()->raiseMainWindow();
+        }
+        return;
+    }
+    m_pendingDeepLink = url;
+}
+
+bool AmneziaApplication::event(QEvent *event)
+{
+    // macOS отдаёт открытие ссылки приложением как QEvent::FileOpen (Apple Event kInternetEventClass).
+    if (event->type() == QEvent::FileOpen) {
+        const QUrl url = static_cast<QFileOpenEvent *>(event)->url();
+        if (url.scheme().compare(QStringLiteral("nvovpn"), Qt::CaseInsensitive) == 0) {
+            handleDeepLink(url.toString());
+            return true;
+        }
+    }
+    return AMNEZIA_BASE_CLASS::event(event);
 }
 
 QNetworkAccessManager *AmneziaApplication::networkManager()

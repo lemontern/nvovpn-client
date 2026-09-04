@@ -14,6 +14,20 @@
 	<string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
 	<key>CFBundleIdentifier</key>
 	<string>${MACOSX_BUNDLE_GUI_IDENTIFIER}</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<!-- NvoVPN 04.09.2026: вход по ссылке из письма «Доступ открыт» (nvovpn://login?code=…) -->
+			<key>CFBundleURLName</key>
+			<string>com.nvovpn.app.deeplink</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nvovpn</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

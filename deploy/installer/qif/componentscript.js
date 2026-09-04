@@ -72,6 +72,19 @@ Component.prototype.createOperations = function()
                                        installer.value("AllUsersStartMenuProgramsPath") + "/" + appName() + ".lnk",
                                        "workingDirectory=@TargetDir@", "iconPath=@TargetDir@\\" + appExecutableFileName(), "iconId=0");
 
+        // NvoVPN 04.09.2026: протокол nvovpn:// — вход по ссылке из письма «Доступ открыт».
+        // Пишем через reg.exe (в QIF нет операции для произвольных веток реестра); UNDOEXECUTE снимает ключ при удалении.
+        var exe = "@TargetDir@\\" + appExecutableFileName();
+        component.addElevatedOperation("Execute",
+            "reg", "add", "HKEY_CLASSES_ROOT\\nvovpn", "/ve", "/t", "REG_SZ", "/d", "URL:NvoVPN Protocol", "/f",
+            "UNDOEXECUTE", "reg", "delete", "HKEY_CLASSES_ROOT\\nvovpn", "/f");
+        component.addElevatedOperation("Execute",
+            "reg", "add", "HKEY_CLASSES_ROOT\\nvovpn", "/v", "URL Protocol", "/t", "REG_SZ", "/d", "", "/f");
+        component.addElevatedOperation("Execute",
+            "reg", "add", "HKEY_CLASSES_ROOT\\nvovpn\\DefaultIcon", "/ve", "/t", "REG_SZ", "/d", exe + ",0", "/f");
+        component.addElevatedOperation("Execute",
+            "reg", "add", "HKEY_CLASSES_ROOT\\nvovpn\\shell\\open\\command", "/ve", "/t", "REG_SZ", "/d", "\"" + exe + "\" \"%1\"", "/f");
+
         if (!vcRuntimeIsInstalled()) {
 			if (systemInfo.currentCpuArchitecture.search("64") < 0) {
 				component.addElevatedOperation("Execute", "@TargetDir@\\" + "vc_redist.x86.exe", "/install", "/quiet", "/norestart", "/log", "vc_redist.log");

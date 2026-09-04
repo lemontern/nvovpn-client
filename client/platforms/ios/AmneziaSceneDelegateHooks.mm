@@ -14,7 +14,22 @@ static SceneOpenURLContexts g_originalSceneOpenURLContexts = nullptr;
 
 static void amnezia_handleURL(NSURL *url)
 {
-    if (!url || !url.isFileURL) {
+    if (!url) {
+        return;
+    }
+
+    // NvoVPN 04.09.2026: вход по ссылке из письма (nvovpn://login?code=…) — приходит сюда на iOS 13+ со SceneDelegate.
+    if (!url.isFileURL && [url.scheme.lowercaseString isEqualToString:@"nvovpn"]) {
+        const QString deepLink = QString::fromNSString(url.absoluteString);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (IosController::Instance()) {
+                emit IosController::Instance()->deepLinkReceived(deepLink);
+            }
+        });
+        return;
+    }
+
+    if (!url.isFileURL) {
         return;
     }
 

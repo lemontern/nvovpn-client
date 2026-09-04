@@ -1,0 +1,972 @@
+name: 'NvoVPN CI'
+
+# Сборка клиента NvoVPN на GitHub-hosted раннерах (Qt локально не собираем).
+# Пока Windows (приоритет ТЗ). Android добавим после зелёного Windows.
+# Секреты gateway Amnezia (PROD_AGW_* и т.д.) в нашем репо не заданы → пустые строки,
+# нам они не нужны (свой REST-API, не gateway). Кастомные conan-пакеты берутся из ./recipes
+# + публичного remote artifactory.amnezia.org (creds нужны только для upload, не для build).
+
+on:
+  workflow_dispatch:
+    inputs:
+      macos_qt_version:
+        description: 'Qt для macOS-сборки (6.8.3 = поддержка Monterey/macOS 12; дефолт 6.10.1 = публичная)'
+        default: '6.10.1'
+        required: false
+  push:
+    branches:
+      - '**'
+
+env:
+  QT_MIRROR: https://mirrors.ocf.berkeley.edu/qt/
+
+# Нужно для авто-выкладки собранных билдов в GitHub Release (gh release upload).
+permissions:
+  contents: write
+
+# Новый пуш в ту же ветку отменяет предыдущую (незавершённую) сборку — без лишних параллельных прогонов.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  Build-Windows:
+    # windows-2022 = VS2022 (msvc 194): совпадает с Qt win64_msvc2022_64 и с публичными
+    # conan-пребилтами Amnezia. windows-latest уже редиректит на VS2026 (Visual Studio 18) —
+    # пребилтов под него нет, conan собирает из исходников и падает на неизвестном генераторе.
+    runs-on: windows-2022
+
+    env:
+      QT_VERSION: 6.10.1
+      QIF_VERSION: 4.7
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+          fetch-depth: 10
+
+      - name: 'Install Qt'
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2022_64'
+          modules: 'qtremoteobjects qt5compat qtshadertools'
+          dir: ${{ runner.temp }}
+          setup-python: 'true'
+          tools: 'tools_ifw'
+          set-env: 'true'
+          aqtversion: '==3.3.0'
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Setup msvc'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: 'x64'
+
+      - name: 'Setup .NET SDK'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 'Install WiX Toolset'
+        shell: powershell
+        run: |
+          dotnet tool install --global wix --version 4.0.6
+          wix extension add -g WixToolset.UI.wixext/4.0.6
+          wix extension add -g WixToolset.Util.wixext/4.0.6
+          wix extension list -g
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: pip install "conan==2.28.0"
+
+      - name: 'Build project'
+        shell: cmd
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        # Только IFW (.exe) — им раздаём с сайта. WIX (.msi) пока выключен:
+        # после полного rename его авто-Id фрагмента службы (CM_CP_<comp>.<exe>) требует
+        # подбора под CPack; .msi сейчас не нужен. Вернём при необходимости.
+        run: |
+          set WIX_ROOT_PATH=%USERPROFILE%\.dotnet\tools
+          deploy\build.bat --installer ifw
+
+      - name: 'Upload installers'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-windows-x64
+          path: |
+            deploy/build/*_windows_x64.exe
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Авто-выкладка в релиз (стабильная ссылка для раздачи на сайте). Только main.
+      - name: 'Publish to Release'
+        if: github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload test-win-1 deploy/build/*_windows_x64.exe --clobber -R "${{ github.repository }}"
+
+  Build-Android:
+    runs-on: ubuntu-latest   # вместо self-hosted android-runner Amnezia
+    env:
+      ANDROID_PLATFORM: android-28   # conan api_level / minSdk (НЕ менять: prebuilt libssh собран под api 28;
+                                     # api 34 → conan пересобирает libssh из исходников и падает на openssl).
+                                     # compileSdk/targetSdk=34 задаются отдельно (SDK platform 34 + android.cmake).
+      NDK_VERSION: 27.0.11718014
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: 'Install desktop Qt (host tools)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'desktop'
+          arch: 'linux_gcc_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Install android_arm64_v8a Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'android'
+          arch: 'android_arm64_v8a'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Install android_armv7 Qt'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'linux'
+          target: 'android'
+          arch: 'android_armv7'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Setup Java'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: 'Setup Android SDK'
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0 ndk;${{ env.NDK_VERSION }}"
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: pip install "conan==2.28.0"
+
+      - name: 'Decode signing keystore from secret'
+        # Постоянный keystore (один ключ для всех билдов) → обновления ставятся поверх
+        # без переустановки. APK обязан быть подписан, иначе Android «Не установлено».
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > "$GITHUB_WORKSPACE/nvovpn.keystore"
+
+      - name: 'Build project (signed, arm64-v8a + armeabi-v7a)'
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+          QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/nvovpn.keystore
+          QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+          QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+        run: |
+          deploy/build.sh -t android --sign --aab --abi arm64-v8a --abi armeabi-v7a
+
+      - name: 'Locate AAB (для Google Play)'
+        # Gradle собирает ДВА bundle — release и debug. Раньше здесь стояло
+        # `find -name '*.aab' | head -1`, и выбор зависел от порядка обхода каталогов:
+        # уезжал отладочный, а Google Play такой отклоняет («APK is marked as debuggable»).
+        # Подпись jarsigner отладочный флаг из манифеста не убирает, так что ошибка
+        # всплывала только на заливке. Берём release явно и падаем, если его нет.
+        run: |
+          set -e
+          echo "Найденные .aab:"
+          find deploy/build -name '*.aab' -print | sed 's/^/  /'
+          AAB=$(find deploy/build -path '*/bundle/release/*.aab' | head -1)
+          if [ -z "$AAB" ]; then
+            echo "::error::release-AAB не найден — в Play нельзя заливать debug-bundle"
+            exit 1
+          fi
+          echo "Выбран release: $AAB"
+          cp "$AAB" deploy/build/NvoVPN.aab
+          echo "→ deploy/build/NvoVPN.aab"
+
+      - name: 'Подписать AAB (jarsigner) — Qt AAB не подписывает сам'
+        # Play отклоняет неподписанные AAB («must be signed using jarsigner»). QT_ANDROID_SIGN_AAB
+        # не проставляет подпись. Подписываем тем же upload-keystore, что и APK. Пароль из секрета
+        # через :env (не светится в командной строке; GitHub маскирует секреты в логах).
+        env:
+          KSPASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
+        run: |
+          set -e
+          test -f deploy/build/NvoVPN.aab || { echo "AAB не найден — пропуск подписи"; exit 0; }
+          jarsigner -keystore "$GITHUB_WORKSPACE/nvovpn.keystore" \
+            -storepass:env KSPASS -keypass:env KSPASS \
+            -sigalg SHA256withRSA -digestalg SHA-256 \
+            deploy/build/NvoVPN.aab "${{ secrets.ANDROID_KEYSTORE_ALIAS }}"
+          jarsigner -verify deploy/build/NvoVPN.aab | tail -1
+          echo "✓ AAB подписан"
+
+      - name: 'Проверка 16КБ-выравнивания .so (Google Play, срок 31.08.2026)'
+        # БЛОКИРУЮЩАЯ с 02.08.2026: все 115 .so выровнены по 16КБ. Раньше здесь стояло
+        # предупреждение, потому что libgojni.so оставалась 4КБ — считалось, что source-сборка
+        # amnezia-libxray сломана upstream. На деле её ломал сам апстримный build.sh, удаляя
+        # рабочий go.mod из релиза; чинится в recipes/amnezia-libxray/conanfile.py.
+        # Если шаг снова покраснеет — значит выравнивание где-то откатилось, и Google Play
+        # такой AAB не примет. Не заглушать `|| echo`, а искать причину.
+        run: |
+          TARGET="deploy/build/NvoVPN.aab"
+          [ -f "$TARGET" ] || TARGET=$(find deploy/build/client/android-build -name "*.apk" ! -name "*unsigned*" | head -1)
+          echo "Проверяю выравнивание: $TARGET"
+          python3 deploy/check_16kb.py "$TARGET"
+
+      - name: 'Проверка: AAB не отладочный (Google Play отклоняет debuggable)'
+        # Ловим на сборке то, что раньше вылезало только при заливке в Play:
+        # «APK is marked as debuggable». Причина была в выборе debug-bundle вместо
+        # release; подпись jarsigner этот флаг не снимает.
+        run: |
+          set -e
+          python3 - <<'PY'
+          import sys, zipfile
+          p = "deploy/build/NvoVPN.aab"
+          m = zipfile.ZipFile(p).read("base/manifest/AndroidManifest.xml")
+          i = m.find(b"debuggable")
+          if i >= 0 and b"true" in m[i:i + 24]:
+              print("::error::В AAB выставлен debuggable=true — Play такой bundle отклонит")
+              sys.exit(1)
+          print("OK: AAB не отладочный")
+          PY
+
+      - name: 'Upload APK + AAB'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-android
+          path: |
+            deploy/build/client/android-build/*.apk
+            deploy/build/NvoVPN.aab
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Авто-выкладка в релиз (стабильная ссылка для раздачи на сайте). Только main.
+      - name: 'Publish to Release'
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=$(find deploy/build/client/android-build -name "*.apk" ! -name "*unsigned*" | head -1)
+          echo "APK: $APK"
+          cp "$APK" NvoVPN.apk
+          gh release upload test-android-1 NvoVPN.apk --clobber -R "${{ github.repository }}"
+
+  # macOS — Network Extension (рабочий VPN), раздача .dmg вне App Store (Developer ID).
+  # ЭТАП 1: добиться компиляции (Qt macos + conan + код). Подпись отключена на сборке
+  # (CODE_SIGNING_ALLOWED=NO) — Developer ID подпись + нотаризация + .dmg добавим после зелёной компиляции.
+  Build-macOS:
+    runs-on: macos-14
+    env:
+      # Дефолт 6.10.1 (публичная сборка, macOS 13+). Через workflow_dispatch можно
+      # запустить с 6.8.3 для приватной сборки под Monterey (macOS 12). Push не затрагивается.
+      QT_VERSION: ${{ github.event.inputs.macos_qt_version || '6.10.1' }}
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: 'Install Qt (macos)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Select Xcode'
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: |
+          pip install "conan==2.28.0"
+          conan profile detect --force
+
+      - name: 'Configure (cmake) — тянет conan-пакеты'
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        # build.sh для macos-ne хардкодит DEPLOY=1 (Manual signing + App Store профили, которых нет) —
+        # вызываем cmake напрямую. CODE_SIGNING_ALLOWED=NO отключает подпись на этапе сборки.
+        run: |
+          QT_ROOT="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
+          echo "QT_ROOT=$QT_ROOT"
+          cmake -S . -B build -G Xcode \
+            -DMACOS_NE=TRUE \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_ROOT"
+
+      - name: 'Fix Go cgo symbol clash in libwg-go.a'
+        # libwg-go.a (AmneziaWG, Go) и OpenVPNAdapter.framework (тоже содержит Go cgo) дают
+        # "duplicate cgo symbols" при линковке NE на ld-prime. Мы AmneziaWG-only — OpenVPN мёртвый код
+        # (не вызывается, его Go-рантайм не активируется). Локализуем cgo-символы в libwg-go.a через
+        # `ld -r -unexported_symbols_list` → они перестают быть глобальными → конфликта нет.
+        run: |
+          set -e
+          WGGO="$(find "$HOME/.conan2" -path '*awg*/p/lib/libwg-go.a' 2>/dev/null | head -1)"
+          echo "libwg-go.a: $WGGO"
+          test -n "$WGGO" || { echo "libwg-go.a не найден"; exit 1; }
+          printf '%s\n' \
+            __cgo_set_stacklo \
+            __cgo_get_context_function \
+            _x_cgo_notify_runtime_init_done \
+            _x_cgo_sys_thread_create \
+            _x_cgo_bindm \
+            _x_cgo_pthread_key_created \
+            __cgo_wait_runtime_init_done \
+            __cgo_try_pthread_create \
+            _x_crosscall2_ptr > /tmp/cgo_hidden.txt
+          ARCHS="$(lipo -archs "$WGGO" 2>/dev/null || echo "x86_64")"
+          echo "Архитектуры: $ARCHS"
+          FIXED=()
+          for arch in $ARCHS; do
+            if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+              lipo "$WGGO" -thin "$arch" -output "/tmp/wg-$arch.a"
+            else
+              cp "$WGGO" "/tmp/wg-$arch.a"
+            fi
+            ld -r -arch "$arch" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "/tmp/wg-$arch.a" -o "/tmp/wg-$arch.o"
+            rm -f "/tmp/wg-$arch-fixed.a"
+            ar -crs "/tmp/wg-$arch-fixed.a" "/tmp/wg-$arch.o"
+            FIXED+=("/tmp/wg-$arch-fixed.a")
+          done
+          if [ "${#FIXED[@]}" -gt 1 ]; then
+            lipo -create "${FIXED[@]}" -output "$WGGO"
+          else
+            cp "${FIXED[0]}" "$WGGO"
+          fi
+          echo "✓ libwg-go.a пропатчен (cgo-символы локализованы)"
+
+      - name: 'Fix Go cgo symbol clash in libamnezia_xray.a (SPIKE macOS VLESS)'
+        # SPIKE: libamnezia_xray.a — ТРЕТИЙ Go-архив (движок xray для VLESS-фолбека), рядом с
+        # libwg-go (AmneziaWG) и OpenVPNAdapter в одном бинаре NE. Его cgo-символы глобальные →
+        # дублируют глобальные cgo-символы OpenVPNAdapter → "duplicate cgo symbols" на линковке.
+        # Тот же проверенный фикс, что и для libwg-go выше: локализуем cgo-символы в xray-либе
+        # (ld -r -unexported_symbols_list) → глобальными остаются только копии OpenVPNAdapter,
+        # каждый Go-рантайм зовёт СВОИ (локальные) cgo-интринсики. Только для VLESS-фолбека активен
+        # ровно один Go-рантайм за раз (AWG ИЛИ xray), так что рантайм-состояния не пересекаются.
+        run: |
+          set -e
+          XRAY="$(find "$HOME/.conan2" -path '*/p/lib/libamnezia_xray.a' 2>/dev/null | head -1)"
+          echo "libamnezia_xray.a: $XRAY"
+          test -n "$XRAY" || { echo "libamnezia_xray.a не найден"; exit 1; }
+          # Полный набор cgo-интринсиков (27): 9 из фикса libwg-go + 18, которые линкер
+          # реально показал дублирующимися между libamnezia_xray.a и libwg-go.a (оба Go).
+          # Локализуем ВСЕ в xray → wg-go остаётся единственным глобальным носителем, коллизий 0.
+          printf '%s\n' \
+            __cgo_set_stacklo \
+            __cgo_get_context_function \
+            _x_cgo_notify_runtime_init_done \
+            _x_cgo_sys_thread_create \
+            _x_cgo_bindm \
+            _x_cgo_pthread_key_created \
+            __cgo_wait_runtime_init_done \
+            __cgo_try_pthread_create \
+            _x_crosscall2_ptr \
+            __cgo_get_traceback_function \
+            __cgo_topofstack \
+            _crosscall2 \
+            __cgo_panic \
+            __cgo_sys_thread_start \
+            _x_cgo_set_traceback_functions \
+            __cgo_yield \
+            _crosscall1 \
+            _x_cgo_call_traceback_function \
+            __cgo_release_context \
+            _x_cgo_init \
+            _x_cgo_getstackbound \
+            _x_cgo_thread_start \
+            _x_cgo_unsetenv \
+            _x_cgo_setenv \
+            _x_cgo_call_symbolizer_function \
+            _x_cgo_callers \
+            __cgo_get_symbolizer_function > /tmp/cgo_hidden_xray.txt
+          ARCHS="$(lipo -archs "$XRAY" 2>/dev/null || echo "arm64")"
+          echo "Архитектуры: $ARCHS"
+          FIXED=()
+          for arch in $ARCHS; do
+            if [ "$(echo $ARCHS | wc -w)" -gt 1 ]; then
+              lipo "$XRAY" -thin "$arch" -output "/tmp/xray-$arch.a"
+            else
+              cp "$XRAY" "/tmp/xray-$arch.a"
+            fi
+            ld -r -arch "$arch" -all_load -unexported_symbols_list /tmp/cgo_hidden_xray.txt "/tmp/xray-$arch.a" -o "/tmp/xray-$arch.o"
+            rm -f "/tmp/xray-$arch-fixed.a"
+            ar -crs "/tmp/xray-$arch-fixed.a" "/tmp/xray-$arch.o"
+            FIXED+=("/tmp/xray-$arch-fixed.a")
+          done
+          if [ "${#FIXED[@]}" -gt 1 ]; then
+            lipo -create "${FIXED[@]}" -output "$XRAY"
+          else
+            cp "${FIXED[0]}" "$XRAY"
+          fi
+          echo "✓ libamnezia_xray.a пропатчен (cgo-символы локализованы)"
+
+      - name: 'Build macOS app (unsigned)'
+        run: |
+          cmake --build build --config Release -- -allowProvisioningUpdates CODE_SIGNING_ALLOWED=NO
+
+      - name: 'Upload unsigned .app (для локальной подписи/теста — не зависит от Apple notary)'
+        run: |
+          APP="$(find build -name 'NvoVPN.app' -maxdepth 4 -type d | head -1)"
+          echo "tar .app сохраняя симлинки frameworks (upload-artifact zip их ломает)"
+          tar -czf "$RUNNER_TEMP/NvoVPN-unsigned.tar.gz" -C "$(dirname "$APP")" "$(basename "$APP")"
+          ls -la "$RUNNER_TEMP/NvoVPN-unsigned.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NvoVPN-macos-unsigned
+          path: ${{ runner.temp }}/NvoVPN-unsigned.tar.gz
+          if-no-files-found: warn
+          retention-days: 5
+
+      - name: 'Import Developer ID certificate + provisioning profiles'
+        env:
+          P12_B64: ${{ secrets.APPLE_DEVID_P12_BASE64 }}
+          P12_PASS: ${{ secrets.APPLE_DEVID_P12_PASSWORD }}
+          PROFILE_APP_B64: ${{ secrets.APPLE_PROFILE_APP_BASE64 }}
+          PROFILE_NE_B64: ${{ secrets.APPLE_PROFILE_NE_BASE64 }}
+        run: |
+          set -e
+          KEYCHAIN="$RUNNER_TEMP/nvovpn.keychain-db"
+          KCPASS="ci-$RANDOM"
+          security create-keychain -p "$KCPASS" "$KEYCHAIN"
+          security set-keychain-settings "$KEYCHAIN"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          echo "$P12_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$P12_PASS" -T /usr/bin/codesign -A
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCPASS" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed s/\"//g)
+          security find-identity -v -p codesigning "$KEYCHAIN"
+          # provisioning profiles → встроим в .app/.appex как embedded.provisionprofile
+          echo "$PROFILE_APP_B64" | base64 --decode > "$RUNNER_TEMP/app.provisionprofile"
+          echo "$PROFILE_NE_B64"  | base64 --decode > "$RUNNER_TEMP/ne.provisionprofile"
+          echo "KEYCHAIN=$KEYCHAIN" >> $GITHUB_ENV
+          echo "KCPASS=$KCPASS" >> $GITHUB_ENV
+
+      - name: 'Codesign (Developer ID, hardened runtime)'
+        run: |
+          set -e
+          APP="$(find build -name 'NvoVPN.app' -maxdepth 4 | head -1)"
+          echo "APP=$APP"
+          IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          # XCODE_EMBED_SYSTEM_EXTENSIONS не встроил sysext в .app — встраиваем вручную в
+          # Contents/Library/SystemExtensions/ из собранного bundle.
+          # КРИТИЧНО: имя .systemextension бандла ДОЛЖНО совпадать с его CFBundleIdentifier,
+          # иначе sysextd: "bundle identifier and service path did not match" → активация не проходит
+          # (найдено 2026-06-27 на Mac юзера). Переименовываем в com.nvovpn.app.network-extension.systemextension.
+          BUILT_SYSEXT="$(find build -name 'AmneziaVPNNetworkExtension.systemextension' -type d | head -1)"
+          echo "Собранный sysext: $BUILT_SYSEXT"
+          SYSEXT_NAME="com.nvovpn.app.network-extension.systemextension"
+          if [ -n "$BUILT_SYSEXT" ] && [ ! -d "$APP/Contents/Library/SystemExtensions" ]; then
+            mkdir -p "$APP/Contents/Library/SystemExtensions"
+            cp -R "$BUILT_SYSEXT" "$APP/Contents/Library/SystemExtensions/$SYSEXT_NAME"
+            echo "✓ sysext встроен вручную как $SYSEXT_NAME"
+          fi
+          APPEX="$(find "$APP" -name '*.systemextension' -maxdepth 5 -type d | head -1)"
+          echo "SystemExtension в .app: $APPEX"
+          # Встраиваем provisioning profiles v2 (содержат networkextension-systemextension И
+          # system-extension.install — добавлен capability SYSTEM_EXTENSION_INSTALL к App ID 2026-06-26).
+          # AMFI авторизует эти restricted entitlements ТОЛЬКО при нотаризации (как эталон HMA VPN).
+          cp "$RUNNER_TEMP/app.provisionprofile" "$APP/Contents/embedded.provisionprofile"
+          [ -n "$APPEX" ] && cp "$RUNNER_TEMP/ne.provisionprofile" "$APPEX/Contents/embedded.provisionprofile"
+          # Подписываем изнутри наружу: ВСЕ библиотеки/плагины → sysext → app.
+          # КРИТИЧНО: переподписываем ВСЕ .dylib/.so/.framework (Qt-плагины подписаны "The Qt Company",
+          # не нашим Team) НАШИМ Developer ID — тогда library validation проходит сама и
+          # disable-library-validation НЕ нужен. AMFI запрещает relaxation-entitlement
+          # (disable-library-validation) на app с System Extension → иначе error 163
+          # "Hardened Runtime relaxation entitlements disallowed on System Extensions" (найдено 2026-06-26
+          # через AMFI kernel-лог; подтверждено локально: без него + всё подписано нашим сертом → запуск).
+          find "$APP/Contents/PlugIns" "$APP/Contents/Frameworks" "$APP/Contents/Resources" \
+               -type f \( -name '*.dylib' -o -name '*.so' \) 2>/dev/null | while read dy; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$dy" || true
+          done
+          find "$APP/Contents/Frameworks" -name '*.framework' -maxdepth 1 2>/dev/null | while read fw; do
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" "$fw" || true
+          done
+          # Developer ID (вне App Store) entitlements.
+          # ДИАГНОЗ error 163 (launchd "spawn failed") уточнён 2026-06-26 через log show на Mac:
+          #   xpcproxy spawned → job spawn failed = AMFI отвергает entitlement, не покрытый профилем.
+          #   Виновник: com.apple.developer.networking.vpn.api[allow-vpn] — это Personal VPN (NEVPNManager),
+          #   его НЕТ в провижен-профиле и он НЕ нужен для packet-tunnel-provider. УБРАН.
+          # system-extension.install ОСТАВЛЕН: он free-for-Developer-ID (не требует профиля), нужен для
+          #   OSSystemExtensionRequest (активация sysext). networkextension[*-systemextension] ЕСТЬ в профиле.
+          TEAM="${{ secrets.APPLE_TEAM_ID }}"
+          APP_ENT="$RUNNER_TEMP/app.entitlements"
+          NE_ENT="$RUNNER_TEMP/ne.entitlements"
+          # КРИТИЧНО: application-identifier + team-identifier ОБЯЗАТЕЛЬНЫ — без них AMFI не
+          # привязывает provisioning profile к бинарю → managed entitlements (networkextension,
+          # system-extension.install) не авторизуются → error 163. (Сравнение с рабочим HMA VPN:
+          # у него оба есть в app И sysext; у нас их не было → 163. Найдено 2026-06-26.)
+          cat > "$APP_ENT" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.application-identifier</key><string>${TEAM}.com.nvovpn.app</string>
+            <key>com.apple.developer.team-identifier</key><string>${TEAM}</string>
+            <key>com.apple.developer.system-extension.install</key><true/>
+            <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
+            <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
+          </dict></plist>
+          EOF
+          cat > "$NE_ENT" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.application-identifier</key><string>${TEAM}.com.nvovpn.app.network-extension</string>
+            <key>com.apple.developer.team-identifier</key><string>${TEAM}</string>
+            <key>com.apple.developer.networking.networkextension</key><array><string>packet-tunnel-provider-systemextension</string></array>
+            <key>com.apple.security.application-groups</key><array><string>group.com.nvovpn.app</string></array>
+          </dict></plist>
+          EOF
+          # heredoc в YAML добавляет ведущие пробелы — убираем
+          sed -i '' 's/^          //' "$APP_ENT" "$NE_ENT"
+          echo "=== app entitlements (Developer ID, без sandbox) ==="; cat "$APP_ENT"
+          if [ -n "$APPEX" ]; then
+            codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
+              --entitlements "$NE_ENT" \
+              --sign "$IDENTITY" "$APPEX"
+          fi
+          codesign --force --options runtime --timestamp --keychain "$KEYCHAIN" \
+            --entitlements "$APP_ENT" \
+            --sign "$IDENTITY" "$APP"
+          echo "=== Проверка подписи ==="
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          echo "APP=$APP" >> $GITHUB_ENV
+
+      - name: 'Notarize + staple'
+        env:
+          ASC_KEY_B64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+        run: |
+          set -e
+          echo "$ASC_KEY_B64" | base64 --decode > "$RUNNER_TEMP/asc.p8"
+          # Нотаризуем zip с .app, потом staple на .app
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/NvoVPN.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/NvoVPN.zip" \
+            --key "$RUNNER_TEMP/asc.p8" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" \
+            --wait
+          xcrun stapler staple "$APP"
+          echo "✓ нотаризовано и застейплено"
+
+      - name: 'Create .dmg'
+        run: |
+          set -e
+          STAGE="$RUNNER_TEMP/dmg"
+          mkdir -p "$STAGE"
+          cp -R "$APP" "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "NvoVPN" -srcfolder "$STAGE" -ov -format UDZO NvoVPN.dmg
+          # подписать и нотаризовать сам dmg
+          IDENTITY="Developer ID Application: Snaiderz, LLC (${{ secrets.APPLE_TEAM_ID }})"
+          security unlock-keychain -p "$KCPASS" "$KEYCHAIN"
+          codesign --force --timestamp --keychain "$KEYCHAIN" --sign "$IDENTITY" NvoVPN.dmg
+          xcrun notarytool submit NvoVPN.dmg \
+            --key "$RUNNER_TEMP/asc.p8" --key-id "${{ secrets.APPLE_ASC_KEY_ID }}" --issuer "${{ secrets.APPLE_ASC_ISSUER_ID }}" \
+            --wait
+          xcrun stapler staple NvoVPN.dmg
+          echo "✓ NvoVPN.dmg готов"
+          ls -lh NvoVPN.dmg
+
+      - name: 'Upload .dmg'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-macos-dmg
+          path: NvoVPN.dmg
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: 'Publish .dmg to Release'
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload test-macos-1 NvoVPN.dmg --clobber -R "${{ github.repository }}" || \
+          gh release create test-macos-1 NvoVPN.dmg -R "${{ github.repository }}" -t "NvoVPN macOS (.dmg)" -n "Developer ID signed + notarized"
+
+  Build-iOS:
+    runs-on: macos-15   # нужен Xcode 26 (iOS 26 SDK) — Apple отклоняет билды со старым SDK (ITMS-90725)
+    env:
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+      PROD_AGW_PUBLIC_KEY: ${{ secrets.PROD_AGW_PUBLIC_KEY }}
+      PROD_S3_ENDPOINT: ${{ secrets.PROD_S3_ENDPOINT }}
+      FALLBACK_S3_ENDPOINT: ${{ secrets.FALLBACK_S3_ENDPOINT }}
+      DEV_AGW_PUBLIC_KEY: ${{ secrets.DEV_AGW_PUBLIC_KEY }}
+      DEV_AGW_ENDPOINT: ${{ secrets.DEV_AGW_ENDPOINT }}
+      DEV_S3_ENDPOINT: ${{ secrets.DEV_S3_ENDPOINT }}
+      FREE_V2_ENDPOINT: ${{ secrets.FREE_V2_ENDPOINT }}
+      PREM_V1_ENDPOINT: ${{ secrets.PREM_V1_ENDPOINT }}
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: 'Install Qt (host macos — для moc/rcc/qmlcachegen)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Install Qt (ios target)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'ios'
+          arch: 'ios'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+
+      - name: 'Select Xcode (iOS 26 SDK)'
+        run: |
+          echo "Xcodes:"; ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting $XC"; sudo xcode-select -s "$XC"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 'Install conan'
+        run: |
+          pip install "conan==2.28.0"
+          conan profile detect --force
+
+      - name: 'Configure (cmake, iOS device arm64)'
+        env:
+          QT_INSTALL_DIR: ${{ runner.temp }}
+        run: |
+          set -e
+          # Уникальный build number (CFBundleVersion) на каждый прогон — App Store отклоняет дубль номера.
+          # tweak-компонент = номер прогона (растущий build number для App Store, всегда > предыдущего).
+          # Паттерн устойчив к любому tweak (1.0.0.X), иначе ручной бамп версии ломает подстановку.
+          sed -i '' -E "s/set\(AMNEZIAVPN_VERSION 1\.0\.0\.[0-9]+\)/set(AMNEZIAVPN_VERSION 1.0.0.${GITHUB_RUN_NUMBER})/" CMakeLists.txt
+          echo "iOS version: $(grep 'set(AMNEZIAVPN_VERSION' CMakeLists.txt | head -1)"
+          QT_HOST="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
+          QT_IOS="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/ios 2>/dev/null | head -1)"
+          echo "QT_HOST=$QT_HOST  QT_IOS=$QT_IOS"
+          cmake -S . -B build -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DQT_HOST_PATH="$QT_HOST" \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_IOS/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT=iphoneos \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DDEPLOY=1 \
+            -DCMAKE_XCODE_GENERATE_SCHEME=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_IOS"
+
+      - name: 'Fix Go cgo symbol clash in libwg-go.a (ios arm64)'
+        run: |
+          set -e
+          WGGO="$(find "$HOME/.conan2" -path '*awg*/p/lib/libwg-go.a' 2>/dev/null | head -1)"
+          echo "libwg-go.a: $WGGO"
+          if [ -n "$WGGO" ]; then
+            printf '%s\n' __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
+              _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
+              __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
+            SDKVER=$(xcrun --sdk iphoneos --show-sdk-version)
+            ld -r -arch arm64 -platform_version ios 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wg.o
+            rm -f /tmp/wg-fixed.a; ar -crs /tmp/wg-fixed.a /tmp/wg.o; cp /tmp/wg-fixed.a "$WGGO"
+            echo "✓ libwg-go.a пропатчен"
+          else
+            echo "libwg-go.a не найден (возможно iOS использует другой путь) — пропускаю"
+          fi
+
+      - name: 'Install signing assets (cert + provisioning profiles)'
+        env:
+          P12_B64: ${{ secrets.APPLE_IOS_DIST_P12_BASE64 }}
+          P12_PWD: ${{ secrets.APPLE_IOS_DIST_P12_PASSWORD }}
+          PROF_APP_B64: ${{ secrets.APPLE_IOS_PROFILE_APP_BASE64 }}
+          PROF_NE_B64: ${{ secrets.APPLE_IOS_PROFILE_NE_BASE64 }}
+        run: |
+          set -e
+          KEYCHAIN="$RUNNER_TEMP/nvo-signing.keychain-db"
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          echo "$P12_B64" | base64 -d > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KEYCHAIN" -P "$P12_PWD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k ci "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          echo "$PROF_APP_B64" | base64 -d > "$HOME/Library/MobileDevice/Provisioning Profiles/nvo_app.mobileprovision"
+          echo "$PROF_NE_B64"  | base64 -d > "$HOME/Library/MobileDevice/Provisioning Profiles/nvo_ne.mobileprovision"
+          echo "Signing identities:"; security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: 'Archive (xcodebuild, signed — Apple Distribution + профили)'
+        run: |
+          set -e
+          # Подписываем на этапе archive (cmake: Apple Distribution + Manual + профили
+          # «NvoVPN iOS AppStore»/«…NE» + team Q9PKZ8C922) — чтобы entitlements
+          # (networkextension, app-groups) ЗАПЕКЛИСЬ в бандл. Unsigned-архив их терял (ITMS-90525).
+          xcodebuild -project build/NvoVPN.xcodeproj \
+            -scheme NvoVPN \
+            -sdk iphoneos -configuration Release \
+            -archivePath "$RUNNER_TEMP/NvoVPN.xcarchive" \
+            archive
+          echo "=== archive Applications ==="
+          ls -la "$RUNNER_TEMP/NvoVPN.xcarchive/Products/Applications/" || true
+          ls -la "$RUNNER_TEMP/NvoVPN.xcarchive/Products/Applications/NvoVPN.app/PlugIns/" || true
+
+      - name: 'Export .ipa (App Store, manual signing)'
+        run: |
+          set -e
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/NvoVPN.xcarchive" \
+            -exportOptionsPlist .github/ios_export_options.plist \
+            -exportPath "$RUNNER_TEMP/export"
+          ls -la "$RUNNER_TEMP/export/"
+          echo "IPA=$(ls "$RUNNER_TEMP/export/"*.ipa | head -1)" >> "$GITHUB_ENV"
+
+      - name: 'Upload .ipa artifact'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+
+      - name: 'Upload to TestFlight (App Store Connect)'
+        # Заливка в App Store Connect — ТОЛЬКО по ручному запуску (workflow_dispatch) из main.
+        # Причина: версия 1.0 сейчас IN_REVIEW; автоматическая заливка на каждый push в main
+        # плодила бы лишние билды во время ревью. Когда нужно отправить — запустить workflow вручную.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        env:
+          ASC_KEY_B64: ${{ secrets.APPLE_ASC_KEY_P8_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.APPLE_ASC_KEY_ID }}
+          ASC_ISSUER: ${{ secrets.APPLE_ASC_ISSUER_ID }}
+        run: |
+          set -e
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          echo "$ASC_KEY_B64" | base64 -d > "$HOME/.appstoreconnect/private_keys/AuthKey_${ASC_KEY_ID}.p8"
+          echo "Uploading $IPA to App Store Connect ..."
+          xcrun altool --upload-app -t ios -f "$IPA" \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER" \
+            || echo "::warning::TestFlight upload не прошёл — вероятно ещё нет записи приложения в App Store Connect (создать запись → перезапустить job)."
+
+  # Сборка под iOS-СИМУЛЯТОР — только для снятия скриншотов (запускается локально в Simulator).
+  # continue-on-error: падение не должно валить весь прогон (device-билд и остальное важнее).
+  # ОТКЛЮЧЕНА 02.08.2026 (if: false). Джоба нужна была только чтобы получить .app и снять
+  # им скриншоты для страницы в App Store. Скриншоты уже загружены (без них приложение
+  # нельзя подать на ревью), так что прямо сейчас она не нужна, а постоянно красная джоба
+  # приучает не смотреть на красное — и настоящая поломка пройдёт мимо глаз.
+  #
+  # Что уже разобрано, если понадобится вернуть (снять if: false):
+  #   1. Собиралось под x86_64, которого нет в awg-apple → «Undefined symbols for
+  #      architecture x86_64» (_wgTurnOn и прочие wg*). ИСПРАВЛЕНО: в xcodebuild добавлены
+  #      ARCHS=arm64 ONLY_ACTIVE_ARCH=NO EXCLUDED_ARCHS=x86_64.
+  #   2. Рантайм Go ссылался на darwin_arm_init_mach_exception_handler и
+  #      darwin_arm_init_thread_exception_port — они есть только в сборке под устройство.
+  #      ИСПРАВЛЕНО: заглушки в шаге «Fix Go cgo symbol clash (sim)».
+  #   3. ОСТАЛОСЬ: «ld: building for 'iOS-simulator', but linking in object file
+  #      (…/Qt/6.10.1/…) built for 'iOS'» — установленный Qt содержит объекты под
+  #      устройство. Флагом не лечится, нужна отдельная установка Qt под симулятор
+  #      (в aqtinstall это отдельный target) и настройка cmake на неё.
+  #
+  # Сборка под настоящие устройства (джоба Build-iOS) этим не затронута и зелёная.
+  Build-iOS-Simulator:
+    if: false
+    runs-on: macos-15   # Xcode 26 / iOS 26 SDK
+    continue-on-error: true
+    env:
+      QT_VERSION: 6.10.1
+      QT_MODULES: 'qtremoteobjects qt5compat qtimageformats qtshadertools'
+    steps:
+      - name: 'Get sources'
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+      - name: 'Install Qt (host macos)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+      - name: 'Install Qt (ios target)'
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: 'mac'
+          target: 'ios'
+          arch: 'ios'
+          modules: ${{ env.QT_MODULES }}
+          dir: ${{ runner.temp }}
+          py7zrversion: '==0.22.*'
+          extra: '--base ${{ env.QT_MIRROR }}'
+      - name: 'Select Xcode (iOS 26 SDK)'
+        run: |
+          echo "Xcodes:"; ls -d /Applications/Xcode*.app
+          XC=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          echo "Selecting $XC"; sudo xcode-select -s "$XC"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos || true
+      - name: 'Setup python (conan)'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 'Install conan'
+        run: |
+          pip install "conan==2.28.0"
+          conan profile detect --force
+      - name: 'Configure (cmake, iOS Simulator arm64)'
+        run: |
+          set -e
+          QT_HOST="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/macos 2>/dev/null | head -1)"
+          QT_IOS="$(ls -d ${{ runner.temp }}/Qt/${QT_VERSION}/ios 2>/dev/null | head -1)"
+          cmake -S . -B build-sim -G Xcode \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DQT_HOST_PATH="$QT_HOST" \
+            -DCMAKE_TOOLCHAIN_FILE="$QT_IOS/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT=iphonesimulator \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DDEPLOY=1 \
+            -DCMAKE_XCODE_GENERATE_SCHEME=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$QT_IOS"
+      - name: 'Fix Go cgo symbol clash (sim)'
+        run: |
+          set -e
+          WGGO="$(find "$HOME/.conan2" -path '*awg*/p/lib/libwg-go.a' 2>/dev/null | head -1)"
+          echo "libwg-go.a: $WGGO"
+          if [ -n "$WGGO" ]; then
+            printf '%s\n' __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
+              _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
+              __cgo_try_pthread_create _x_crosscall2_ptr > /tmp/cgo_hidden.txt
+            SDKVER=$(xcrun --sdk iphonesimulator --show-sdk-version)
+            ld -r -arch arm64 -platform_version ios-simulator 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden.txt "$WGGO" -o /tmp/wgsim.o
+
+            # Заглушки для двух символов рантайма Go. Рантайм arm64 ссылается на
+            # darwin_arm_init_mach_exception_handler / darwin_arm_init_thread_exception_port —
+            # они существуют только в сборке под НАСТОЯЩЕЕ устройство, а под симулятор
+            # Apple Silicon их нет, и линковка падает «Undefined symbols for architecture arm64».
+            # Это обработчики Mach-исключений (диагностика падений). Для сборки, которая нужна
+            # только ради скриншотов в App Store, пустые заглушки безопасны: VPN в симуляторе
+            # всё равно не работает — NEPacketTunnelProvider там не поддерживается Apple.
+            # (без heredoc: внутри YAML-блока завершитель получил бы отступ и не распознался)
+            printf '%s\n' 'void darwin_arm_init_mach_exception_handler(void) {}' \
+                          'void darwin_arm_init_thread_exception_port(void) {}' > /tmp/go_sim_stubs.c
+            xcrun --sdk iphonesimulator clang -arch arm64 -mios-simulator-version-min=15.0 \
+              -c /tmp/go_sim_stubs.c -o /tmp/go_sim_stubs.o
+
+            rm -f /tmp/wgsim.a; ar -crs /tmp/wgsim.a /tmp/wgsim.o /tmp/go_sim_stubs.o; cp /tmp/wgsim.a "$WGGO"
+            echo "✓ patched (+ заглушки Mach-исключений для симулятора)"
+          fi
+      - name: 'Build (simulator, unsigned)'
+        run: |
+          set -e
+          # ARCHS=arm64: cmake сконфигурирован под arm64, но xcodebuild для sdk iphonesimulator
+          # берёт ARCHS_STANDARD и добавляет x86_64. Библиотека awg-apple среза x86_64 не
+          # содержит, поэтому сборка падала на «Undefined symbols for architecture x86_64»
+          # (_wgTurnOn, _wgSetConfig и прочие). Раннер macos-15 — Apple Silicon, x86_64-симулятор
+          # не нужен. Джоба нужна только для скриншотов в App Store.
+          xcodebuild -project build-sim/NvoVPN.xcodeproj \
+            -scheme NvoVPN \
+            -sdk iphonesimulator -configuration Release \
+            -derivedDataPath build-sim/dd \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO EXCLUDED_ARCHS=x86_64 \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+          APP="$(find build-sim/dd/Build/Products -name 'NvoVPN.app' -maxdepth 3 | head -1)"
+          echo "APP=$APP"; test -d "$APP"
+          cd "$(dirname "$APP")" && zip -qry "$RUNNER_TEMP/NvoVPN-sim.zip" "NvoVPN.app"
+          echo "zip done: $(ls -la "$RUNNER_TEMP/NvoVPN-sim.zip")"
+      - name: 'Upload simulator .app'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvovpn-ios-simulator-app
+          path: ${{ runner.temp }}/NvoVPN-sim.zip
