@@ -99,9 +99,12 @@ PageType {
         }
 
         // Серверы загрузились → если включён авто-коннект и есть подписка, подключаемся сами (§12.7).
+        // 11.09.2026: плюс ПЕРВЫЙ запуск на устройстве (ещё ни одного успешного подключения) — стартуем
+        // без тапа: за неделю 50 из 147 вошедших в приложение так и не нажали «Подключить». Ошибка
+        // автостарта диалогом не показывается (connectToSelectedAuto), ручной тап остаётся как был.
         function onServersUpdated() {
             if (!root.autoConnectTried
-                    && SettingsController.isAutoConnectEnabled()
+                    && (SettingsController.isAutoConnectEnabled() || !NvoApi.everConnected)
                     && NvoApi.hasSubscription
                     && !ConnectionController.isConnected
                     && !ConnectionController.isConnectionInProgress) {

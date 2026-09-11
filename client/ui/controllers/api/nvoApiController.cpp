@@ -139,6 +139,14 @@ QString NvoApiController::subscriptionExpiresAt() const { return m_subExpiresAt;
 int NvoApiController::subscriptionDaysRemaining() const { return m_subDaysRemaining; }
 int NvoApiController::selectedServerId() const { return m_selectedServerId; }
 bool NvoApiController::onboardingDone() const { return m_onboardingDone; }
+
+// 11.09.2026: было ли на этом устройстве хоть одно успешное подключение (Conf/nvoConnectCount > 0).
+// Нужно главной странице: при ПЕРВОМ входе подключаемся сами, не дожидаясь тапа — 34% вошедших
+// в приложение за неделю так и не нажали «Подключить» (данные панели за 05–11.09.2026).
+bool NvoApiController::everConnected() const
+{
+    return m_settings->value(QString::fromLatin1(CONNECT_COUNT_KEY), 0).toInt() > 0;
+}
 QStringList NvoApiController::favoriteCountries() const { return m_favoriteCountries; }
 QString NvoApiController::token() const { return m_token; }
 
@@ -164,6 +172,9 @@ void NvoApiController::registerSuccessfulConnection()
         return;
     const int n = m_settings->value(QString::fromLatin1(CONNECT_COUNT_KEY), 0).toInt() + 1;
     m_settings->setValue(QString::fromLatin1(CONNECT_COUNT_KEY), n);
+    if (n == 1) {
+        emit everConnectedChanged();   // первое успешное подключение — автостарт при следующих запусках больше не нужен
+    }
     if (n < 3)
         return;
     m_settings->setValue(QString::fromLatin1(REVIEW_ASKED_KEY), true);
