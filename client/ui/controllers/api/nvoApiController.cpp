@@ -46,11 +46,17 @@ namespace
     // ECH, скрытый SNI), nvovpn.com остаётся резервом (на сетевой ошибке переключаемся на него).
     // Раньше первым был nvovpn.com → каждая сессия в РФ висла 6-12с на таймауте, прежде чем
     // переключиться = «бесконечная загрузка» у юзеров при входе.
+    // 11.09.2026: вторая база — РФ-вход ru.netguarder.net (nginx stream ssl_preread на трёх РФ-боксах,
+    // три независимых AS, прямой путь до origin). Раньше при отказе Cloudflare единственным резервом
+    // был nvovpn.com, который в РФ режут по SNI, — то есть у РФ-юзеров резерва фактически не было.
+    // Из РФ вход быстрее CF (0.2 с / 7 МБ/с против 0.3 с / 1.4 МБ/с), но первой остаётся CF-база:
+    // там зарегистрированы OAuth redirect URI, и не-РФ клиенты не должны ходить через РФ-боксы.
     constexpr const char *API_BASES[] = {
         "https://api.netguarder.net/api/v1",
+        "https://ru.netguarder.net/api/v1",
         "https://nvovpn.com/api/v1",
     };
-    constexpr int API_BASE_COUNT = 2;
+    constexpr int API_BASE_COUNT = 3;
     // Site/OAuth URL (Google/Apple/веб-кабинет) строим динамически от активной базы (siteBase()) —
     // чтобы в РФ всё шло через тот же незаблокированный домен, а не хардкод nvovpn.com.
     // Apple: redirect_uri host-relative на бэкенде + домен api.netguarder.net заведён в Apple Developer
