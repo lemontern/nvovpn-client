@@ -133,6 +133,10 @@ PageType {
 
                 headerText: qsTr("Пароль")
                 textField.placeholderText: root.registerMode ? qsTr("Не короче 8 символов") : qsTr("Пароль")
+                // 14.09.2026: клавиатура iOS автозаменяла «...» на «…» (и умные кавычки/тире) — пароль владельца
+                // «…1212...» уходил на сервер как 11 символов вместо 13. В режиме Password Qt сам гасит автокоррекцию,
+                // но при «Показать пароль» (echoMode Normal) подсказки пропадали. Задаём явно и навсегда.
+                textField.inputMethodHints: Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase | Qt.ImhHiddenText
 
                 Component.onCompleted: passwordField.textField.echoMode = TextInput.Password
             }
