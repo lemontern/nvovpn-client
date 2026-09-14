@@ -716,11 +716,43 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Этот аккаунт создан через Google — нажмите «Войти через Google»</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Этот аккаунт создан через Apple — нажмите «Войти через Apple»</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Неверный email или пароль</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Слишком много попыток, подождите минуту</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Не удалось войти, попробуйте ещё раз</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Такой email уже зарегистрирован — войдите с паролем или через Google/Apple</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Введите корректный email</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Проверьте имя, email и пароль</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось создать аккаунт, попробуйте ещё раз</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -756,6 +788,10 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Вход через Apple не завершён, попробуйте ещё раз</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Вход через Google не завершён, попробуйте ещё раз</source>
         <translation type="unfinished"></translation>
     </message>
@@ -769,6 +805,14 @@ Already installed containers were found on the server. All installed containers 
     </message>
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>App Store пока не отдаёт варианты подписки. Попробуйте позже.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось загрузить цены из App Store: %1</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -989,6 +1033,18 @@ Thank you for staying with us!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Создание аккаунта</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Имя</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Как к вам обращаться</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Электронная почта</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1001,6 +1057,10 @@ Thank you for staying with us!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Не короче 8 символов</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Скрыть пароль</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1009,11 +1069,23 @@ Thank you for staying with us!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Забыли пароль?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Код из личного кабинета</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Например, 482913</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Создаём аккаунт…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Создать аккаунт</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1034,6 +1106,18 @@ Thank you for staying with us!</source>
     </message>
     <message>
         <source>Введите пароль</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Введите имя</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>На почту придёт письмо для подтверждения адреса — после него откроется доступ.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1069,6 +1153,10 @@ Thank you for staying with us!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Уже есть аккаунт?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Зарегистрироваться</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1082,6 +1170,14 @@ Thank you for staying with us!</source>
     <message>
         <source>Что входит: безлимитный трафик без ограничения скорости, серверы в 7 странах, до 5 устройств одновременно.</source>
         <translation>Что входит: безлимитный трафик без ограничения скорости, серверы в 7 странах, до 5 устройств одновременно.</translation>
+    </message>
+    <message>
+        <source>Загружаем цены из App Store…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Повторить</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.</source>
@@ -1112,10 +1208,6 @@ Thank you for staying with us!</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Оформить подписку</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>1 год — %1</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1137,10 +1229,6 @@ Thank you for staying with us!</source>
     </message>
     <message>
         <source>Восстановить покупки</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

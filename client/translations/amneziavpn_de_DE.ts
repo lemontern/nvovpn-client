@@ -387,12 +387,44 @@ Already installed containers were found on the server. All installed containers 
         <translation>Server konnte nicht gefunden werden, bitte später erneut versuchen</translation>
     </message>
     <message>
+        <source>Этот аккаунт создан через Google — нажмите «Войти через Google»</source>
+        <translation>Dieses Konto wurde mit Google erstellt – tippen Sie auf „Mit Google anmelden“</translation>
+    </message>
+    <message>
+        <source>Этот аккаунт создан через Apple — нажмите «Войти через Apple»</source>
+        <translation>Dieses Konto wurde mit Apple erstellt – tippen Sie auf „Mit Apple anmelden“</translation>
+    </message>
+    <message>
         <source>Неверный email или пароль</source>
         <translation>Ungültige E-Mail oder Passwort</translation>
     </message>
     <message>
+        <source>Слишком много попыток, подождите минуту</source>
+        <translation>Zu viele Versuche, bitte warten Sie eine Minute</translation>
+    </message>
+    <message>
         <source>Не удалось войти, попробуйте ещё раз</source>
         <translation>Anmeldung fehlgeschlagen, bitte erneut versuchen</translation>
+    </message>
+    <message>
+        <source>Такой email уже зарегистрирован — войдите с паролем или через Google/Apple</source>
+        <translation>Diese E-Mail ist bereits registriert – melden Sie sich mit Passwort oder über Google/Apple an</translation>
+    </message>
+    <message>
+        <source>Введите корректный email</source>
+        <translation type="unfinished">Gültige E-Mail eingeben</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>Das Passwort muss mindestens 8 Zeichen lang sein</translation>
+    </message>
+    <message>
+        <source>Проверьте имя, email и пароль</source>
+        <translation>Prüfen Sie Name, E-Mail und Passwort</translation>
+    </message>
+    <message>
+        <source>Не удалось создать аккаунт, попробуйте ещё раз</source>
+        <translation>Konto konnte nicht erstellt werden, bitte erneut versuchen</translation>
     </message>
     <message>
         <source>Код неверный или истёк</source>
@@ -427,6 +459,10 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished">Anmeldung mit Google fehlgeschlagen, bitte erneut versuchen</translation>
     </message>
     <message>
+        <source>Вход через Apple не завершён, попробуйте ещё раз</source>
+        <translation>Apple-Anmeldung nicht abgeschlossen, bitte erneut versuchen</translation>
+    </message>
+    <message>
         <source>Вход через Google не завершён, попробуйте ещё раз</source>
         <translation type="unfinished">Google-Anmeldung nicht abgeschlossen, bitte erneut versuchen</translation>
     </message>
@@ -441,6 +477,14 @@ Already installed containers were found on the server. All installed containers 
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
         <translation>Etwas ist schiefgelaufen, bitte erneut versuchen</translation>
+    </message>
+    <message>
+        <source>App Store пока не отдаёт варианты подписки. Попробуйте позже.</source>
+        <translation>Der App Store liefert derzeit keine Abo-Optionen. Bitte später erneut versuchen.</translation>
+    </message>
+    <message>
+        <source>Не удалось загрузить цены из App Store: %1</source>
+        <translation>Preise konnten nicht aus dem App Store geladen werden: %1</translation>
     </message>
     <message>
         <source>Покупка не завершена</source>
@@ -657,6 +701,18 @@ verbinden (2 Tage)</translation>
         <translation>Sicheres Internet</translation>
     </message>
     <message>
+        <source>Создание аккаунта</source>
+        <translation>Konto erstellen</translation>
+    </message>
+    <message>
+        <source>Имя</source>
+        <translation>Name</translation>
+    </message>
+    <message>
+        <source>Как к вам обращаться</source>
+        <translation>Wie dürfen wir Sie nennen?</translation>
+    </message>
+    <message>
         <source>Электронная почта</source>
         <translation>E-Mail</translation>
     </message>
@@ -669,6 +725,10 @@ verbinden (2 Tage)</translation>
         <translation>Passwort</translation>
     </message>
     <message>
+        <source>Не короче 8 символов</source>
+        <translation>Mindestens 8 Zeichen</translation>
+    </message>
+    <message>
         <source>Показать пароль</source>
         <translation>Passwort anzeigen</translation>
     </message>
@@ -677,12 +737,24 @@ verbinden (2 Tage)</translation>
         <translation>Passwort verbergen</translation>
     </message>
     <message>
+        <source>Забыли пароль?</source>
+        <translation>Passwort vergessen?</translation>
+    </message>
+    <message>
         <source>Код из личного кабинета</source>
         <translation>Code aus Ihrem Konto</translation>
     </message>
     <message>
         <source>Например, 482913</source>
         <translation>z. B. 482913</translation>
+    </message>
+    <message>
+        <source>Создаём аккаунт…</source>
+        <translation>Konto wird erstellt…</translation>
+    </message>
+    <message>
+        <source>Создать аккаунт</source>
+        <translation>Konto erstellen</translation>
     </message>
     <message>
         <source>Войти</source>
@@ -705,6 +777,18 @@ verbinden (2 Tage)</translation>
         <translation>Passwort eingeben</translation>
     </message>
     <message>
+        <source>Введите имя</source>
+        <translation>Geben Sie Ihren Namen ein</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>Das Passwort muss mindestens 8 Zeichen lang sein</translation>
+    </message>
+    <message>
+        <source>На почту придёт письмо для подтверждения адреса — после него откроется доступ.</source>
+        <translation>Sie erhalten eine E-Mail zur Bestätigung der Adresse – danach wird der Zugang freigeschaltet.</translation>
+    </message>
+    <message>
         <source>Ожидаем вход через Apple…</source>
         <translation>Warten auf Apple-Anmeldung…</translation>
     </message>
@@ -723,6 +807,10 @@ verbinden (2 Tage)</translation>
     <message>
         <source>Нет аккаунта?</source>
         <translation>Kein Konto?</translation>
+    </message>
+    <message>
+        <source>Уже есть аккаунт?</source>
+        <translation>Haben Sie schon ein Konto?</translation>
     </message>
     <message>
         <source>Зарегистрироваться</source>
@@ -760,6 +848,14 @@ verbinden (2 Tage)</translation>
         <translation>Enthalten: unbegrenzter Datenverkehr ohne Geschwindigkeitsbegrenzung, Server in 7 Ländern, bis zu 5 Geräte gleichzeitig.</translation>
     </message>
     <message>
+        <source>Загружаем цены из App Store…</source>
+        <translation>Preise werden aus dem App Store geladen…</translation>
+    </message>
+    <message>
+        <source>Повторить</source>
+        <translation>Erneut versuchen</translation>
+    </message>
+    <message>
         <source>Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.</source>
         <translation>Das Abo „1 Monat“ verlängert sich monatlich, „1 Jahr“ jährlich. Die Zahlung wird bei Bestätigung des Kaufs über Ihre Apple-ID abgebucht. Die Verlängerung erfolgt automatisch, sofern Sie das Abo nicht spätestens 24 Stunden vor Ende des laufenden Zeitraums in den Apple-ID-Einstellungen kündigen. Abo verwalten und Verlängerung deaktivieren können Sie in den Apple-ID-Einstellungen.</translation>
     </message>
@@ -789,7 +885,7 @@ verbinden (2 Tage)</translation>
     </message>
     <message>
         <source>Оформить подписку</source>
-        <translation>Abo abschließen</translation>
+        <translation type="vanished">Abo abschließen</translation>
     </message>
     <message>
         <source>1 год — %1</source>
@@ -817,7 +913,7 @@ verbinden (2 Tage)</translation>
     </message>
     <message>
         <source>Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.</source>
-        <translation>Die Zahlung wird über Ihre Apple-ID abgebucht. Das Abo verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ablauf des Zeitraums in den Apple-ID-Einstellungen gekündigt wird.</translation>
+        <translation type="vanished">Die Zahlung wird über Ihre Apple-ID abgebucht. Das Abo verlängert sich automatisch, sofern es nicht mindestens 24 Stunden vor Ablauf des Zeitraums in den Apple-ID-Einstellungen gekündigt wird.</translation>
     </message>
     <message>
         <source>Управление подпиской</source>

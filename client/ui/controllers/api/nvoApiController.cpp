@@ -91,7 +91,7 @@ namespace
         detail = QSysInfo::machineHostName();
 #elif defined(Q_OS_IOS)
         platform = QStringLiteral("iOS");
-        detail = QSysInfo::machineHostName();
+        detail = QSysInfo::productVersion();     // machineHostName() на iOS = «localhost» (бесполезно в списке устройств)
 #else
         platform = QStringLiteral("Device");
         detail = QSysInfo::machineHostName();
@@ -585,8 +585,26 @@ void NvoApiController::login(const QString &email, const QString &password)
                 return;
             }
             setBusy(false);
-            // 401 и 422 (Laravel "Invalid credentials") → человеческое «неверный логин/пароль».
-            emit loginFailed((status == 401 || status == 422) ? tr("Неверный email или пароль") : humanError(reply));
+            if (status == 401 || status == 422) {
+                // Бэкенд (с 05.09.2026) отдаёт причину: больше половины аккаунтов заведены через
+                // Google/Apple, пароля у них нет. Раньше такой человек видел «неверный пароль» и
+                // не понимал, что делать (14.09.2026 — так не смог войти и владелец в iOS-сборке).
+                const QString reason = root.value(QStringLiteral("reason")).toString();
+                const QString provider = root.value(QStringLiteral("provider")).toString();
+                if (reason == QStringLiteral("oauth_only") && provider == QStringLiteral("google")) {
+                    emit loginFailed(tr("Этот аккаунт создан через Google — нажмите «Войти через Google»"));
+                } else if (reason == QStringLiteral("oauth_only") && provider == QStringLiteral("apple")) {
+                    emit loginFailed(tr("Этот аккаунт создан через Apple — нажмите «Войти через Apple»"));
+                } else {
+                    emit loginFailed(tr("Неверный email или пароль"));
+                }
+                return;
+            }
+            if (status == 429) {
+                emit loginFailed(tr("Слишком много попыток, подождите минуту"));
+                return;
+            }
+            emit loginFailed(humanError(reply));
             return;
         }
         setBusy(false);
@@ -601,6 +619,73 @@ void NvoApiController::login(const QString &email, const QString &password)
         refreshUser();
         refreshServers();
     });
+}
+
+void NvoApiController::registerAccount(const QString &name, const QString &email, const QString &password)
+{
+    // Регистрация внутри приложения (iOS: ссылка на сайт с ценами — риск App Store 3.1.1, поэтому
+    // аккаунт создаём здесь). Бэкенд: POST /auth/register (имя, email, пароль ≥ 8, подтверждение) →
+    // письмо подтверждения почты + токен устройства — человек сразу внутри, как после входа.
+    setBusy(true);
+    const int startBase = m_apiBaseIdx;
+    const QJsonObject body {
+        { QStringLiteral("name"), name },
+        { QStringLiteral("email"), email },
+        { QStringLiteral("password"), password },
+        { QStringLiteral("password_confirmation"), password },
+        { QStringLiteral("device_name"), deviceName() }
+    };
+    QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/register"), false),
+                                       QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, name, email, password, startBase]() {
+        reply->deleteLater();
+        const int status = httpStatus(reply);
+        const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
+        if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
+            if (maybeSwitchBase(reply, startBase)) {   // основной домен недоступен → резерв, повторяем
+                registerAccount(name, email, password);
+                return;
+            }
+            setBusy(false);
+            if (status == 422) {
+                const QJsonObject errors = root.value(QStringLiteral("errors")).toObject();
+                if (errors.contains(QStringLiteral("email"))) {
+                    const QString msg = errors.value(QStringLiteral("email")).toArray().at(0).toString();
+                    emit loginFailed(msg.contains(QStringLiteral("taken"), Qt::CaseInsensitive)
+                                     ? tr("Такой email уже зарегистрирован — войдите с паролем или через Google/Apple")
+                                     : tr("Введите корректный email"));
+                } else if (errors.contains(QStringLiteral("password"))) {
+                    emit loginFailed(tr("Пароль должен быть не короче 8 символов"));
+                } else {
+                    emit loginFailed(tr("Проверьте имя, email и пароль"));
+                }
+                return;
+            }
+            if (status == 429) {
+                emit loginFailed(tr("Слишком много попыток, подождите минуту"));
+                return;
+            }
+            emit loginFailed(humanError(reply));
+            return;
+        }
+        setBusy(false);
+        const QString token = root.value(QStringLiteral("token")).toString();
+        if (token.isEmpty()) {
+            emit loginFailed(tr("Не удалось создать аккаунт, попробуйте ещё раз"));
+            return;
+        }
+        setToken(token);
+        applyUser(root);
+        emit loginSucceeded();
+        refreshUser();
+        refreshServers();
+    });
+}
+
+void NvoApiController::openForgotPassword()
+{
+    // Восстановление пароля — страница сайта через активный домен (в РФ nvovpn.com режется по SNI).
+    QDesktopServices::openUrl(QUrl(siteBase() + QStringLiteral("/forgot-password")));
 }
 
 void NvoApiController::loginByCode(const QString &code)
@@ -896,6 +981,7 @@ void NvoApiController::loginWithGoogle()
         ds += QString::number(QRandomGenerator::system()->generate(), 16).rightJustified(8, QLatin1Char('0'));
     }
     m_googleDs = ds; // 40 hex символов
+    m_oauthProvider = QStringLiteral("Google");
 
     QUrl url(siteBase() + QStringLiteral("/app/login/google"));
     QUrlQuery q;
@@ -925,6 +1011,7 @@ void NvoApiController::loginWithApple()
         ds += QString::number(QRandomGenerator::system()->generate(), 16).rightJustified(8, QLatin1Char('0'));
     }
     m_googleDs = ds;
+    m_oauthProvider = QStringLiteral("Apple");
 
     QUrl url(siteBase() + QStringLiteral("/app/login/apple"));
     QUrlQuery q;
@@ -956,7 +1043,9 @@ void NvoApiController::pollGoogleLogin()
     if (m_googlePollElapsedMs > 120000) { // таймаут ~2 минуты
         stopGooglePolling();
         setBusy(false);
-        emit loginFailed(tr("Вход через Google не завершён, попробуйте ещё раз"));
+        emit loginFailed(m_oauthProvider == QStringLiteral("Apple")
+                         ? tr("Вход через Apple не завершён, попробуйте ещё раз")
+                         : tr("Вход через Google не завершён, попробуйте ещё раз"));
         return;
     }
 
@@ -1082,6 +1171,8 @@ QString NvoApiController::humanError(QNetworkReply *reply) const
 // у Apple и активирует подписку на аккаунте. На не-iOS все методы — no-op.
 
 bool NvoApiController::iapReady() const { return m_iapReady; }
+bool NvoApiController::iapLoading() const { return m_iapLoading; }
+QString NvoApiController::iapError() const { return m_iapError; }
 QString NvoApiController::iapPrice1m() const { return m_iapPrice1m; }
 QString NvoApiController::iapPrice1y() const { return m_iapPrice1y; }
 QString NvoApiController::iapPricePerMonth1y() const { return m_iapPricePerMonth1y; }
@@ -1089,10 +1180,15 @@ QString NvoApiController::iapPricePerMonth1y() const { return m_iapPricePerMonth
 void NvoApiController::fetchIapProducts()
 {
 #if defined(Q_OS_IOS)
+    if (m_iapLoading) {
+        return;
+    }
+    m_iapLoading = true;
+    m_iapError.clear();
+    emit iapProductsUpdated();
     IosController::Instance()->fetchProducts(QStringList { kIapProduct1m, kIapProduct1y },
         [this](const QList<QVariantMap> &products, const QStringList &invalidIds, const QString &errorString) {
-            Q_UNUSED(invalidIds)
-            Q_UNUSED(errorString)
+            m_iapLoading = false;
             for (const QVariantMap &p : products) {
                 const QString pid = p.value(QStringLiteral("productId")).toString();
                 const QString displayPrice = p.value(QStringLiteral("displayPrice")).toString();
@@ -1104,6 +1200,19 @@ void NvoApiController::fetchIapProducts()
                 }
             }
             m_iapReady = !m_iapPrice1m.isEmpty() || !m_iapPrice1y.isEmpty();
+            // Раньше ошибка глоталась (Q_UNUSED): если StoreKit не отдал продукты, кнопки просто
+            // оставались серыми без объяснения. Так и было 14.09.2026 сразу после выхода в App Store —
+            // подписки не были отправлены на ревью, StoreKit возвращал пустой список. Теперь причина
+            // видна и в интерфейсе (iapError), и в логе.
+            if (!m_iapReady) {
+                qWarning() << "NvoApiController: IAP products unavailable, invalid:" << invalidIds
+                           << "error:" << errorString;
+                m_iapError = errorString.isEmpty()
+                    ? tr("App Store пока не отдаёт варианты подписки. Попробуйте позже.")
+                    : tr("Не удалось загрузить цены из App Store: %1").arg(errorString);
+            } else if (!invalidIds.isEmpty()) {
+                qWarning() << "NvoApiController: some IAP products unavailable:" << invalidIds;
+            }
             emit iapProductsUpdated();
         });
 #endif

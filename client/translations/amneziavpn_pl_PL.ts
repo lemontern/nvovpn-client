@@ -387,12 +387,44 @@ Already installed containers were found on the server. All installed containers 
         <translation>Nie udało się dobrać serwera, spróbuj później</translation>
     </message>
     <message>
+        <source>Этот аккаунт создан через Google — нажмите «Войти через Google»</source>
+        <translation>To konto zostało utworzone przez Google — naciśnij „Zaloguj się przez Google”</translation>
+    </message>
+    <message>
+        <source>Этот аккаунт создан через Apple — нажмите «Войти через Apple»</source>
+        <translation>To konto zostało utworzone przez Apple — naciśnij „Zaloguj się przez Apple”</translation>
+    </message>
+    <message>
         <source>Неверный email или пароль</source>
         <translation>Nieprawidłowy e-mail lub hasło</translation>
     </message>
     <message>
+        <source>Слишком много попыток, подождите минуту</source>
+        <translation>Zbyt wiele prób, odczekaj minutę</translation>
+    </message>
+    <message>
         <source>Не удалось войти, попробуйте ещё раз</source>
         <translation>Nie udało się zalogować, spróbuj ponownie</translation>
+    </message>
+    <message>
+        <source>Такой email уже зарегистрирован — войдите с паролем или через Google/Apple</source>
+        <translation>Ten e-mail jest już zarejestrowany — zaloguj się hasłem lub przez Google/Apple</translation>
+    </message>
+    <message>
+        <source>Введите корректный email</source>
+        <translation type="unfinished">Wpisz poprawny e-mail</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>Hasło musi mieć co najmniej 8 znaków</translation>
+    </message>
+    <message>
+        <source>Проверьте имя, email и пароль</source>
+        <translation>Sprawdź imię, e-mail i hasło</translation>
+    </message>
+    <message>
+        <source>Не удалось создать аккаунт, попробуйте ещё раз</source>
+        <translation>Nie udało się utworzyć konta, spróbuj ponownie</translation>
     </message>
     <message>
         <source>Код неверный или истёк</source>
@@ -427,6 +459,10 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished">Nie udało się zalogować przez Google, spróbuj ponownie</translation>
     </message>
     <message>
+        <source>Вход через Apple не завершён, попробуйте ещё раз</source>
+        <translation>Logowanie przez Apple nie zostało ukończone, spróbuj ponownie</translation>
+    </message>
+    <message>
         <source>Вход через Google не завершён, попробуйте ещё раз</source>
         <translation type="unfinished">Logowanie Google nie zostało ukończone, spróbuj ponownie</translation>
     </message>
@@ -441,6 +477,14 @@ Already installed containers were found on the server. All installed containers 
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
         <translation>Coś poszło nie tak, spróbuj ponownie</translation>
+    </message>
+    <message>
+        <source>App Store пока не отдаёт варианты подписки. Попробуйте позже.</source>
+        <translation>App Store nie zwraca jeszcze opcji subskrypcji. Spróbuj później.</translation>
+    </message>
+    <message>
+        <source>Не удалось загрузить цены из App Store: %1</source>
+        <translation>Nie udało się pobrać cen z App Store: %1</translation>
     </message>
     <message>
         <source>Покупка не завершена</source>
@@ -657,6 +701,18 @@ i jesteś chroniony</translation>
         <translation>Bezpieczny internet</translation>
     </message>
     <message>
+        <source>Создание аккаунта</source>
+        <translation>Tworzenie konta</translation>
+    </message>
+    <message>
+        <source>Имя</source>
+        <translation>Imię</translation>
+    </message>
+    <message>
+        <source>Как к вам обращаться</source>
+        <translation>Jak się do Ciebie zwracać?</translation>
+    </message>
+    <message>
         <source>Электронная почта</source>
         <translation>E-mail</translation>
     </message>
@@ -669,6 +725,10 @@ i jesteś chroniony</translation>
         <translation>Hasło</translation>
     </message>
     <message>
+        <source>Не короче 8 символов</source>
+        <translation>Co najmniej 8 znaków</translation>
+    </message>
+    <message>
         <source>Показать пароль</source>
         <translation>Pokaż hasło</translation>
     </message>
@@ -677,12 +737,24 @@ i jesteś chroniony</translation>
         <translation>Ukryj hasło</translation>
     </message>
     <message>
+        <source>Забыли пароль?</source>
+        <translation>Nie pamiętasz hasła?</translation>
+    </message>
+    <message>
         <source>Код из личного кабинета</source>
         <translation>Kod z konta</translation>
     </message>
     <message>
         <source>Например, 482913</source>
         <translation>np. 482913</translation>
+    </message>
+    <message>
+        <source>Создаём аккаунт…</source>
+        <translation>Tworzymy konto…</translation>
+    </message>
+    <message>
+        <source>Создать аккаунт</source>
+        <translation>Utwórz konto</translation>
     </message>
     <message>
         <source>Войти</source>
@@ -705,6 +777,18 @@ i jesteś chroniony</translation>
         <translation>Wpisz hasło</translation>
     </message>
     <message>
+        <source>Введите имя</source>
+        <translation>Wpisz imię</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>Hasło musi mieć co najmniej 8 znaków</translation>
+    </message>
+    <message>
+        <source>На почту придёт письмо для подтверждения адреса — после него откроется доступ.</source>
+        <translation>Na e-mail przyjdzie wiadomość z potwierdzeniem adresu — po nim otworzy się dostęp.</translation>
+    </message>
+    <message>
         <source>Ожидаем вход через Apple…</source>
         <translation>Oczekiwanie na logowanie Apple…</translation>
     </message>
@@ -723,6 +807,10 @@ i jesteś chroniony</translation>
     <message>
         <source>Нет аккаунта?</source>
         <translation>Nie masz konta?</translation>
+    </message>
+    <message>
+        <source>Уже есть аккаунт?</source>
+        <translation>Masz już konto?</translation>
     </message>
     <message>
         <source>Зарегистрироваться</source>
@@ -760,6 +848,14 @@ i jesteś chroniony</translation>
         <translation>Co zawiera: nieograniczony transfer bez limitu prędkości, serwery w 7 krajach, do 5 urządzeń jednocześnie.</translation>
     </message>
     <message>
+        <source>Загружаем цены из App Store…</source>
+        <translation>Pobieramy ceny z App Store…</translation>
+    </message>
+    <message>
+        <source>Повторить</source>
+        <translation>Spróbuj ponownie</translation>
+    </message>
+    <message>
         <source>Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.</source>
         <translation>Subskrypcja „1 miesiąc“ odnawia się co miesiąc, „1 rok“ — co rok. Płatność zostanie pobrana z Apple ID po potwierdzeniu zakupu. Odnowienie jest automatyczne, o ile nie anulujesz subskrypcji w ustawieniach Apple ID co najmniej 24 godziny przed końcem bieżącego okresu. Subskrypcją możesz zarządzać i wyłączyć odnawianie w ustawieniach Apple ID.</translation>
     </message>
@@ -789,7 +885,7 @@ i jesteś chroniony</translation>
     </message>
     <message>
         <source>Оформить подписку</source>
-        <translation>Subskrybuj</translation>
+        <translation type="vanished">Subskrybuj</translation>
     </message>
     <message>
         <source>1 год — %1</source>
@@ -817,7 +913,7 @@ i jesteś chroniony</translation>
     </message>
     <message>
         <source>Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.</source>
-        <translation>Płatność zostanie pobrana z Twojego Apple ID. Subskrypcja odnawia się automatycznie, jeśli nie anulujesz jej w ustawieniach Apple ID co najmniej 24 godziny przed końcem okresu.</translation>
+        <translation type="vanished">Płatność zostanie pobrana z Twojego Apple ID. Subskrypcja odnawia się automatycznie, jeśli nie anulujesz jej w ustawieniach Apple ID co najmniej 24 godziny przed końcem okresu.</translation>
     </message>
     <message>
         <source>Управление подпиской</source>

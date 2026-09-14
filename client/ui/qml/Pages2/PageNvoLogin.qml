@@ -17,16 +17,20 @@ PageType {
     id: root
 
     property bool codeMode: false
+    property bool registerMode: false
     property bool showPassword: false
 
-    // iOS App Store, правило 3.1.3(f): companion-приложение к платному веб-сервису не должно
-    // содержать регистрацию/сторонние входы/ссылки на оплату. Поэтому на iOS — ТОЛЬКО email+пароль.
-    // (Нет сторонних соц-входов → Sign in with Apple по правилу 4.8 не требуется.)
     readonly property bool isIos: Qt.platform.os === "ios"
-    // Google-вход через polling работает на всех платформах, КРОМЕ iOS (3.1.3(f)).
-    readonly property bool googleAvailable: !isIos
-    // Sign in with Apple — тоже скрыт на iOS (там вообще нет соц-входов, чистый email+пароль).
-    readonly property bool appleAvailable: !isIos
+    // 14.09.2026: приложение одобрено App Store (1.0) и продаёт подписку через In-App Purchase —
+    // правило 3.1.3(f) о «companion-приложении без входов и регистрации» больше не применяется.
+    // Google-вход и Sign in with Apple включены на всех платформах (4.8: раз есть Google — нужен и Apple).
+    // Без них люди с аккаунтами, заведёнными на сайте через Google/Apple (больше половины базы),
+    // в iOS-версии не могли войти вообще: пароля у таких аккаунтов нет.
+    readonly property bool googleAvailable: true
+    readonly property bool appleAvailable: true
+    // Регистрация: на iOS — внутри приложения (ссылка на сайт с ценами = риск App Store 3.1.1),
+    // на остальных платформах — как раньше, на сайте.
+    readonly property bool inAppRegister: isIos
 
     Connections {
         target: NvoApi
@@ -84,11 +88,25 @@ PageType {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Безопасный интернет")
+                        text: root.registerMode ? qsTr("Создание аккаунта") : qsTr("Безопасный интернет")
                         color: NvoStyle.color.mutedGray
                         font.pixelSize: 15
                     }
                 }
+            }
+
+            // ---- Имя (только регистрация) ----
+            TextFieldWithHeaderType {
+                id: nameField
+                visible: root.registerMode
+                Layout.fillWidth: true
+                Layout.topMargin: 40
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+
+                headerText: qsTr("Имя")
+                textField.placeholderText: qsTr("Как к вам обращаться")
+                textField.inputMethodHints: Qt.ImhNoPredictiveText
             }
 
             // ---- Email + пароль ----
@@ -96,7 +114,7 @@ PageType {
                 id: emailField
                 visible: !root.codeMode
                 Layout.fillWidth: true
-                Layout.topMargin: 40
+                Layout.topMargin: root.registerMode ? 16 : 40
                 Layout.leftMargin: 24
                 Layout.rightMargin: 24
 
@@ -114,24 +132,45 @@ PageType {
                 Layout.rightMargin: 24
 
                 headerText: qsTr("Пароль")
-                textField.placeholderText: qsTr("Пароль")
+                textField.placeholderText: root.registerMode ? qsTr("Не короче 8 символов") : qsTr("Пароль")
 
                 Component.onCompleted: passwordField.textField.echoMode = TextInput.Password
             }
 
-            CaptionTextType {
+            RowLayout {
                 visible: !root.codeMode
+                Layout.fillWidth: true
                 Layout.leftMargin: 24
+                Layout.rightMargin: 24
                 Layout.topMargin: 8
-                color: NvoStyle.color.nvoBlue
-                text: root.showPassword ? qsTr("Скрыть пароль") : qsTr("Показать пароль")
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        root.showPassword = !root.showPassword
-                        passwordField.textField.echoMode = root.showPassword ? TextInput.Normal : TextInput.Password
+                CaptionTextType {
+                    color: NvoStyle.color.nvoBlue
+                    text: root.showPassword ? qsTr("Скрыть пароль") : qsTr("Показать пароль")
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.showPassword = !root.showPassword
+                            passwordField.textField.echoMode = root.showPassword ? TextInput.Normal : TextInput.Password
+                        }
+                    }
+                }
+
+                Item { Layout.fillWidth: true }
+
+                // Восстановление пароля — страница сайта (через активный домен). Нужна и тем, кто
+                // регистрировался через Google/Apple и хочет завести обычный пароль.
+                CaptionTextType {
+                    visible: !root.registerMode
+                    color: NvoStyle.color.nvoBlue
+                    text: qsTr("Забыли пароль?")
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: NvoApi.openForgotPassword()
                     }
                 }
             }
@@ -172,7 +211,11 @@ PageType {
                 Layout.preferredHeight: 56
 
                 enabled: !NvoApi.isBusy
-                text: NvoApi.isBusy ? qsTr("Входим…") : qsTr("Войти")
+                text: {
+                    if (root.registerMode)
+                        return NvoApi.isBusy ? qsTr("Создаём аккаунт…") : qsTr("Создать аккаунт")
+                    return NvoApi.isBusy ? qsTr("Входим…") : qsTr("Войти")
+                }
 
                 clickedFunc: function() {
                     errorLabel.text = ""
@@ -184,89 +227,104 @@ PageType {
                         }
                         PageController.showBusyIndicator(true)
                         NvoApi.loginByCode(code)
-                    } else {
-                        var email = emailField.textField.text.trim()
-                        var pwd = passwordField.textField.text
-                        if (email.indexOf("@") < 0) {
-                            errorLabel.text = qsTr("Введите корректный email")
+                        return
+                    }
+                    var email = emailField.textField.text.trim()
+                    var pwd = passwordField.textField.text
+                    if (email.indexOf("@") < 0) {
+                        errorLabel.text = qsTr("Введите корректный email")
+                        return
+                    }
+                    if (pwd.length === 0) {
+                        errorLabel.text = qsTr("Введите пароль")
+                        return
+                    }
+                    if (root.registerMode) {
+                        var name = nameField.textField.text.trim()
+                        if (name.length === 0) {
+                            errorLabel.text = qsTr("Введите имя")
                             return
                         }
-                        if (pwd.length === 0) {
-                            errorLabel.text = qsTr("Введите пароль")
+                        if (pwd.length < 8) {
+                            errorLabel.text = qsTr("Пароль должен быть не короче 8 символов")
                             return
                         }
                         PageController.showBusyIndicator(true)
-                        NvoApi.login(email, pwd)
+                        NvoApi.registerAccount(name, email, pwd)
+                        return
                     }
+                    PageController.showBusyIndicator(true)
+                    NvoApi.login(email, pwd)
                 }
             }
 
-            // ---- «или» + вход через Google (только мобильные, см. root.googleAvailable) ----
+            // Подсказка при регистрации: что будет дальше (письмо подтверждения → пробный период).
             CaptionTextType {
-                visible: !root.codeMode && root.googleAvailable
+                visible: root.registerMode
+                Layout.fillWidth: true
+                Layout.leftMargin: 24
+                Layout.rightMargin: 24
+                Layout.topMargin: 12
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: NvoStyle.color.mutedGray
+                text: qsTr("На почту придёт письмо для подтверждения адреса — после него откроется доступ.")
+            }
+
+            // ---- «или» + вход через Apple / Google ----
+            CaptionTextType {
+                visible: !root.codeMode && (root.googleAvailable || root.appleAvailable)
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 16
                 color: NvoStyle.color.mutedGray
                 text: qsTr("или")
             }
 
-            BasicButtonType {
-                id: googleButton
-                visible: !root.codeMode && root.googleAvailable
-                Layout.fillWidth: true
-                Layout.topMargin: 12
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
-                Layout.preferredHeight: 56
+            // Порядок: на iOS первым Sign in with Apple (App Store 4.8 / HIG), на остальных — Google.
+            Repeater {
+                model: root.isIos ? ["apple", "google"] : ["google", "apple"]
 
-                defaultColor: NvoStyle.color.transparent
-                hoveredColor: NvoStyle.color.translucentWhite
-                pressedColor: NvoStyle.color.sheerWhite
-                textColor: NvoStyle.color.paleGray
-                borderColor: NvoStyle.color.slateGray
-                borderWidth: 1
+                delegate: BasicButtonType {
+                    required property string modelData
+                    readonly property bool isApple: modelData === "apple"
 
-                enabled: !NvoApi.isBusy
-                text: NvoApi.isBusy ? qsTr("Ожидаем вход через Google…") : qsTr("Войти через Google")
+                    visible: !root.codeMode && (isApple ? root.appleAvailable : root.googleAvailable)
+                    Layout.fillWidth: true
+                    Layout.topMargin: 12
+                    Layout.leftMargin: 24
+                    Layout.rightMargin: 24
+                    Layout.preferredHeight: 56
 
-                clickedFunc: function() {
-                    errorLabel.text = ""
-                    NvoApi.loginWithGoogle()
-                }
-            }
+                    defaultColor: NvoStyle.color.transparent
+                    hoveredColor: NvoStyle.color.translucentWhite
+                    pressedColor: NvoStyle.color.sheerWhite
+                    textColor: NvoStyle.color.paleGray
+                    borderColor: NvoStyle.color.slateGray
+                    borderWidth: 1
 
-            // ---- Sign in with Apple (обязателен для App Store при наличии соц-входов) ----
-            BasicButtonType {
-                id: appleButton
-                visible: !root.codeMode && root.appleAvailable
-                Layout.fillWidth: true
-                Layout.topMargin: 12
-                Layout.leftMargin: 24
-                Layout.rightMargin: 24
-                Layout.preferredHeight: 56
+                    enabled: !NvoApi.isBusy
+                    text: {
+                        if (isApple)
+                            return NvoApi.isBusy ? qsTr("Ожидаем вход через Apple…") : qsTr("Войти через Apple")
+                        return NvoApi.isBusy ? qsTr("Ожидаем вход через Google…") : qsTr("Войти через Google")
+                    }
 
-                defaultColor: NvoStyle.color.transparent
-                hoveredColor: NvoStyle.color.translucentWhite
-                pressedColor: NvoStyle.color.sheerWhite
-                textColor: NvoStyle.color.paleGray
-                borderColor: NvoStyle.color.slateGray
-                borderWidth: 1
-
-                enabled: !NvoApi.isBusy
-                text: NvoApi.isBusy ? qsTr("Ожидаем вход через Apple…") : qsTr("Войти через Apple")
-
-                clickedFunc: function() {
-                    errorLabel.text = ""
-                    NvoApi.loginWithApple()
+                    clickedFunc: function() {
+                        errorLabel.text = ""
+                        if (isApple)
+                            NvoApi.loginWithApple()
+                        else
+                            NvoApi.loginWithGoogle()
+                    }
                 }
             }
 
             // ---- Переключатель режима ----
-            // App Store 2.1: на iOS вход по коду СКРЫТ — только email+пароль (Apple спрашивала
+            // App Store 2.1: на iOS вход по коду СКРЫТ — только email+пароль и соц-входы (Apple спрашивала
             // «как получают код / платный ли он»). Переключатель — единственный вход в codeMode,
             // поэтому его скрытие полностью убирает код-логин из iOS-сборки.
             CaptionTextType {
-                visible: !root.isIos
+                visible: !root.isIos && !root.registerMode
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 20
                 horizontalAlignment: Text.AlignHCenter
@@ -284,8 +342,7 @@ PageType {
             }
 
             RowLayout {
-                // 3.1.3(f): на iOS НЕ показываем регистрацию/ссылку на сайт (там же и оплата).
-                visible: !root.isIos
+                visible: !root.codeMode
                 Layout.alignment: Qt.AlignHCenter
                 Layout.topMargin: 32
                 Layout.bottomMargin: 24
@@ -293,18 +350,27 @@ PageType {
 
                 CaptionTextType {
                     color: NvoStyle.color.mutedGray
-                    text: qsTr("Нет аккаунта?")
+                    text: root.registerMode ? qsTr("Уже есть аккаунт?") : qsTr("Нет аккаунта?")
                 }
 
                 CaptionTextType {
                     color: NvoStyle.color.nvoBlue
                     font.weight: 700
-                    text: qsTr("Зарегистрироваться")
+                    text: root.registerMode ? qsTr("Войти") : qsTr("Зарегистрироваться")
 
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Qt.openUrlExternally("https://nvovpn.com/")
+                        onClicked: {
+                            errorLabel.text = ""
+                            if (root.registerMode) {
+                                root.registerMode = false
+                            } else if (root.inAppRegister) {
+                                root.registerMode = true
+                            } else {
+                                Qt.openUrlExternally("https://nvovpn.com/")
+                            }
+                        }
                     }
                 }
             }

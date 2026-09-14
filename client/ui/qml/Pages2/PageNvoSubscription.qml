@@ -99,6 +99,41 @@ PageType {
                 text: qsTr("Что входит: безлимитный трафик без ограничения скорости, серверы в 7 странах, до 5 устройств одновременно.")
             }
 
+            // Пока StoreKit не ответил — говорим об этом, а не показываем две серые кнопки.
+            CaptionTextType {
+                visible: NvoApi.iapLoading
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                color: NvoStyle.color.mutedGray
+                text: qsTr("Загружаем цены из App Store…")
+            }
+
+            // Цены не пришли (нет сети, продукты недоступны в App Store) — причина + «Повторить».
+            // 14.09.2026: именно так выглядел выход в App Store с неотправленными на ревью подписками —
+            // кнопки были мёртвые без единого слова. Теперь человек видит, что происходит.
+            CaptionTextType {
+                visible: !NvoApi.iapLoading && NvoApi.iapError.length > 0
+                Layout.fillWidth: true
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                color: NvoStyle.color.vibrantRed
+                text: NvoApi.iapError
+            }
+
+            CaptionTextType {
+                visible: !NvoApi.iapLoading && NvoApi.iapError.length > 0
+                Layout.alignment: Qt.AlignHCenter
+                horizontalAlignment: Text.AlignHCenter
+                color: NvoStyle.color.nvoBlue
+                text: qsTr("Повторить")
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: NvoApi.fetchIapProducts()
+                }
+            }
+
             // Год — сверху (выгоднее)
             BasicButtonType {
                 Layout.fillWidth: true
@@ -122,6 +157,8 @@ PageType {
                 borderColor: NvoStyle.color.slateGray
                 borderWidth: 1
                 enabled: !NvoApi.isBusy && NvoApi.iapPrice1m.length > 0
+                // Прозрачная кнопка с рамкой в выключенном виде выглядела как активная («нажимаю — ничего»).
+                opacity: enabled ? 1.0 : 0.45
                 text: NvoApi.iapPrice1m.length > 0 ? qsTr("1 месяц — %1").arg(NvoApi.iapPrice1m) : qsTr("1 месяц")
                 clickedFunc: function() { NvoApi.purchaseIap("com.nvovpn.app.premium.1m") }
             }

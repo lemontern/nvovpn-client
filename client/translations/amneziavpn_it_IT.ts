@@ -187,7 +187,7 @@
     <name>CoreController</name>
     <message>
         <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
-        <translation>Connessione stabilita, ma i dati non passano — probabilmente la tua rete blocca la VPN. Prova un altro server o un'altra rete.</translation>
+        <translation>Connessione stabilita, ma i dati non passano — probabilmente la tua rete blocca la VPN. Prova un altro server o un&apos;altra rete.</translation>
     </message>
 </context>
 <context>
@@ -387,12 +387,44 @@ Already installed containers were found on the server. All installed containers 
         <translation>Impossibile trovare un server, riprova più tardi</translation>
     </message>
     <message>
+        <source>Этот аккаунт создан через Google — нажмите «Войти через Google»</source>
+        <translation>Questo account è stato creato con Google: tocca «Accedi con Google»</translation>
+    </message>
+    <message>
+        <source>Этот аккаунт создан через Apple — нажмите «Войти через Apple»</source>
+        <translation>Questo account è stato creato con Apple: tocca «Accedi con Apple»</translation>
+    </message>
+    <message>
         <source>Неверный email или пароль</source>
         <translation>Email o password non validi</translation>
     </message>
     <message>
+        <source>Слишком много попыток, подождите минуту</source>
+        <translation>Troppi tentativi, attendi un minuto</translation>
+    </message>
+    <message>
         <source>Не удалось войти, попробуйте ещё раз</source>
         <translation>Accesso non riuscito, riprova</translation>
+    </message>
+    <message>
+        <source>Такой email уже зарегистрирован — войдите с паролем или через Google/Apple</source>
+        <translation>Questa email è già registrata: accedi con la password o tramite Google/Apple</translation>
+    </message>
+    <message>
+        <source>Введите корректный email</source>
+        <translation type="unfinished">Inserisci un&apos;email valida</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>La password deve contenere almeno 8 caratteri</translation>
+    </message>
+    <message>
+        <source>Проверьте имя, email и пароль</source>
+        <translation>Controlla nome, email e password</translation>
+    </message>
+    <message>
+        <source>Не удалось создать аккаунт, попробуйте ещё раз</source>
+        <translation>Impossibile creare l&apos;account, riprova</translation>
     </message>
     <message>
         <source>Код неверный или истёк</source>
@@ -427,6 +459,10 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished">Accesso con Google non riuscito, riprova</translation>
     </message>
     <message>
+        <source>Вход через Apple не завершён, попробуйте ещё раз</source>
+        <translation>Accesso con Apple non completato, riprova</translation>
+    </message>
+    <message>
         <source>Вход через Google не завершён, попробуйте ещё раз</source>
         <translation type="unfinished">Accesso con Google non completato, riprova</translation>
     </message>
@@ -443,6 +479,14 @@ Already installed containers were found on the server. All installed containers 
         <translation>Qualcosa è andato storto, riprova</translation>
     </message>
     <message>
+        <source>App Store пока не отдаёт варианты подписки. Попробуйте позже.</source>
+        <translation>L&apos;App Store non restituisce ancora le opzioni di abbonamento. Riprova più tardi.</translation>
+    </message>
+    <message>
+        <source>Не удалось загрузить цены из App Store: %1</source>
+        <translation>Impossibile caricare i prezzi dall&apos;App Store: %1</translation>
+    </message>
+    <message>
         <source>Покупка не завершена</source>
         <translation>Acquisto non completato</translation>
     </message>
@@ -456,7 +500,7 @@ Already installed containers were found on the server. All installed containers 
     </message>
     <message>
         <source>Не удалось активировать подписку</source>
-        <translation>Impossibile attivare l'abbonamento</translation>
+        <translation>Impossibile attivare l&apos;abbonamento</translation>
     </message>
 </context>
 <context>
@@ -657,6 +701,18 @@ e sei protetto</translation>
         <translation>Internet sicuro</translation>
     </message>
     <message>
+        <source>Создание аккаунта</source>
+        <translation>Creazione account</translation>
+    </message>
+    <message>
+        <source>Имя</source>
+        <translation>Nome</translation>
+    </message>
+    <message>
+        <source>Как к вам обращаться</source>
+        <translation>Come possiamo chiamarti?</translation>
+    </message>
+    <message>
         <source>Электронная почта</source>
         <translation>Email</translation>
     </message>
@@ -669,6 +725,10 @@ e sei protetto</translation>
         <translation>Password</translation>
     </message>
     <message>
+        <source>Не короче 8 символов</source>
+        <translation>Almeno 8 caratteri</translation>
+    </message>
+    <message>
         <source>Показать пароль</source>
         <translation>Mostra password</translation>
     </message>
@@ -677,12 +737,24 @@ e sei protetto</translation>
         <translation>Nascondi password</translation>
     </message>
     <message>
+        <source>Забыли пароль?</source>
+        <translation>Password dimenticata?</translation>
+    </message>
+    <message>
         <source>Код из личного кабинета</source>
         <translation>Codice dal tuo account</translation>
     </message>
     <message>
         <source>Например, 482913</source>
         <translation>es. 482913</translation>
+    </message>
+    <message>
+        <source>Создаём аккаунт…</source>
+        <translation>Creazione dell&apos;account…</translation>
+    </message>
+    <message>
+        <source>Создать аккаунт</source>
+        <translation>Crea account</translation>
     </message>
     <message>
         <source>Войти</source>
@@ -705,8 +777,20 @@ e sei protetto</translation>
         <translation>Inserisci la password</translation>
     </message>
     <message>
+        <source>Введите имя</source>
+        <translation>Inserisci il tuo nome</translation>
+    </message>
+    <message>
+        <source>Пароль должен быть не короче 8 символов</source>
+        <translation>La password deve contenere almeno 8 caratteri</translation>
+    </message>
+    <message>
+        <source>На почту придёт письмо для подтверждения адреса — после него откроется доступ.</source>
+        <translation>Riceverai un&apos;email per confermare l&apos;indirizzo: dopo la conferma l&apos;accesso sarà attivo.</translation>
+    </message>
+    <message>
         <source>Ожидаем вход через Apple…</source>
-        <translation>In attesa dell'accesso con Apple…</translation>
+        <translation>In attesa dell&apos;accesso con Apple…</translation>
     </message>
     <message>
         <source>Войти через Apple</source>
@@ -723,6 +807,10 @@ e sei protetto</translation>
     <message>
         <source>Нет аккаунта?</source>
         <translation>Nessun account?</translation>
+    </message>
+    <message>
+        <source>Уже есть аккаунт?</source>
+        <translation>Hai già un account?</translation>
     </message>
     <message>
         <source>Зарегистрироваться</source>
@@ -760,6 +848,14 @@ e sei protetto</translation>
         <translation>Cosa include: traffico illimitato senza limiti di velocità, server in 7 paesi, fino a 5 dispositivi contemporaneamente.</translation>
     </message>
     <message>
+        <source>Загружаем цены из App Store…</source>
+        <translation>Caricamento dei prezzi dall&apos;App Store…</translation>
+    </message>
+    <message>
+        <source>Повторить</source>
+        <translation>Riprova</translation>
+    </message>
+    <message>
         <source>Подписка «1 месяц» продлевается каждый месяц, «1 год» — каждый год. Оплата спишется с вашего Apple ID при подтверждении покупки. Продление автоматическое, если не отменить подписку в настройках Apple ID не позднее чем за 24 часа до конца текущего периода. Управлять подпиской и отключить продление можно в настройках Apple ID.</source>
         <translation>L’abbonamento «1 mese» si rinnova ogni mese, «1 anno» ogni anno. Il pagamento viene addebitato sul tuo ID Apple alla conferma dell’acquisto. Il rinnovo è automatico se non annulli l’abbonamento nelle impostazioni dell’ID Apple almeno 24 ore prima della fine del periodo in corso. Puoi gestire l’abbonamento e disattivare il rinnovo nelle impostazioni dell’ID Apple.</translation>
     </message>
@@ -789,7 +885,7 @@ e sei protetto</translation>
     </message>
     <message>
         <source>Оформить подписку</source>
-        <translation>Abbonati</translation>
+        <translation type="vanished">Abbonati</translation>
     </message>
     <message>
         <source>1 год — %1</source>
@@ -817,7 +913,7 @@ e sei protetto</translation>
     </message>
     <message>
         <source>Оплата спишется с вашего Apple ID. Подписка продлевается автоматически, если не отменить её в настройках Apple ID не позднее чем за 24 часа до конца периода.</source>
-        <translation>Il pagamento verrà addebitato sul tuo Apple ID. L'abbonamento si rinnova automaticamente se non viene annullato nelle impostazioni dell'Apple ID almeno 24 ore prima della fine del periodo.</translation>
+        <translation type="vanished">Il pagamento verrà addebitato sul tuo Apple ID. L&apos;abbonamento si rinnova automaticamente se non viene annullato nelle impostazioni dell&apos;Apple ID almeno 24 ore prima della fine del periodo.</translation>
     </message>
     <message>
         <source>Управление подпиской</source>
@@ -4645,7 +4741,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Сессия завершена — возможно, выполнен вход на другом устройстве. Войдите снова.</source>
-        <translation>Sessione terminata — potresti aver effettuato l'accesso su un altro dispositivo. Accedi di nuovo.</translation>
+        <translation>Sessione terminata — potresti aver effettuato l&apos;accesso su un altro dispositivo. Accedi di nuovo.</translation>
     </message>
 </context>
 <context>

@@ -37,6 +37,8 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString iapPrice1m READ iapPrice1m NOTIFY iapProductsUpdated)
     Q_PROPERTY(QString iapPrice1y READ iapPrice1y NOTIFY iapProductsUpdated)
     Q_PROPERTY(QString iapPricePerMonth1y READ iapPricePerMonth1y NOTIFY iapProductsUpdated)
+    Q_PROPERTY(bool iapLoading READ iapLoading NOTIFY iapProductsUpdated)      // идёт запрос цен в StoreKit
+    Q_PROPERTY(QString iapError READ iapError NOTIFY iapProductsUpdated)       // почему цены не загрузились ("" = всё хорошо)
     Q_PROPERTY(int selectedServerId READ selectedServerId WRITE setSelectedServerId NOTIFY selectedServerChanged)
     Q_PROPERTY(bool onboardingDone READ onboardingDone NOTIFY onboardingChanged)
     Q_PROPERTY(QStringList favoriteCountries READ favoriteCountries NOTIFY favoritesChanged)
@@ -63,6 +65,8 @@ public:
     QString iapPrice1m() const;                  // отображаемая цена 1 мес ("$3.99")
     QString iapPrice1y() const;                  // отображаемая цена 1 год
     QString iapPricePerMonth1y() const;          // цена/мес для годового (для «выгоднее»)
+    bool iapLoading() const;                     // запрос цен в StoreKit ещё идёт
+    QString iapError() const;                    // текст причины, если цены не загрузились
     int selectedServerId() const;               // -1 = Авто (лучший сервер)
     bool onboardingDone() const;                // показан ли обучающий экран (§12.8)
     QStringList favoriteCountries() const;      // коды избранных стран (для подсветки/сортировки в UI)
@@ -97,6 +101,8 @@ public slots:
     QString token() const;
     void loginWithGoogle();                      // Google-вход через polling: открыть браузер + опрашивать /auth/poll
     void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
+    void registerAccount(const QString &name, const QString &email, const QString &password); // POST /auth/register → сразу вход (iOS: регистрация внутри приложения)
+    void openForgotPassword();                   // восстановление пароля на сайте через активный домен
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
     void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
     void toggleFavoriteCountry(const QString &countryCode);  // добавить/убрать страну из избранного (сохраняется)
@@ -191,6 +197,8 @@ private:
     QString m_iapPrice1m;
     QString m_iapPrice1y;
     QString m_iapPricePerMonth1y;
+    bool m_iapLoading = false;
+    QString m_iapError;
 
     // Авто-failover (ТЗ §12.6): в режиме «Авто» перебираем рабочие ноды молча.
     QList<int> m_failoverQueue;
@@ -200,6 +208,7 @@ private:
     QTimer *m_googlePollTimer = nullptr;
     QString m_googleDs;
     int m_googlePollElapsedMs = 0;
+    QString m_oauthProvider;                     // "Google" | "Apple" — чей вход сейчас ждём (для текста ошибки)
 };
 
 #endif // NVOAPICONTROLLER_H
