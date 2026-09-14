@@ -2832,8 +2832,40 @@ Create one from the current settings.</source>
         <translation>Impostazioni</translation>
     </message>
     <message>
+        <source>Аккаунт удалён</source>
+        <translation>Account eliminato</translation>
+    </message>
+    <message>
         <source>Ввести промокод</source>
         <translation>Inserisci codice promozionale</translation>
+    </message>
+    <message>
+        <source>Удалить аккаунт</source>
+        <translation>Elimina account</translation>
+    </message>
+    <message>
+        <source>Безвозвратно: данные, устройства и доступ к VPN</source>
+        <translation>In modo permanente: dati, dispositivi e accesso alla VPN</translation>
+    </message>
+    <message>
+        <source>Удалить аккаунт?</source>
+        <translation>Eliminare l&apos;account?</translation>
+    </message>
+    <message>
+        <source>Аккаунт %1 и все его данные будут удалены безвозвратно, VPN на всех устройствах отключится.</source>
+        <translation>L&apos;account %1 e tutti i suoi dati verranno eliminati in modo permanente; la VPN si disconnetterà su tutti i dispositivi.</translation>
+    </message>
+    <message>
+        <source>Подписка, оформленная через App Store, при этом не отменяется — отключите продление в настройках Apple ID.</source>
+        <translation>Un abbonamento acquistato tramite App Store non viene annullato: disattiva il rinnovo nelle impostazioni dell&apos;ID Apple.</translation>
+    </message>
+    <message>
+        <source>Удалить</source>
+        <translation>Elimina</translation>
+    </message>
+    <message>
+        <source>Отмена</source>
+        <translation>Annulla</translation>
     </message>
     <message>
         <source>Close application</source>

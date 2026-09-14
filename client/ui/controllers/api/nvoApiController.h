@@ -103,6 +103,7 @@ public slots:
     void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
     void registerAccount(const QString &name, const QString &email, const QString &password); // POST /auth/register → сразу вход (iOS: регистрация внутри приложения)
     void openForgotPassword();                   // восстановление пароля на сайте через активный домен
+    void deleteAccount();                        // POST /auth/account/delete → аккаунт удалён, локальный выход (App Store 5.1.1(v))
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
     void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
     void toggleFavoriteCountry(const QString &countryCode);  // добавить/убрать страну из избранного (сохраняется)
@@ -129,6 +130,8 @@ signals:
 
     void loginSucceeded();
     void loginFailed(const QString &message);
+    void accountDeleted();                       // аккаунт удалён на сервере, сессия очищена
+    void accountDeleteFailed(const QString &message);
     void serversUpdated();
     void configReady(const QString &config, int serverId, const QString &serverName,
                      const QString &vpnKey, const QString &awgIp);

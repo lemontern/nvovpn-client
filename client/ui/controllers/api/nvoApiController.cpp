@@ -682,6 +682,42 @@ void NvoApiController::registerAccount(const QString &name, const QString &email
     });
 }
 
+void NvoApiController::deleteAccount()
+{
+    // Удаление аккаунта из приложения (App Store 5.1.1(v): раз есть регистрация — обязано быть и удаление).
+    // Бэкенд снимает доступы с нод и удаляет пользователя вместе со всеми токенами устройств;
+    // локально делаем то же, что logout(), но без запроса /auth/logout — токена уже нет.
+    if (m_token.isEmpty()) { emit sessionExpired(); return; }
+    setBusy(true);
+    const QJsonObject body { { QStringLiteral("confirm"), true } };
+    QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/account/delete"), true),
+                                       QJsonDocument(body).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+        setBusy(false);
+        const int status = httpStatus(reply);
+        if (status == 401) { setToken(QString()); emit sessionExpired(); return; }
+        if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
+            emit accountDeleteFailed(humanError(reply));
+            return;
+        }
+        setToken(QString());
+        m_userName.clear();
+        m_userEmail.clear();
+        m_hasSubscription = false;
+        m_subPlan.clear();
+        m_subStatus.clear();
+        m_subExpiresAt.clear();
+        m_subDaysRemaining = 0;
+        emit userChanged();
+        emit subscriptionChanged();
+        if (m_serversModel) {
+            m_serversModel->updateModel(QJsonArray());
+        }
+        emit accountDeleted();
+    });
+}
+
 void NvoApiController::openForgotPassword()
 {
     // Восстановление пароля — страница сайта через активный домен (в РФ nvovpn.com режется по SNI).

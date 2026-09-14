@@ -14,6 +14,22 @@ import "../Config"
 PageType {
     id: root
 
+    // Удаление аккаунта (App Store 5.1.1(v)): результат запроса → тост; на экран входа уводит
+    // PageStart по authenticationChanged, как при обычном выходе.
+    Connections {
+        target: NvoApi
+
+        function onAccountDeleted() {
+            PageController.showBusyIndicator(false)
+            PageController.showNotificationMessage(qsTr("Аккаунт удалён"))
+        }
+
+        function onAccountDeleteFailed(message) {
+            PageController.showBusyIndicator(false)
+            PageController.showNotificationMessage(message)
+        }
+    }
+
     Connections {
         target: ApiNewsController
         function onFetchNewsFinished() {
@@ -119,6 +135,48 @@ PageType {
                         ConnectionController.closeConnectionByUser()
                     }
                     NvoApi.logout()
+                }
+            }
+
+            DividerType {
+                visible: NvoApi.isAuthenticated
+                Layout.fillWidth: true
+                Layout.leftMargin: 16
+                Layout.rightMargin: 16
+            }
+
+            // Удалить аккаунт — App Store 5.1.1(v): приложение с регистрацией обязано давать и удаление
+            // внутри себя. Работает на всех платформах (на сайте удаление требует пароль, которого
+            // у аккаунтов через Google/Apple нет). Подтверждение — стандартный questionDrawer.
+            LabelWithButtonType {
+                id: deleteAccount
+
+                visible: NvoApi.isAuthenticated
+                Layout.fillWidth: true
+
+                text: qsTr("Удалить аккаунт")
+                descriptionText: qsTr("Безвозвратно: данные, устройства и доступ к VPN")
+                leftImageSource: "qrc:/images/controls/trash.svg"
+                isLeftImageHoverEnabled: false
+
+                clickedFunction: function() {
+                    var headerText = qsTr("Удалить аккаунт?")
+                    var descriptionText = qsTr("Аккаунт %1 и все его данные будут удалены безвозвратно, VPN на всех устройствах отключится.").arg(NvoApi.userEmail)
+                    if (Qt.platform.os === "ios") {
+                        // Требование Apple: предупредить, что удаление аккаунта не отменяет подписку App Store.
+                        descriptionText += " " + qsTr("Подписка, оформленная через App Store, при этом не отменяется — отключите продление в настройках Apple ID.")
+                    }
+                    var yesButtonText = qsTr("Удалить")
+                    var noButtonText = qsTr("Отмена")
+                    var yesButtonFunction = function() {
+                        if (ConnectionController.isConnected || ConnectionController.isConnectionInProgress) {
+                            ConnectionController.closeConnectionByUser()
+                        }
+                        PageController.showBusyIndicator(true)
+                        NvoApi.deleteAccount()
+                    }
+                    var noButtonFunction = function() {}
+                    showQuestionDrawer(headerText, descriptionText, yesButtonText, noButtonText, yesButtonFunction, noButtonFunction)
                 }
             }
 

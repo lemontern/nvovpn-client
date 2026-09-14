@@ -3246,11 +3246,43 @@ Create one from the current settings.</source>
         <translation type="vanished">Серверы</translation>
     </message>
     <message>
+        <source>Аккаунт удалён</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Ввести промокод</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Выйти из аккаунта</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Удалить аккаунт</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Безвозвратно: данные, устройства и доступ к VPN</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Удалить аккаунт?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Аккаунт %1 и все его данные будут удалены безвозвратно, VPN на всех устройствах отключится.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Подписка, оформленная через App Store, при этом не отменяется — отключите продление в настройках Apple ID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Удалить</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Отмена</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
