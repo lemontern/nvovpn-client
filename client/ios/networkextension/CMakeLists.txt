@@ -96,9 +96,13 @@ target_sources(networkextension PRIVATE
     ${CLIENT_ROOT_DIR}/platforms/ios/LogRecord.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+WireGuard.swift
-    # NvoVPN: только AmneziaWG (App Store 4.3 — чужие движки вырезаны из бинаря).
-    # Вместо реальных Xray (hev-socks5-tunnel/amnezia-xray-core) и OpenVPN (openvpnadapter) — заглушки:
-    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+XrayStub.swift
+    # NvoVPN 14.09.2026: VLESS/xray на iOS — та же обвязка, что на macOS (amnezia-xray-bindings над
+    # upstream xtls/xray-core + hev-socks5-tunnel). Раньше стояла заглушка XrayStub (App Store 4.3, 07.2026):
+    # любой vless-конфиг на iPhone «подключался» без результата, а из РФ без VLESS приложение бесполезно.
+    ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+Xray.swift
+    ${CLIENT_ROOT_DIR}/platforms/ios/XrayConfig.swift
+    ${CLIENT_ROOT_DIR}/platforms/ios/HevSocksTunnel.swift
+    # OpenVPN на iOS по-прежнему заглушка (openvpnadapter не линкуем — 4.3).
     ${CLIENT_ROOT_DIR}/platforms/ios/PacketTunnelProvider+OpenVPNStub.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/WGConfig.swift
     ${CLIENT_ROOT_DIR}/platforms/ios/iosglue.mm
@@ -115,6 +119,20 @@ set_property(TARGET networkextension APPEND PROPERTY RESOURCE
 target_include_directories(networkextension PRIVATE ${CLIENT_ROOT_DIR})
 target_include_directories(networkextension PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
-# NvoVPN: openvpnadapter и hev-socks5-tunnel НЕ линкуются на iOS (только AmneziaWG).
 find_package(awg-apple REQUIRED)
 target_link_libraries(networkextension PRIVATE amnezia::awg-apple)
+
+# NvoVPN 14.09.2026: движок xray (libamnezia_xray, Go, upstream xtls/xray-core) рядом с libwg-go (Go) в одном
+# бинаре NE — как на macOS. Дублирующиеся cgo-символы двух Go-рантаймов локализуются в CI-шаге
+# «Fix Go cgo symbol clash in libamnezia_xray.a (iOS)» (ld -r -unexported_symbols_list). -force_load гарантирует,
+# что весь Go-рантайм xray (включая init-объекты) попадёт в бинарь. hev (C) — обычная статическая либа (xcframework).
+find_package(amnezia-xray-bindings REQUIRED)
+target_link_libraries(networkextension PRIVATE amnezia::xray-bindings)
+target_link_options(networkextension PRIVATE "-Wl,-force_load,$<TARGET_FILE:amnezia::xray-bindings>")
+
+find_package(hev-socks5-tunnel REQUIRED)
+set_property(TARGET heiher::hev-socks5-tunnel APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
+set_property(TARGET heiher::hev-socks5-tunnel APPEND PROPERTY IMPORTED_CONFIGURATIONS MINSIZEREL)
+set_property(TARGET heiher::hev-socks5-tunnel APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
+set_property(TARGET heiher::hev-socks5-tunnel APPEND PROPERTY IMPORTED_CONFIGURATIONS RELWITHDEBINFO)
+target_link_libraries(networkextension PRIVATE heiher::hev-socks5-tunnel)

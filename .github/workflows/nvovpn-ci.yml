@@ -764,6 +764,30 @@ jobs:
             echo "libwg-go.a не найден (возможно iOS использует другой путь) — пропускаю"
           fi
 
+      - name: 'Fix Go cgo symbol clash in libamnezia_xray.a (iOS VLESS)'
+        # 14.09.2026: xray (Go, upstream xtls/xray-core через amnezia-xray-bindings) линкуется в iOS NE рядом
+        # с libwg-go (Go). Тот же фикс, что для macOS: все 27 cgo-интринсиков в xray-либе локализуем
+        # (ld -r -unexported_symbols_list) → глобальными остаются копии из libwg-go, коллизий 0.
+        # В NE активен ровно один Go-рантайм за раз (AWG ИЛИ xray), состояния не пересекаются.
+        run: |
+          set -e
+          XRAY="$(find "$HOME/.conan2" -path '*/p/lib/libamnezia_xray.a' 2>/dev/null | head -1)"
+          echo "libamnezia_xray.a: $XRAY"
+          test -n "$XRAY" || { echo "libamnezia_xray.a не найден — conan не собрал amnezia-xray-bindings для iOS"; exit 1; }
+          lipo -info "$XRAY" || true
+          printf '%s\n' \
+            __cgo_set_stacklo __cgo_get_context_function _x_cgo_notify_runtime_init_done \
+            _x_cgo_sys_thread_create _x_cgo_bindm _x_cgo_pthread_key_created __cgo_wait_runtime_init_done \
+            __cgo_try_pthread_create _x_crosscall2_ptr __cgo_get_traceback_function __cgo_topofstack \
+            _crosscall2 __cgo_panic __cgo_sys_thread_start _x_cgo_set_traceback_functions __cgo_yield \
+            _crosscall1 _x_cgo_call_traceback_function __cgo_release_context _x_cgo_init \
+            _x_cgo_getstackbound _x_cgo_thread_start _x_cgo_unsetenv _x_cgo_setenv \
+            _x_cgo_call_symbolizer_function _x_cgo_callers __cgo_get_symbolizer_function > /tmp/cgo_hidden_xray.txt
+          SDKVER=$(xcrun --sdk iphoneos --show-sdk-version)
+          ld -r -arch arm64 -platform_version ios 15.0 "$SDKVER" -all_load -unexported_symbols_list /tmp/cgo_hidden_xray.txt "$XRAY" -o /tmp/xray.o
+          rm -f /tmp/xray-fixed.a; ar -crs /tmp/xray-fixed.a /tmp/xray.o; cp /tmp/xray-fixed.a "$XRAY"
+          echo "✓ libamnezia_xray.a пропатчен (cgo-символы локализованы)"
+
       - name: 'Install signing assets (cert + provisioning profiles)'
         env:
           P12_B64: ${{ secrets.APPLE_IOS_DIST_P12_BASE64 }}

@@ -36,20 +36,20 @@ class AmneziaVPN(ConanFile):
 
         if has_ne:
             self.requires("awg-apple/2.0.1")
-            # NvoVPN: iOS NE — ТОЛЬКО AmneziaWG (App Store 4.3: чужие движки Xray/OpenVPN
-            # вырезаны — их бинарные блобы идентичны AmneziaVPN и другим форкам).
-            # hev-socks5-tunnel (Go-Xray) убран совсем (macOS его тоже не линкует).
-            # openvpnadapter остаётся только на macOS NE (там OpenVPN-код ещё компилируется).
+            # NvoVPN: VLESS/xray в NE на macOS И iOS (14.09.2026: iOS без VLESS бесполезен для РФ — ТСПУ режет
+            # awg до Европы, обход держится на VLESS/транзитах). Движок — amnezia-xray-bindings: тонкая C-обвязка
+            # над upstream github.com/xtls/xray-core (НЕ amnezia-xray-core, в бинаре нет amnezia-путей; App Store 4.3
+            # в 07.2026 ловил именно чужие движки + Amnezia-символы, они остались вырезанными). hev (C) — мост
+            # SOCKS→packetFlow. Go-конфликт xray↔wg-go решён локализацией cgo-символов в CI (nvovpn-ci.yml,
+            # шаги «Fix Go cgo symbol clash in libamnezia_xray.a» для macOS и iOS).
+            self.requires("amnezia-xray-bindings/1.1.0")
+            # as_framework=True — hev упаковывается как HevSocks5Tunnel.xcframework через
+            # package_framework/location (рабочий путь линковки; ветка as_framework=False
+            # в recipe битая — cpp_info.libraries вместо .libs). Так же требовал оригинал.
+            self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
+            # openvpnadapter остаётся только на macOS NE (на iOS OpenVPN — заглушка, App Store 4.3).
             if os == "Macos":
                 self.requires("openvpnadapter/1.0.0")
-                # NvoVPN: VLESS/xray на macOS (раздаётся с сайта .dmg, не App Store → 4.3 не применяется).
-                # Движок xray (Go) + hev (C, мост SOCKS→packetFlow). Go-конфликт xray↔wg-go решён
-                # локализацией cgo-символов в CI (см. .github/workflows/nvovpn-ci.yml).
-                self.requires("amnezia-xray-bindings/1.1.0")
-                # as_framework=True — hev упаковывается как HevSocks5Tunnel.xcframework через
-                # package_framework/location (рабочий путь линковки; ветка as_framework=False
-                # в recipe битая — cpp_info.libraries вместо .libs). Так же требовал оригинал.
-                self.requires("hev-socks5-tunnel/2.15.0", options={"as_framework": True})
 
         if os == "Android":
             self.requires("amnezia-libxray/1.0.0")

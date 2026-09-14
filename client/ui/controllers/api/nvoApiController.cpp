@@ -230,11 +230,6 @@ void NvoApiController::connectViaStealthFallback()
 {
     // Вызывается оркестратором, когда AWG не поднялся за таймаут. Перезапрашиваем тот же
     // сервер по VLESS. Тот же путь configReady → import → openConnection поднимет xray-туннель.
-#if defined(Q_OS_IOS)
-    // 14.09.2026: системное расширение iOS собрано без xray (PacketTunnelProvider+XrayStub.swift) — VLESS на iPhone
-    // не поднимется никогда. Фолбек не запрашиваем: сервер и так отвечает 400 no_vless, а человек видит ошибку awg.
-    return;
-#endif
     if (m_lastConnectServerId < 0 || m_stealthMode == 0) {
         return;
     }
@@ -255,10 +250,6 @@ void NvoApiController::connectViaStealthFallback()
 // если awg на этом сервере недавно провалился (иначе awg-first); «Выкл» (0) — только awg.
 QString NvoApiController::protoForServer(int serverId) const
 {
-#if defined(Q_OS_IOS)
-    Q_UNUSED(serverId)
-    return QStringLiteral("amneziawg");   // iOS: только AmneziaWG (xray в расширении — заглушка), см. connectViaStealthFallback
-#endif
     if (m_stealthMode == 2) {
         return QStringLiteral("vless");
     }

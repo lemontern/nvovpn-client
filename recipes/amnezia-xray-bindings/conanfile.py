@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.files import get, copy, collect_libs, chdir, rename
+from conan.tools.files import get, copy, collect_libs, chdir, rename, save
 from conan.tools.layout import basic_layout
 from conan.errors import ConanInvalidConfiguration
 from conan.tools.gnu import Autotools, AutotoolsToolchain
@@ -93,6 +93,9 @@ class AmneziaXrayBindings(ConanFile):
         tc.make_args = [
             "LIB_ARC=libamnezia_xray.a"
         ]
+        if str(self.settings.os) == "iOS":
+            # Makefile сам добавит -isysroot $(xcrun --sdk iphoneos --show-sdk-path) к CGO_CFLAGS.
+            tc.make_args.append("OS=ios")
         env = tc.environment()
         env.define("GOOS", self._goos)
         if self._is_universal:
@@ -111,8 +114,17 @@ class AmneziaXrayBindings(ConanFile):
 
     def build(self):
         with chdir(self, self.source_folder):
+            if str(self.settings.os) == "iOS":
+                # NvoVPN (14.09.2026): сетевое расширение iOS живёт под лимитом ~50 МБ (jetsam) —
+                # держим Go-кучу xray в узде. Файл подхватывается `go build` пакета main автоматически.
+                save(self, os.path.join(self.source_folder, "nvo_mem.go"), "package main\n\n"
+                     "import \"runtime/debug\"\n\n"
+                     "func init() {\n"
+                     "\tdebug.SetGCPercent(20)\n"
+                     "\tdebug.SetMemoryLimit(28 << 20)\n"
+                     "}\n")
             if not self._is_universal:
-                # Одноарочный путь (Linux/Windows/один macOS) — как было.
+                # Одноарочный путь (Linux/Windows/iOS/один macOS) — как было.
                 Autotools(self).make()
                 return
 
