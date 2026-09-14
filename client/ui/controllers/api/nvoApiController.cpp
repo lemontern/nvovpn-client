@@ -74,6 +74,12 @@ namespace
         return reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
 
+    // Метка экземпляра приложения (6 hex, генерируется один раз и хранится в настройках). Нужна там, где
+    // платформа не даёт уникального имени устройства: на iOS machineHostName() = «localhost» у всех, и
+    // бэкенд, считая одинаковые имена одним устройством, выбивал первый iPhone при входе со второго (14.09.2026).
+    constexpr char DEVICE_TAG_KEY[] = "Conf/nvoDeviceTag";
+    QString g_deviceTag;
+
     // Имя устройства для бэкенда (мульти-девайс): "Windows • hostname", "Android • model".
     // Необязательное поле ≤100 символов — бэкенд различает устройства и вытесняет старейшее по лимиту.
     QString deviceName()
@@ -92,6 +98,9 @@ namespace
 #elif defined(Q_OS_IOS)
         platform = QStringLiteral("iOS");
         detail = QSysInfo::productVersion();     // machineHostName() на iOS = «localhost» (бесполезно в списке устройств)
+        if (!g_deviceTag.isEmpty()) {
+            detail += QStringLiteral(" • ") + g_deviceTag;   // «iOS • 18.6 • a1b2c3» — уникально для каждого iPhone
+        }
 #else
         platform = QStringLiteral("Device");
         detail = QSysInfo::machineHostName();
@@ -108,6 +117,11 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
       m_serversModel(serversModel)
 {
     if (m_settings) {
+        g_deviceTag = m_settings->value(QString::fromLatin1(DEVICE_TAG_KEY)).toString();
+        if (g_deviceTag.isEmpty()) {
+            g_deviceTag = QString::number(QRandomGenerator::system()->generate(), 16).rightJustified(8, QLatin1Char('0')).left(6);
+            m_settings->setValue(QString::fromLatin1(DEVICE_TAG_KEY), g_deviceTag);
+        }
         m_token = QString::fromUtf8(m_settings->value(QString::fromLatin1(TOKEN_KEY)).toByteArray());
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
