@@ -5529,6 +5529,17 @@ For more detailed information, you can
     </message>
 </context>
 <context>
+    <name>UpdateController</name>
+    <message>
+        <source>Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.</source>
+        <translation>È disponibile la versione %1. Tocca «Aggiorna» per scaricare il programma di installazione.</translation>
+    </message>
+    <message>
+        <source>Что нового: %1</source>
+        <translation>Novità: %1</translation>
+    </message>
+</context>
+<context>
     <name>UpdateUiController</name>
     <message>
         <source>New version released: %1</source>

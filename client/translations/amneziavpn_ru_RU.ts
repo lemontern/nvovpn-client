@@ -6557,6 +6557,17 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
     </message>
 </context>
 <context>
+    <name>UpdateController</name>
+    <message>
+        <source>Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Что нового: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>UpdateUiController</name>
     <message>
         <source>New version released: %1</source>

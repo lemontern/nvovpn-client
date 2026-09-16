@@ -26,19 +26,14 @@ signals:
 
 private:
     void finishUpdateCheck();
-    void fetchGatewayUrl();
-    void fetchVersionInfo();
-    void fetchChangelog();
-    void fetchReleaseDate();
-    void doGetAsync(const QString &endpoint, std::function<void(bool, QByteArray)> onDone);
+    void fetchAppcast(int urlIdx);              // NvoVPN: GET /api/v1/app/version (appcast.json), резервный домен при ошибке
+    static QString platformKey();               // ключ платформы в appcast: windows | macos | android
     bool isNewVersionAvailable() const;
     void setupNetworkErrorHandling(QNetworkReply* reply, const QString& operation);
     void handleNetworkError(QNetworkReply* reply, const QString& operation);
-    QString composeDownloadUrl() const;
 
     SecureAppSettingsRepository* m_appSettingsRepository;
 
-    QString m_baseUrl;
     QString m_changelogText;
     QString m_version;
     QString m_releaseDate;

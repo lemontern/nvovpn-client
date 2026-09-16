@@ -38,6 +38,7 @@ namespace {
 #include <QRegularExpression>
 #include "ui/models/api/nvoServersModel.h"
 #include "logger.h"
+#include "version.h"   // APP_VERSION для User-Agent
 
 namespace
 {

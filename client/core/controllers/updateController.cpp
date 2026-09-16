@@ -1,18 +1,20 @@
 #include "updateController.h"
 
+#include <QDesktopServices>
 #include <QNetworkReply>
 #include <QVersionNumber>
 #include <QUrl>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSysInfo>
-#include <QTimer>
+#include <QStandardPaths>
+#include <QFile>
+#include <QProcess>
+#include <QTemporaryDir>
 
 #include "amneziaApplication.h"
 #include "logger.h"
 #include "version.h"
-#include "core/controllers/gatewayController.h"
-#include "core/utils/constants/apiKeys.h"
 #include "core/utils/selfhosted/scriptsRegistry.h"
 
 namespace
@@ -20,15 +22,18 @@ namespace
     Logger logger("UpdateController");
 
 #if defined(Q_OS_WINDOWS)
-    const QLatin1String kInstallerRemoteFileNamePattern("AmneziaVPN_%1_windows_x64.exe");
-    const QString kInstallerLocalPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/AmneziaVPN_installer.exe";
-#elif defined(Q_OS_MACOS) && !defined(MACOS_NE)
-    const QLatin1String kInstallerRemoteFileNamePattern("AmneziaVPN_%1_macos_x64.pkg");
-    const QString kInstallerLocalPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/AmneziaVPN.pkg";
-#elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-    const QLatin1String kInstallerRemoteFileNamePattern("AmneziaVPN_%1_linux_x64.run");
-    const QString kInstallerLocalPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/AmneziaVPN.run";
+    const QString kInstallerLocalPath = QStandardPaths::writableLocation(QStandardPaths::TempLocation) + "/NvoVPN_installer.exe";
 #endif
+
+    // NvoVPN (16.09.2026): канал обновлений — наш appcast (routes/api.php /v1/app/version, файл
+    // public/downloads/appcast.json, генерирует /root/nvovpn_appcast.sh). Шлюз Amnezia (updater_endpoint)
+    // у нас не работал никогда — секрета PROD_AGW_PUBLIC_KEY нет, поэтому десктоп не узнавал об обновлениях.
+    // Основная база — незаблокированный в РФ домен, nvovpn.com — резерв.
+    constexpr const char *kAppcastUrls[] = {
+        "https://api.netguarder.net/api/v1/app/version",
+        "https://nvovpn.com/api/v1/app/version",
+    };
+    constexpr int kAppcastUrlCount = 2;
 }
 
 UpdateController::UpdateController(SecureAppSettingsRepository* appSettingsRepository, QObject *parent)
@@ -53,12 +58,11 @@ QString UpdateController::getVersion() const
 
 void UpdateController::checkForUpdates()
 {
-    if (m_updateCheckRunning || !m_appSettingsRepository) {
+    if (m_updateCheckRunning) {
         return;
     }
     m_updateCheckRunning = true;
-
-    fetchGatewayUrl();
+    fetchAppcast(0);
 }
 
 void UpdateController::finishUpdateCheck()
@@ -66,105 +70,72 @@ void UpdateController::finishUpdateCheck()
     m_updateCheckRunning = false;
 }
 
-void UpdateController::doGetAsync(const QString &endpoint, std::function<void(bool, QByteArray)> onDone)
+QString UpdateController::platformKey()
 {
-    QString fullUrl = m_baseUrl + endpoint;
-    
+#if defined(Q_OS_WINDOWS)
+    return QStringLiteral("windows");
+#elif defined(Q_OS_MACOS)
+    return QStringLiteral("macos");
+#elif defined(Q_OS_ANDROID)
+    return QStringLiteral("android");
+#else
+    return QString();   // Linux/iOS: канала нет (iOS обновляет App Store)
+#endif
+}
+
+void UpdateController::fetchAppcast(int urlIdx)
+{
+    if (urlIdx >= kAppcastUrlCount || platformKey().isEmpty()) {
+        finishUpdateCheck();
+        return;
+    }
+
     QNetworkRequest req;
     req.setTransferTimeout(7000);
-    req.setUrl(QUrl(fullUrl));
+    req.setUrl(QUrl(QLatin1String(kAppcastUrls[urlIdx])));
+    req.setRawHeader(QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json"));
+    req.setRawHeader(QByteArrayLiteral("User-Agent"), QByteArray("NvoVPN/") + APP_VERSION + " (" + QSysInfo::prettyProductName().toUtf8() + ")");
 
     QNetworkReply *reply = amnApp->networkManager()->get(req);
-    setupNetworkErrorHandling(reply, endpoint);
+    setupNetworkErrorHandling(reply, QStringLiteral("appcast"));
 
-    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, endpoint, onDone]() {
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, urlIdx]() {
         const bool ok = (reply->error() == QNetworkReply::NoError);
-        QByteArray data;
-        if (ok) {
-            data = reply->readAll();
-        } else {
-            handleNetworkError(reply, endpoint);
+        const QByteArray data = ok ? reply->readAll() : QByteArray();
+        if (!ok) {
+            handleNetworkError(reply, QStringLiteral("appcast"));
         }
         reply->deleteLater();
-        onDone(ok, data);
-    });
-}
-
-void UpdateController::fetchGatewayUrl()
-{
-    auto gatewayController = QSharedPointer<GatewayController>::create(m_appSettingsRepository->getGatewayEndpoint(),
-                                                                       m_appSettingsRepository->isDevGatewayEnv(),
-                                                                       7000,
-                                                                       m_appSettingsRepository->isStrictKillSwitchEnabled());
-
-    QJsonObject apiPayload;
-    apiPayload[apiDefs::key::cliVersion] = QString(APP_VERSION);
-    apiPayload[apiDefs::key::osVersion] = QSysInfo::productType();
-    apiPayload[apiDefs::key::installationUuid] = m_appSettingsRepository->getInstallationUuid(true);
-
-    // Workaround: wait before contacting gateway to avoid rate limit triggered by other requests (news etc.)
-    QTimer::singleShot(1000, this, [this, gatewayController, apiPayload]() {
-        gatewayController->postAsync(QStringLiteral("%1v1/updater_endpoint"), apiPayload)
-            .then(this, [this, gatewayController](QPair<ErrorCode, QByteArray> result) {
-                auto [err, gatewayResponse] = result;
-                if (err != ErrorCode::NoError) {
-                    logger.error() << "Gateway request failed, error code:" << static_cast<int>(err);
-                    finishUpdateCheck();
-                    return;
-                }
-
-                QJsonObject gatewayData = QJsonDocument::fromJson(gatewayResponse).object();
-
-                QString baseUrl = gatewayData.value("url").toString();
-                if (baseUrl.endsWith('/')) {
-                    baseUrl.chop(1);
-                }
-                m_baseUrl = baseUrl;
-
-                fetchVersionInfo();
-            });
-    });
-}
-
-void UpdateController::fetchVersionInfo()
-{
-    doGetAsync("/VERSION", [this](bool ok, QByteArray data) {
         if (!ok) {
+            fetchAppcast(urlIdx + 1);   // резервный домен
+            return;
+        }
+
+        const QJsonObject root = QJsonDocument::fromJson(data).object();
+        const QJsonObject platform = root.value(QStringLiteral("platforms")).toObject().value(platformKey()).toObject();
+        m_version = platform.value(QStringLiteral("version")).toString().trimmed();
+        m_downloadUrl = platform.value(QStringLiteral("url")).toString();
+#if defined(Q_OS_ANDROID)
+        const QString storeUrl = platform.value(QStringLiteral("store_url")).toString();
+        if (!storeUrl.isEmpty()) {
+            m_downloadUrl = storeUrl;
+        }
+#endif
+        m_releaseDate = root.value(QStringLiteral("generated_at")).toString().left(10);
+        // UpdateUiController::getChangelogText показывает строки, начиная с «### General».
+        m_changelogText = QStringLiteral("### General\n")
+            + tr("Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.").arg(m_version);
+        const QString changelogUrl = root.value(QStringLiteral("changelog_url")).toString();
+        if (!changelogUrl.isEmpty()) {
+            m_changelogText += QStringLiteral("\n") + tr("Что нового: %1").arg(changelogUrl);
+        }
+
+        if (m_version.isEmpty() || !isNewVersionAvailable()) {
+            logger.info() << "appcast: обновлений нет (текущая" << APP_VERSION << ", в канале" << m_version << ")";
             finishUpdateCheck();
             return;
         }
-        m_version = QString::fromUtf8(data).trimmed();
-        
-        if (!isNewVersionAvailable()) {
-            finishUpdateCheck();
-            return;
-        }
-        fetchChangelog();
-    });
-}
-
-void UpdateController::fetchChangelog()
-{
-    doGetAsync("/CHANGELOG", [this](bool ok, QByteArray data) {
-        if (!ok) {
-            m_changelogText.clear();
-        } else {
-            m_changelogText = QString::fromUtf8(data);
-        }
-        fetchReleaseDate();
-    });
-}
-
-void UpdateController::fetchReleaseDate()
-{
-    doGetAsync("/RELEASE_DATE", [this](bool ok, QByteArray data) {
-        if (ok) {
-            m_releaseDate = QString::fromUtf8(data).trimmed();
-        } else {
-            m_releaseDate = QString();
-        }
-
-        m_downloadUrl = composeDownloadUrl();
+        logger.info() << "appcast: доступна версия" << m_version << m_downloadUrl;
         emit updateFound();
         finishUpdateCheck();
     });
@@ -199,23 +170,19 @@ void UpdateController::handleNetworkError(QNetworkReply* reply, const QString& o
     logger.error() << "HTTP status:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 }
 
-QString UpdateController::composeDownloadUrl() const
-{
-#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS) && !defined(MACOS_NE)
-    const QString fileName = QString(kInstallerRemoteFileNamePattern).arg(m_version);
-    return m_baseUrl + "/" + fileName;
-#else
-    return QString();
-#endif
-}
-
 void UpdateController::runInstaller()
 {
-#if !defined(Q_OS_ANDROID) && !defined(Q_OS_IOS) && !defined(MACOS_NE)
     if (m_downloadUrl.isEmpty()) {
         logger.error() << "Download URL is empty";
         return;
     }
+#if defined(Q_OS_MACOS) || defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
+    // NvoVPN: macOS раздаётся как .dmg с сайта (скрипт mac_installer.sh рассчитан на .pkg), Android — Google Play.
+    // Открываем ссылку — человек ставит сам.
+    QDesktopServices::openUrl(QUrl(m_downloadUrl));
+    return;
+#endif
+#if defined(Q_OS_WINDOWS)
 
     QNetworkRequest request;
     request.setTransferTimeout(30000);
@@ -241,13 +208,7 @@ void UpdateController::runInstaller()
 
             file.close();
 
-    #if defined(Q_OS_WINDOWS)
             runWindowsInstaller(kInstallerLocalPath);
-    #elif defined(Q_OS_MACOS) && !defined(MACOS_NE)
-            runMacInstaller(kInstallerLocalPath);
-    #elif defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
-            runLinuxInstaller(kInstallerLocalPath);
-    #endif
         } else {
             logger.error() << "Installer download failed, network error:" << static_cast<int>(reply->error())
                            << reply->errorString();
