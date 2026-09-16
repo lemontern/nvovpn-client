@@ -4,7 +4,8 @@
    play_publish.py upload <path.aab> --fraction 0.2 [--notes "текст"]
    play_publish.py rollout <versionCode> --fraction 0.5|1.0   (1.0 = completed)
 Ключ: /Users/vh/.nvovpn_keys/play-service-account.json, пакет com.nvovpn.app."""
-import sys, argparse
+import sys, argparse, socket
+socket.setdefaulttimeout(600)  # 16.09.2026: 170 МБ AAB через execute() падал TimeoutError на дефолтном таймауте
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -21,7 +22,13 @@ def status(s):
     s.edits().delete(packageName=PKG, editId=e).execute()
 def upload(s, path, fraction, notes):
     e = s.edits().insert(packageName=PKG, body={}).execute()["id"]
-    b = s.edits().bundles().upload(packageName=PKG, editId=e, media_body=MediaFileUpload(path, mimetype="application/octet-stream", resumable=True)).execute()
+    # Чанковый resumable-аплоад (8 МБ) с ретраями — иначе на 170 МБ соединение рвётся (TimeoutError / RedirectMissingLocation).
+    media = MediaFileUpload(path, mimetype="application/octet-stream", resumable=True, chunksize=8 * 1024 * 1024)
+    req = s.edits().bundles().upload(packageName=PKG, editId=e, media_body=media)
+    b = None
+    while b is None:
+        st, b = req.next_chunk(num_retries=5)
+        if st: print(f"  upload {int(st.progress() * 100)}%", flush=True)
     vc = b["versionCode"]; print("uploaded versionCode", vc)
     release = {"versionCodes": [str(vc)], "status": "inProgress" if fraction < 1.0 else "completed"}
     if fraction < 1.0: release["userFraction"] = fraction
