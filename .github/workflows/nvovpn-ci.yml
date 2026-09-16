@@ -170,7 +170,9 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'linux'
+          # 16.09.2026: Qt ≥ 6.8 для Android лежит под хостом all_os; aqtinstall 3.3.0 под host=linux видит только ≤ 6.7.3
+          # («No latest version available for this request») — так упали прогоны 235/237/239/240.
+          host: 'all_os'
           target: 'android'
           arch: 'android_arm64_v8a'
           modules: ${{ env.QT_MODULES }}
@@ -182,7 +184,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ env.QT_VERSION }}
-          host: 'linux'
+          host: 'all_os'
           target: 'android'
           arch: 'android_armv7'
           modules: ${{ env.QT_MODULES }}
