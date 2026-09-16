@@ -78,8 +78,10 @@ QString UpdateController::platformKey()
     return QStringLiteral("macos");
 #elif defined(Q_OS_ANDROID)
     return QStringLiteral("android");
+#elif defined(Q_OS_IOS)
+    return QStringLiteral("ios");        // версия из App Store; store_url — ссылка на страницу приложения
 #else
-    return QString();   // Linux/iOS: канала нет (iOS обновляет App Store)
+    return QString();   // Linux: канала нет
 #endif
 }
 
@@ -115,16 +117,21 @@ void UpdateController::fetchAppcast(int urlIdx)
         const QJsonObject platform = root.value(QStringLiteral("platforms")).toObject().value(platformKey()).toObject();
         m_version = platform.value(QStringLiteral("version")).toString().trimmed();
         m_downloadUrl = platform.value(QStringLiteral("url")).toString();
-#if defined(Q_OS_ANDROID)
+#if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
         const QString storeUrl = platform.value(QStringLiteral("store_url")).toString();
         if (!storeUrl.isEmpty()) {
-            m_downloadUrl = storeUrl;
+            m_downloadUrl = storeUrl;   // Google Play / App Store
         }
 #endif
         m_releaseDate = root.value(QStringLiteral("generated_at")).toString().left(10);
         // UpdateUiController::getChangelogText показывает строки, начиная с «### General».
+#if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
+        m_changelogText = QStringLiteral("### General\n")
+            + tr("Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.").arg(m_version);
+#else
         m_changelogText = QStringLiteral("### General\n")
             + tr("Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.").arg(m_version);
+#endif
         const QString changelogUrl = root.value(QStringLiteral("changelog_url")).toString();
         if (!changelogUrl.isEmpty()) {
             m_changelogText += QStringLiteral("\n") + tr("Что нового: %1").arg(changelogUrl);

@@ -5531,6 +5531,10 @@ For more detailed information, you can
 <context>
     <name>UpdateController</name>
     <message>
+        <source>Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.</source>
+        <translation>La versión %1 está disponible. Pulsa «Actualizar» para abrir la tienda de aplicaciones.</translation>
+    </message>
+    <message>
         <source>Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.</source>
         <translation>La versión %1 está disponible. Pulsa «Actualizar» para descargar el instalador.</translation>
     </message>

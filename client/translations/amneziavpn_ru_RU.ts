@@ -6559,6 +6559,10 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
 <context>
     <name>UpdateController</name>
     <message>
+        <source>Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Доступна версия %1. Нажмите «Обновить», чтобы скачать установщик.</source>
         <translation type="unfinished"></translation>
     </message>
