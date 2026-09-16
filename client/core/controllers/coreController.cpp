@@ -255,7 +255,14 @@ void CoreController::initControllers()
     // исходе — то есть на рабочем AWG ведёт себя ровно как раньше.
     m_stealthWatchdog = new QTimer(this);
     m_stealthWatchdog->setSingleShot(true);
+#if defined(Q_OS_IOS)
+    // 16.09.2026 (тикет TKT-1789577343788): расширение iOS поднимается 5–8 с, а при первом подключении ещё и ждёт
+    // системный диалог «Добавить VPN». 3 с рвали уже встающий туннель (рукопожатие было, трафик шёл) и уводили на
+    // VLESS. На iOS ждём 15 с; старым сборкам сервер помечает awg-ответ «wireguard», чтобы сторож не запускался вовсе.
+    m_stealthWatchdog->setInterval(15000);
+#else
     m_stealthWatchdog->setInterval(3000);
+#endif
     connect(m_stealthWatchdog, &QTimer::timeout, this, [this]() {
         // Страховка от гонки: фолбечим только если за таймаут так и не подключились.
         if (!m_connectionUiController->isConnected()) {
