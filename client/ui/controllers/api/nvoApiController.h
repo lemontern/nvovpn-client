@@ -163,6 +163,7 @@ private:
     void pollGoogleLogin();                      // один тик опроса /auth/poll?ds=...
     void stopGooglePolling();
     void sendAppleReceipt(const QString &originalTransactionId, const QString &productId);  // POST /app/iap/apple
+    static QByteArray clientUserAgent();       // «NvoVPN/1.0.2.235 (iOS 18.6)» — сборка объявляет себя бэкенду в каждом запросе
 
     QNetworkAccessManager *m_nam;
     SecureQSettings *m_settings;

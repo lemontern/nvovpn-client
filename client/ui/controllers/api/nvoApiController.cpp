@@ -1,6 +1,7 @@
 #include "nvoApiController.h"
 
 #include <QNetworkAccessManager>
+#include <QCoreApplication>
 #include <QNetworkReply>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -493,6 +494,27 @@ void NvoApiController::tryNextFailover()
     requestConfig(id, protoForServer(id));
 }
 
+QByteArray NvoApiController::clientUserAgent()
+{
+#if defined(APP_VERSION)
+    const QString version = QStringLiteral(APP_VERSION);
+#else
+    const QString version = QCoreApplication::applicationVersion();
+#endif
+#if defined(Q_OS_IOS)
+    const QString platform = QStringLiteral("iOS ") + QSysInfo::productVersion();
+#elif defined(Q_OS_ANDROID)
+    const QString platform = QStringLiteral("Android ") + QSysInfo::productVersion();
+#elif defined(Q_OS_MACOS)
+    const QString platform = QStringLiteral("macOS ") + QSysInfo::productVersion();
+#elif defined(Q_OS_WIN)
+    const QString platform = QStringLiteral("Windows ") + QSysInfo::productVersion();
+#else
+    const QString platform = QSysInfo::prettyProductName();
+#endif
+    return QStringLiteral("NvoVPN/%1 (%2)").arg(version, platform).toUtf8();
+}
+
 QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) const
 {
     QNetworkRequest req(QUrl(apiBase() + path));
@@ -500,6 +522,10 @@ QNetworkRequest NvoApiController::makeRequest(const QString &path, bool auth) co
     req.setTransferTimeout(std::chrono::milliseconds(12000));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QByteArrayLiteral("application/json"));
     req.setRawHeader(QByteArrayLiteral("Accept"), QByteArrayLiteral("application/json"));
+    // 16.09.2026: сборка объявляет себя в каждом запросе — «NvoVPN/1.0.2.235 (iOS 18.6)». Бэкенд по этому
+    // отличает iOS-сборки с xray от старых (1.0/1.0.1 без VLESS): имя токена для этого не годится —
+    // оно фиксируется при входе и после обновления приложения остаётся старым («iOS • localhost»).
+    req.setRawHeader(QByteArrayLiteral("User-Agent"), clientUserAgent());
     if (auth && !m_token.isEmpty()) {
         req.setRawHeader(QByteArrayLiteral("Authorization"), QByteArray("Bearer ") + m_token.toUtf8());
     }
