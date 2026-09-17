@@ -428,7 +428,12 @@ void NvoApiController::publishServiceExtras(const QJsonObject &root, int serverI
 // мёртвый туннель (см. CoreController: awg→фолбек на VLESS, VLESS→честный статус вместо «Подключено»).
 void NvoApiController::probeTunnel(int attemptsLeft)
 {
-    QNetworkRequest req = makeRequest(QStringLiteral("/ping"), false);
+    // 17.09.2026: на iOS проба уходила МИМО туннеля — по keep-alive соединению, открытому запросом /connect
+    // ещё до подъёма VPN: все 8 проб пяти пользователей iOS 1.0.2 пришли на сервер с адреса самого клиента,
+    // а не с выхода ноды (у Android — с выхода). Такая проба «жива» и при мёртвом туннеле.
+    // Пул сбрасываем — новое соединение идёт уже через VPN.
+    m_nam->clearConnectionCache();
+    QNetworkRequest req = makeRequest(QStringLiteral("/ping?probe=1"), false);
     req.setTransferTimeout(std::chrono::milliseconds(6000));
     QNetworkReply *reply = m_nam->get(req);
     connect(reply, &QNetworkReply::finished, this, [this, reply, attemptsLeft]() {

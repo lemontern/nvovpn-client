@@ -223,11 +223,14 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
             activeInterfaces.first { $0.type == type }
         }.first ?? activeInterfaces.first ?? nonLoopbackInterfaces.first
 
-        if let candidate {
-            activeIfaceIdx = UInt32(candidate.index)
-        } else {
-            activeIfaceIdx = 0
+        let newIdx = candidate.map { UInt32($0.index) } ?? 0
+        if newIdx != activeIfaceIdx {
+            // 17.09.2026: к какому интерфейсу привязываются исходящие сокеты xray — для разбора
+            // «на Wi-Fi VLESS работает, на сотовой нет» по журналу телефона.
+            let all = nonLoopbackInterfaces.map { "\($0.name)#\($0.index)/\($0.type)" }.joined(separator: ",")
+            xrayLog(.default, message: "bind iface: \(candidate?.name ?? "-")#\(newIdx) status=\(path.status) path=[\(all)]")
         }
+        activeIfaceIdx = newIdx
     }
 
     func updateActiveInterfaceIndexForCurrentPath() {

@@ -325,6 +325,16 @@ extension PacketTunnelProvider {
             return
         }
 
+        // 17.09.2026: журнал движка xray → os_log (категория Xray). Без обработчика xray-core пишет в stdout
+        // расширения, которого на iOS не видно нигде: «Подключено, но трафика нет» было не разобрать даже по
+        // журналу телефона. Регистрировать до amnezia_xray_configure — лог-приложение создаётся в core.New.
+        // Уровень — по умолчанию xray (warning): ошибки дозвона/REALITY видны, построчного шума нет.
+        let logCb: amnezia_xray_loghandler = { msg, _ in
+            guard let msg else { return }
+            xrayLog(.default, message: String(cString: msg))
+        }
+        amnezia_xray_setloghandler(logCb, nil)
+
         // amnezia_xray_configure принимает содержимое конфига как C-строку (JSON).
         var cfg = Array(configString.utf8CString)
         if let err = amnezia_xray_configure(&cfg) {
