@@ -83,12 +83,14 @@ void NetworkWatcher::initialize() {
   try {
     m_impl->start();
     logger.debug() << "m_impl->start() completed successfully";
+    m_active = true;
   } catch (const std::exception& e) {
     logger.error() << "Exception in m_impl->start():" << e.what();
+    m_active = false;
   } catch (...) {
     logger.error() << "Unknown exception in m_impl->start()";
+    m_active = false;
   }
-  m_active = true;
   m_reportUnsecuredNetwork = false; // Disable unsecured network alerts for Amnezia
 }
 

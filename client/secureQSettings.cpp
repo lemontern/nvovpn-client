@@ -3,6 +3,8 @@
 #include "../client/3rd/QSimpleCrypto/src/include/QAead.h"
 #include "../client/3rd/QSimpleCrypto/src/include/QBlockCipher.h"
 #include "core/utils/utilities.h"
+
+#include <exception>
 #include <QDataStream>
 #include <QDebug>
 #include <QEventLoop>
@@ -184,8 +186,10 @@ QByteArray SecureQSettings::encryptText(const QByteArray &value) const
     QByteArray result;
     try {
         result = cipher.encryptAesBlockCipher(value, getEncKey(), getEncIv());
-    } catch (...) { // todo change error handling in QSimpleCrypto?
-        qCritical() << "error when encrypting the settings value";
+    } catch (const std::exception &e) {
+        qCritical() << "error when encrypting the settings value:" << e.what();
+    } catch (...) {
+        qCritical() << "unknown error when encrypting the settings value";
     }
     return result;
 }
@@ -196,8 +200,10 @@ QByteArray SecureQSettings::decryptText(const QByteArray &ba) const
     QByteArray result;
     try {
         result = cipher.decryptAesBlockCipher(ba, getEncKey(), getEncIv());
-    } catch (...) { // todo change error handling in QSimpleCrypto?
-        qCritical() << "error when decrypting the settings value";
+    } catch (const std::exception &e) {
+        qCritical() << "error when decrypting the settings value:" << e.what();
+    } catch (...) {
+        qCritical() << "unknown error when decrypting the settings value";
     }
     return result;
 }
