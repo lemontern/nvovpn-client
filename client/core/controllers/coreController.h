@@ -1,6 +1,7 @@
 #ifndef CORECONTROLLER_H
 #define CORECONTROLLER_H
 
+#include <QDateTime>
 #include <QObject>
 #include <QQmlContext>
 #include <QThread>
@@ -241,6 +242,11 @@ private:
     // Был ли поднят рабочий awg-туннель: по нему отличаем самопроизвольный обрыв связи
     // от неудавшейся попытки подключения.
     bool m_awgTunnelWasUp = false;
+    // «Авто»: сколько раз подряд уходили на следующую ноду из-за мёртвого туннеля (проба не дошла).
+    // Ограничение нужно, чтобы редкий ложный минус пробы (недоступен api-домен сквозь туннель)
+    // не устроил бесконечную карусель серверов.
+    int m_deadTunnelRetries = 0;
+    QDateTime m_deadTunnelRetryAt;   // когда меняли ноду последний раз (через 5 мин счётчик забывается)
     void startStealthFallback();
 
 };

@@ -29,6 +29,11 @@ namespace {
     // Детектор «мёртвого туннеля»: пауза после «Подключено» перед активной пробой живости.
     constexpr int kTunnelProbeDelayMs = 2500;
 
+    // Сколько нод подряд можно молча сменить в «Авто», если туннель встаёт мёртвым, и через сколько
+    // счётчик забывается (сеть у человека могла измениться — новая попытка должна получить свои две).
+    constexpr int kDeadTunnelMaxRetries = 2;
+    constexpr int kDeadTunnelForgetSec = 300;
+
 }
 
 CoreController::CoreController(const QSharedPointer<VpnConnection> &vpnConnection, SecureQSettings* settings,
@@ -317,6 +322,9 @@ void CoreController::initControllers()
 
     // Результат пробы живости туннеля (детектор «мёртвого туннеля»): «Подключено», но данные не идут.
     connect(m_nvoApiController, &NvoApiController::tunnelProbeFinished, this, [this](bool alive) {
+        if (alive) {
+            m_deadTunnelRetries = 0;   // рабочий туннель — счётчик смен нод обнуляем
+        }
         if (alive || m_stealthFallbackPending || m_nvoApiController->serviceSwitching()
                 || !m_connectionUiController->isConnected()) {
             return;
@@ -324,8 +332,25 @@ void CoreController::initControllers()
         if (m_awgTunnelWasUp && m_nvoApiController->stealthMode() == 1) {
             // awg «подключён», но трафик не идёт → рвём awg и уходим на VLESS (teardown-first, как обычный фолбек).
             startStealthFallback();
+            return;
+        }
+        // Прошлая карусель нод была давно — начинаем счёт заново (сети меняются).
+        if (m_deadTunnelRetryAt.isValid()
+                && m_deadTunnelRetryAt.secsTo(QDateTime::currentDateTime()) > kDeadTunnelForgetSec) {
+            m_deadTunnelRetries = 0;
+            m_deadTunnelRetryAt = {};
+        }
+        if (m_nvoApiController->selectedServerId() < 0 && m_deadTunnelRetries < kDeadTunnelMaxRetries) {
+            // «Авто» и крайний протокол мёртв: молча пробуем следующую ноду. Порядок как в фолбеке —
+            // сначала рвём туннель (иначе запрос за конфигом уйдёт в чёрную дыру), потом запрос.
+            ++m_deadTunnelRetries;
+            m_deadTunnelRetryAt = QDateTime::currentDateTime();
+            m_connectionUiController->closeConnection();
+            QTimer::singleShot(kStealthRouteRestoreMs, this, [this]() {
+                m_nvoApiController->connectAfterDeadTunnel();
+            });
         } else {
-            // VLESS/крайний протокол мёртв — фолбека нет. Честный статус вместо ложного «Подключено».
+            // Явно выбранная страна либо ноды кончились — честный статус вместо ложного «Подключено».
             m_connectionUiController->closeConnection();
             emit m_pageController->showErrorMessage(
                 tr("Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. "

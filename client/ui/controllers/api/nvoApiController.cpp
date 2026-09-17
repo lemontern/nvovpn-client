@@ -248,6 +248,28 @@ void NvoApiController::connectViaStealthFallback()
     requestConfig(m_lastConnectServerId, QStringLiteral("vless"));
 }
 
+// «Авто»: туннель поднялся, но данные сквозь него не идут (проба /ping не дошла дважды). Эту ноду
+// исключаем из очереди и молча пробуем следующую — так человек получает рабочий сервер вместо
+// честного, но бесполезного «данные не проходят». 17.09.2026: на iOS такой мёртвый туннель вообще
+// не распознавался (проба шла мимо VPN), люди сидели с «Подключено» без интернета.
+void NvoApiController::connectAfterDeadTunnel()
+{
+    const int dead = m_lastConnectServerId;
+    if (m_failoverQueue.isEmpty()) {
+        m_failoverQueue = m_serversModel ? m_serversModel->onlineServerIdsByLoad() : QList<int>();
+    }
+    m_failoverQueue.removeAll(dead);
+    if (m_failoverQueue.isEmpty()) {
+        emit errorOccurred(tr("Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. "
+                              "Попробуйте другой сервер или другую сеть."));
+        return;
+    }
+    m_inFailover = true;
+    // Пакеты keep-alive-соединений успели уйти в мёртвый туннель — пул сбрасываем.
+    m_nam->clearConnectionCache();
+    tryNextFailover();
+}
+
 // Адаптивный выбор протокола для сервера: «Всегда Stealth» (2) — всегда VLESS; «Авто» (1) — VLESS,
 // если awg на этом сервере недавно провалился (иначе awg-first); «Выкл» (0) — только awg.
 QString NvoApiController::protoForServer(int serverId) const

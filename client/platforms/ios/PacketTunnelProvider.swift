@@ -219,9 +219,21 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         let nonLoopbackInterfaces = path.availableInterfaces.filter { $0.type != .loopback }
         let activeInterfaces = nonLoopbackInterfaces.filter { path.usesInterfaceType($0.type) }
 
-        let candidate = preferredTypes.compactMap { type in
+        var candidate = preferredTypes.compactMap { type in
             activeInterfaces.first { $0.type == type }
         }.first ?? activeInterfaces.first ?? nonLoopbackInterfaces.first
+
+#if os(iOS)
+        // 17.09.2026: на iOS привязываем сокеты xray ТОЛЬКО к физическому интерфейсу. Если в пути
+        // остались лишь виртуальные (utun нашего же туннеля, ipsec), привязка уводила исходящие
+        // соединения xray в собственный туннель — до сервера не уходило ничего. Факты: VLESS на
+        // мобильном интернете не заработал ни у одного из 4 пользователей 1.0.2 (на входе ноль
+        // авторизованных соединений), на домашнем Wi-Fi работает у всех трёх. Без привязки
+        // расширение идёт по физическому маршруту — так в этом же процессе работает AmneziaWG.
+        if let c = candidate, ![.wifi, .cellular, .wiredEthernet].contains(c.type) {
+            candidate = nil
+        }
+#endif
 
         let newIdx = candidate.map { UInt32($0.index) } ?? 0
         if newIdx != activeIfaceIdx {
