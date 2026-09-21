@@ -360,7 +360,7 @@ Already installed containers were found on the server. All installed containers 
 <context>
     <name>NotificationHandler</name>
     <message>
-        <source>AmneziaVPN</source>
+        <source>NvoVPN</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -372,7 +372,7 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>AmneziaVPN notification</source>
+        <source>%1 notification</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3083,7 +3083,7 @@ Create one from the current settings.</source>
 <context>
     <name>PageSettingsApiNativeConfigs</name>
     <message>
-        <source>Save AmneziaVPN config</source>
+        <source>Save NvoVPN config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3277,7 +3277,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
+        <source>Save NvoVPN config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3293,7 +3293,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>To read the QR code in the Amnezia app, tap + in the main menu → &apos;QR code&apos;</source>
+        <source>To read the QR code in the NvoVPN app, tap + in the main menu → &apos;QR code&apos;</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3494,8 +3494,8 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>All settings will be reset to default. All installed AmneziaVPN services will still remain on the server.</source>
-        <translation type="vanished">Tutte le impostazioni verranno ripristinate ai valori predefiniti. Tutti i servizi AmneziaVPN installati rimarranno sul server.</translation>
+        <source>All settings will be reset to default. All installed NvoVPN services will still remain on the server.</source>
+        <translation type="vanished">Tutte le impostazioni verranno ripristinate ai valori predefiniti. Tutti i servizi NvoVPN installati rimarranno sul server.</translation>
     </message>
     <message>
         <source>Continue</source>
@@ -3525,7 +3525,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>The backup will contain your passwords and private keys for all servers added to AmneziaVPN. Keep this information in a secure place.</source>
+        <source>The backup will contain your passwords and private keys for all servers added to NvoVPN. Keep this information in a secure place.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -3909,7 +3909,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>All installed AmneziaVPN services will still remain on the server.</source>
+        <source>All installed NvoVPN services will still remain on the server.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4542,7 +4542,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
+        <source>Save NvoVPN config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4570,7 +4570,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>For the AmneziaVPN app</source>
+        <source>For the NvoVPN app</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4701,7 +4701,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
+        <source>Save NvoVPN config</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4717,7 +4717,7 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>To read the QR code in the Amnezia app, select &quot;Add server&quot; → &quot;I have data to connect&quot; → &quot;QR code, key or settings file&quot;</source>
+        <source>To read the QR code in the NvoVPN app, select &quot;Add server&quot; → &quot;I have data to connect&quot; → &quot;QR code, key or settings file&quot;</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -4877,7 +4877,7 @@ Create one from the current settings.</source>
         <source>OpenVPN is one of the most popular and reliable VPN protocols. It uses SSL/TLS encryption, supports a wide variety of devices and operating systems, and is continuously improved by the community due to its open-source nature. It provides a good balance between speed and security but is easily recognized by DPI systems, making it susceptible to blocking.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Normal battery consumption on mobile devices
 * Flexible customization for various devices and OS
 * Operates over both TCP and UDP protocols</source>
@@ -4887,7 +4887,7 @@ Features:
         <source>WireGuard is a modern, streamlined VPN protocol offering stable connectivity and excellent performance across all devices. It uses fixed encryption settings, delivering lower latency and higher data transfer speeds compared to OpenVPN. However, WireGuard is easily identifiable by DPI systems due to its distinctive packet signatures, making it susceptible to blocking.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Low power consumption on mobile devices
 * Minimal configuration required
 * Easily detected by DPI systems (susceptible to blocking)
@@ -4900,7 +4900,7 @@ Features:
 AmneziaWG is an excellent choice for those seeking a fast, stealthy VPN connection.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Low battery consumption on mobile devices
 * Minimal settings required
 * Undetectable by traffic analysis systems (DPI)
@@ -4923,7 +4923,7 @@ Features:
         <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
 
 Features:
-* Available in AmneziaVPN only on Windows
+* Available in NvoVPN only on Windows
 * Low battery consumption on mobile devices
 * Minimal configuration required
 * Detectable by DPI analysis systems(easily blocked)
@@ -5094,7 +5094,7 @@ For more detailed information, you can
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Amnezia helper service error</source>
+        <source>%1 helper service error</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

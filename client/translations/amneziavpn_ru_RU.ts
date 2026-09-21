@@ -689,8 +689,8 @@ Already installed containers were found on the server. All installed containers 
 <context>
     <name>NotificationHandler</name>
     <message>
-        <source>AmneziaVPN</source>
-        <translation>AmneziaVPN</translation>
+        <source>NvoVPN</source>
+        <translation>NvoVPN</translation>
     </message>
     <message>
         <source>VPN Connected</source>
@@ -701,8 +701,8 @@ Already installed containers were found on the server. All installed containers 
         <translation>VPN выключен</translation>
     </message>
     <message>
-        <source>AmneziaVPN notification</source>
-        <translation>Уведомление AmneziaVPN</translation>
+        <source>%1 notification</source>
+        <translation>Уведомление %1</translation>
     </message>
     <message>
         <source>Unsecured network detected: </source>
@@ -3306,8 +3306,8 @@ Create one from the current settings.</source>
         <translation type="vanished">Резервное копирование</translation>
     </message>
     <message>
-        <source>About AmneziaVPN</source>
-        <translation type="vanished">Об AmneziaVPN</translation>
+        <source>About NvoVPN</source>
+        <translation type="vanished">Об NvoVPN</translation>
     </message>
     <message>
         <source>Dev console</source>
@@ -3565,8 +3565,8 @@ Create one from the current settings.</source>
 <context>
     <name>PageSettingsApiNativeConfigs</name>
     <message>
-        <source>Save AmneziaVPN config</source>
-        <translation>Сохранить конфигурацию AmneziaVPN</translation>
+        <source>Save NvoVPN config</source>
+        <translation>Сохранить конфигурацию NvoVPN</translation>
     </message>
     <message>
         <source>Configuration Files</source>
@@ -3759,8 +3759,8 @@ Create one from the current settings.</source>
         <translation>Сохранить ключ как файл</translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
-        <translation>Сохранить конфигурацию AmneziaVPN</translation>
+        <source>Save NvoVPN config</source>
+        <translation>Сохранить конфигурацию NvoVPN</translation>
     </message>
     <message>
         <source>Config files (*.vpn)</source>
@@ -3775,8 +3775,8 @@ Create one from the current settings.</source>
         <translation>Показать ключ</translation>
     </message>
     <message>
-        <source>To read the QR code in the Amnezia app, tap + in the main menu → &apos;QR code&apos;</source>
-        <translation>Для считывания QR-кода в приложении Amnezia выберите + в главном меню → &apos;QR-код&apos;</translation>
+        <source>To read the QR code in the NvoVPN app, tap + in the main menu → &apos;QR code&apos;</source>
+        <translation>Для считывания QR-кода в приложении NvoVPN выберите + в главном меню → &apos;QR-код&apos;</translation>
     </message>
 </context>
 <context>
@@ -4003,8 +4003,8 @@ Create one from the current settings.</source>
         <translation>Вы можете сохранить настройки в файл резервной копии, чтобы восстановить их при следующей установке приложения.</translation>
     </message>
     <message>
-        <source>The backup will contain your passwords and private keys for all servers added to AmneziaVPN. Keep this information in a secure place.</source>
-        <translation>Резервная копия будет содержать ваши пароли и закрытые ключи для всех серверов, добавленных в AmneziaVPN. Храните эту информацию в надежном месте.</translation>
+        <source>The backup will contain your passwords and private keys for all servers added to NvoVPN. Keep this information in a secure place.</source>
+        <translation>Резервная копия будет содержать ваши пароли и закрытые ключи для всех серверов, добавленных в NvoVPN. Храните эту информацию в надежном месте.</translation>
     </message>
     <message>
         <source>Make a backup</source>
@@ -4334,8 +4334,8 @@ Create one from the current settings.</source>
         <translation>Логи приложения</translation>
     </message>
     <message>
-        <source>AmneziaVPN logs</source>
-        <translation type="vanished">AmneziaVPN logs</translation>
+        <source>NvoVPN logs</source>
+        <translation type="vanished">NvoVPN logs</translation>
     </message>
     <message>
         <source>Open logs folder</source>
@@ -4459,7 +4459,7 @@ Create one from the current settings.</source>
         <translation>Удалить сервер из приложения</translation>
     </message>
     <message>
-        <source>All installed AmneziaVPN services will still remain on the server.</source>
+        <source>All installed NvoVPN services will still remain on the server.</source>
         <translation>Все установленные сервисы и протоколы Amnezia останутся на сервере.</translation>
     </message>
     <message>
@@ -5123,8 +5123,8 @@ Create one from the current settings.</source>
         <translation>Конфигурация отозвана</translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
-        <translation>Сохранить конфигурацию AmneziaVPN</translation>
+        <source>Save NvoVPN config</source>
+        <translation>Сохранить конфигурацию NvoVPN</translation>
     </message>
     <message>
         <source>Save OpenVPN config</source>
@@ -5159,8 +5159,8 @@ Create one from the current settings.</source>
         <translation>Файл с настройками подключения к </translation>
     </message>
     <message>
-        <source>For the AmneziaVPN app</source>
-        <translation>Для приложения AmneziaVPN</translation>
+        <source>For the NvoVPN app</source>
+        <translation>Для приложения NvoVPN</translation>
     </message>
     <message>
         <source>AmneziaWG native format</source>
@@ -5282,8 +5282,8 @@ Create one from the current settings.</source>
         <translation>Скопировать</translation>
     </message>
     <message>
-        <source>Save AmneziaVPN config</source>
-        <translation>Сохранить конфигурацию AmneziaVPN</translation>
+        <source>Save NvoVPN config</source>
+        <translation>Сохранить конфигурацию NvoVPN</translation>
     </message>
     <message>
         <source>Copy config string</source>
@@ -5298,8 +5298,8 @@ Create one from the current settings.</source>
         <translation>Скопировано</translation>
     </message>
     <message>
-        <source>To read the QR code in the Amnezia app, select &quot;Add server&quot; → &quot;I have data to connect&quot; → &quot;QR code, key or settings file&quot;</source>
-        <translation>Для считывания QR-кода в приложении Amnezia выберите &quot;Добавить сервер&quot; → &quot;У меня есть данные для подключения&quot; → &quot;Открыть файл конфигурации, ключ или QR-код&quot;</translation>
+        <source>To read the QR code in the NvoVPN app, select &quot;Add server&quot; → &quot;I have data to connect&quot; → &quot;QR code, key or settings file&quot;</source>
+        <translation>Для считывания QR-кода в приложении NvoVPN выберите &quot;Добавить сервер&quot; → &quot;У меня есть данные для подключения&quot; → &quot;Открыть файл конфигурации, ключ или QR-код&quot;</translation>
     </message>
 </context>
 <context>
@@ -5777,8 +5777,8 @@ Create one from the current settings.</source>
         <translation type="vanished">Отсутствует исполняемый файл Cloak (ck-client)</translation>
     </message>
     <message>
-        <source>Amnezia helper service error</source>
-        <translation>Ошибка вспомогательной службы Amnezia</translation>
+        <source>%1 helper service error</source>
+        <translation>Ошибка вспомогательной службы %1</translation>
     </message>
     <message>
         <source>OpenSSL failed</source>
@@ -5948,14 +5948,14 @@ Create one from the current settings.</source>
         <source>OpenVPN is one of the most popular and reliable VPN protocols. It uses SSL/TLS encryption, supports a wide variety of devices and operating systems, and is continuously improved by the community due to its open-source nature. It provides a good balance between speed and security but is easily recognized by DPI systems, making it susceptible to blocking.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Normal battery consumption on mobile devices
 * Flexible customization for various devices and OS
 * Operates over both TCP and UDP protocols</source>
         <translation>OpenVPN — один из самых популярных и надежных VPN-протоколов. Он использует шифрование SSL/TLS, совместим со множеством устройств и ОС, а благодаря открытому коду постоянно совершенствуется сообществом. Имеет хороший баланс скорости и безопасности, но легко распознаётся системами DPI, что делает его уязвимым к блокировкам.
 
 Особенности:
-* Доступен во всех приложениях AmneziaVPN
+* Доступен во всех приложениях NvoVPN
 * Нормальное энергопотребление на мобильных устройствах
 * Гибкие настройки под разные устройства и ОС
 * Работает по TCP и UDP</translation>
@@ -5964,7 +5964,7 @@ Features:
         <source>Shadowsocks is based on the SOCKS5 protocol and encrypts connections using AEAD cipher. Although designed to be discreet, it doesn&apos;t mimic a standard HTTPS connection and can be detected by some DPI systems. Due to limited support in Amnezia, we recommend using the AmneziaWG protocol.
 
 Features:
-* Available in AmneziaVPN only on desktop platforms
+* Available in NvoVPN only on desktop platforms
 * Customizable encryption protocol
 * Detectable by some DPI systems
 * Operates over TCP protocol
@@ -5972,7 +5972,7 @@ Features:
         <translation type="vanished">Shadowsocks основан на протоколе SOCKS5 и шифрует соединение алгоритмом AEAD. Он разработан так, чтобы быть малозаметным, однако не идентичен HTTPS, поэтому может распознаваться некоторыми системами DPI. В связи с ограниченной поддержкой в Amnezia, рекомендуем использовать протокол AmneziaWG.
 
 Особенности:
-* Доступен только на ПК в AmneziaVPN
+* Доступен только на ПК в NvoVPN
 * Настраиваемое шифрование
 * Может обнаруживаться некоторыми DPI-системами
 * Работает по протоколу TCP</translation>
@@ -5987,7 +5987,7 @@ The Cloak plugin further protects the connection from DPI detection. It modifies
 In regions with heavy internet censorship, we strongly recommend using OpenVPN with Cloak from your first connection.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * High power consumption on mobile devices
 * Flexible configuration options
 * Undetectable by DPI systems
@@ -6001,7 +6001,7 @@ OpenVPN надёжно шифрует весь интернет-трафик м�
 Если в вашем регионе сильная интернет-цензура, мы рекомендуем сразу использовать OpenVPN с плагином Cloak.
 
 Особенности:
-* Доступен на всех платформах AmneziaVPN
+* Доступен на всех платформах NvoVPN
 * Высокое энергопотребление на мобильных устройствах
 * Гибкие настройки
 * Незаметен для систем DPI-анализа
@@ -6011,7 +6011,7 @@ OpenVPN надёжно шифрует весь интернет-трафик м�
         <source>WireGuard is a modern, streamlined VPN protocol offering stable connectivity and excellent performance across all devices. It uses fixed encryption settings, delivering lower latency and higher data transfer speeds compared to OpenVPN. However, WireGuard is easily identifiable by DPI systems due to its distinctive packet signatures, making it susceptible to blocking.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Low power consumption on mobile devices
 * Minimal configuration required
 * Easily detected by DPI systems (susceptible to blocking)
@@ -6021,7 +6021,7 @@ Features:
 Однако WireGuard легко распознаётся системами DPI из-за характерных сигнатур трафика, что делает его уязвимым к блокировкам.
 
 Особенности:
-* Доступен на всех платформах AmneziaVPN
+* Доступен на всех платформах NvoVPN
 * Низкое энергопотребление на мобильных устройствах
 * Минимум настроек
 * Легко определяется DPI-системами (подвержен блокировкам)
@@ -6033,7 +6033,7 @@ Features:
 AmneziaWG is an excellent choice for those seeking a fast, stealthy VPN connection.
 
 Features:
-* Available on all AmneziaVPN platforms
+* Available on all NvoVPN platforms
 * Low battery consumption on mobile devices
 * Minimal settings required
 * Undetectable by traffic analysis systems (DPI)
@@ -6043,7 +6043,7 @@ Features:
 Таким образом, AmneziaWG идеально подойдёт тем, кто ищет быстрое и незаметное VPN-соединение.
 
 Особенности:
-* Доступен во всех версиях AmneziaVPN
+* Доступен во всех версиях NvoVPN
 * Низкое энергопотребление на мобильных устройствах
 * Минимум настроек
 * Незаметен для систем анализа трафика (DPI)
@@ -6076,7 +6076,7 @@ REALITY распознаёт системы блокировки во время
         <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
 
 Features:
-* Available in AmneziaVPN only on Windows
+* Available in NvoVPN only on Windows
 * Low battery consumption on mobile devices
 * Minimal configuration required
 * Detectable by DPI analysis systems(easily blocked)
@@ -6084,7 +6084,7 @@ Features:
         <translation>IKEv2 — современный и стабильный VPN-протокол, работающий совместно с шифрованием IPSec. Он обеспечивает быстрое переподключение при смене сети или устройства, отлично подходит для динамичных сетевых условий. Несмотря на хорошую скорость и безопасность, легко распознаётся системами DPI и подвержен блокировкам.
 
 Особенности:
-* Доступен в AmneziaVPN только на Windows
+* Доступен в NvoVPN только на Windows
 * Низкое энергопотребление на мобильных устройствах
 * Минимум настроек
 * Распознаётся DPI-системами (легко блокируется)
@@ -6116,7 +6116,7 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
 
 				Features:
 
-				* Available on all AmneziaVPN platforms
+				* Available on all NvoVPN platforms
 				* Low battery consumption on mobile devices
 				* Minimal settings required
 				* Undetectable by traffic analysis systems (DPI)
@@ -6128,7 +6128,7 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
 				Таким образом, AmneziaWG идеально подойдёт тем, кто ищет быстрое и незаметное VPN-соединение.
 
 				Особенности:
-				* Доступен во всех версиях AmneziaVPN
+				* Доступен во всех версиях NvoVPN
 				* Низкое энергопотребление на мобильных устройствах
 				* Минимум настроек
 				* Незаметен для систем анализа трафика (DPI)

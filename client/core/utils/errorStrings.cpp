@@ -1,5 +1,7 @@
 #include "errorStrings.h"
 
+#include "version.h"
+
 using namespace amnezia;
 
 QString errorString(ErrorCode code) {
@@ -57,7 +59,7 @@ QString errorString(ErrorCode code) {
 
     // Distro errors
     case (ErrorCode::OpenVpnExecutableMissing): errorMessage = QObject::tr("OpenVPN executable missing"); break;
-    case (ErrorCode::AmneziaServiceConnectionFailed): errorMessage = QObject::tr("Amnezia helper service error"); break;
+    case (ErrorCode::AmneziaServiceConnectionFailed): errorMessage = QObject::tr("%1 helper service error").arg(QStringLiteral(APPLICATION_NAME)); break;
     case (ErrorCode::OpenSslFailed): errorMessage = QObject::tr("OpenSSL failed"); break;
 
     // VPN errors
