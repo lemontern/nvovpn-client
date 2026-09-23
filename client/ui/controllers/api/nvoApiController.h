@@ -147,7 +147,7 @@ signals:
     void promoFailed(const QString &message, const QString &reason);
 
 private:
-    QString apiBase() const;                    // текущая база API (api.netguarder.net primary или резерв nvovpn.com)
+    QString apiBase() const;                    // текущая база API (api.netguarder.net primary, резервы ru.netguarder.net → nvovpn.com)
     QString siteBase() const;                   // корень сайта/OAuth на домене активной базы (для РФ-входа)
     bool isConnectivityError(QNetworkReply *reply) const;  // сетевая недоступность (не HTTP-ошибка) → повод для фолбека базы
     bool maybeSwitchBase(QNetworkReply *reply, int startBase);  // при недоступности основного → переключить на резерв (true = переключились, повторять)
@@ -170,7 +170,7 @@ private:
     SecureQSettings *m_settings;
     NvoServersModel *m_serversModel;
 
-    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net primary, 1=nvovpn.com резерв); переключается при недоступности
+    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net primary, 1=ru.netguarder.net РФ-вход, 2=nvovpn.com резерв); переключается при недоступности
     QString m_token;
     QString m_userName;
     QString m_userEmail;
