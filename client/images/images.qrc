@@ -6,6 +6,13 @@
         <file>amneziaBigLogo.png</file>
         <file>nvoAppIcon.png</file>
         <file>nvoAppIconRound.png</file>
+        <file>nvoShieldGlass.png</file>
+        <file>glass/connection.png</file>
+        <file>glass/application.png</file>
+        <file>glass/about.png</file>
+        <file>glass/promo.png</file>
+        <file>glass/signout.png</file>
+        <file>glass/quit.png</file>
         <file>AmneziaVPN.png</file>
         <file>controls/alert-circle.svg</file>
         <file>controls/amnezia.svg</file>

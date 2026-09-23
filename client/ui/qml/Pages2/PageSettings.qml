@@ -80,6 +80,7 @@ PageType {
                 text: title
                 rightImageSource: "qrc:/images/controls/chevron-right.svg"
                 leftImageSource: leftImagePath
+                leftImageSize: leftImagePath.indexOf("/glass/") !== -1 ? 34 : 0
 
                 clickedFunction: clickedHandler
             }
@@ -102,7 +103,8 @@ PageType {
                 Layout.fillWidth: true
 
                 text: qsTr("Ввести промокод")
-                leftImageSource: "qrc:/images/controls/tag.svg"
+                leftImageSource: "qrc:/images/glass/promo.png"
+                leftImageSize: 34
                 isLeftImageHoverEnabled: false
 
                 clickedFunction: function() {
@@ -126,7 +128,8 @@ PageType {
 
                 text: qsTr("Выйти из аккаунта")
                 descriptionText: NvoApi.userEmail
-                leftImageSource: "qrc:/images/controls/x-circle.svg"
+                leftImageSource: "qrc:/images/glass/signout.png"
+                leftImageSize: 34
                 isLeftImageHoverEnabled: false
 
                 clickedFunction: function() {
@@ -194,7 +197,8 @@ PageType {
                 Layout.fillWidth: true
 
                 text: qsTr("Close application")
-                leftImageSource: "qrc:/images/controls/x-circle.svg"
+                leftImageSource: "qrc:/images/glass/quit.png"
+                leftImageSize: 34
                 isLeftImageHoverEnabled: false
 
                 clickedFunction: function() {
@@ -225,7 +229,7 @@ PageType {
         id: connection
 
         property string title: qsTr("Connection")
-        readonly property string leftImagePath: "qrc:/images/controls/radio.svg"
+        readonly property string leftImagePath: "qrc:/images/glass/connection.png"
         // NvoVPN: на странице остался только KillSwitch. DNS/Split Tunneling скрыты.
         // Desktop — свой KillSwitch (firewall-демон); Android — переход в системный
         // Always-on VPN (иначе юзеры не находят KillSwitch и пишут в поддержку).
@@ -240,7 +244,7 @@ PageType {
         id: application
 
         property string title: qsTr("Application")
-        readonly property string leftImagePath: "qrc:/images/controls/app.svg"
+        readonly property string leftImagePath: "qrc:/images/glass/application.png"
         property bool isVisible: true
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsApplication)
@@ -267,7 +271,7 @@ PageType {
         id: about
 
         property string title: qsTr("О NvoVPN")
-        readonly property string leftImagePath: "qrc:/images/controls/globe-2.svg"
+        readonly property string leftImagePath: "qrc:/images/glass/about.png"
         property bool isVisible: true
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsAbout)

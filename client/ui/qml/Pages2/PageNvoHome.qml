@@ -215,27 +215,88 @@ PageType {
                         var p = (t / (Math.PI * 2)) % 1
                         ctx.beginPath(); ctx.arc(cx, cy, R * (1 + p * 0.5), 0, Math.PI * 2)
                         ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.4 * (1 - p)); ctx.lineWidth = 3; ctx.stroke()
+
+                        // 23.09.2026: кардиолиния через весь круг — тот же приём, что на странице входа сайта.
+                        // Рисуем ПОД щитом (Canvas лежит ниже картинок), поэтому линия красиво уходит за него.
+                        ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.lineJoin = "round"
+                        ctx.strokeStyle = Qt.rgba(c.r, c.g, c.b, 0.85)
+                        ctx.beginPath(); ctx.moveTo(0, cy)
+                        var sp = [w * 0.14, w * 0.66]           // два всплеска: слева и справа от щита
+                        for (var k = 0; k < sp.length; k++) {
+                            var x = sp[k]
+                            ctx.lineTo(x, cy)
+                            ctx.lineTo(x + 7, cy - 10); ctx.lineTo(x + 14, cy + 13)
+                            ctx.lineTo(x + 21, cy - 20); ctx.lineTo(x + 28, cy + 10); ctx.lineTo(x + 35, cy)
+                        }
+                        ctx.lineTo(w, cy); ctx.stroke()
+
+                        // бегущий по линии огонёк — видно, что канал живой
+                        var gx = ((t * 26) % (w + 120)) - 60
+                        var gg = ctx.createRadialGradient(gx, cy, 0, gx, cy, 34)
+                        gg.addColorStop(0, Qt.rgba(1, 1, 1, 0.55)); gg.addColorStop(1, Qt.rgba(1, 1, 1, 0))
+                        ctx.fillStyle = gg
+                        ctx.fillRect(gx - 34, cy - 12, 68, 24)
                     }
                 }
             }
 
-            // Центр: бренд-щит когда защита ВЫКЛючена; квадрат-СТОП когда ВКЛючена (тап = отключить).
+            // 23.09.2026: пока защита включена, от щита волнами расходятся его же слои — приём со
+            // страницы входа сайта. Период у всех одинаковый (4500 мс), сдвиг по фазе даёт волну.
+            Repeater {
+                model: 3
+                delegate: Image {
+                    anchors.centerIn: parent
+                    width: 104; height: 104
+                    source: "qrc:/images/nvoShieldGlass.png"
+                    sourceSize.width: 208; sourceSize.height: 208
+                    fillMode: Image.PreserveAspectFit
+                    visible: root.connected && !root.busy
+                    opacity: 0
+
+                    SequentialAnimation on scale {
+                        running: root.connected && !root.busy
+                        loops: Animation.Infinite
+                        PauseAnimation { duration: index * 900 }
+                        NumberAnimation { from: 1.0; to: 2.3; duration: 2700; easing.type: Easing.OutQuad }
+                        PauseAnimation { duration: (2 - index) * 900 }
+                    }
+                    SequentialAnimation on opacity {
+                        running: root.connected && !root.busy
+                        loops: Animation.Infinite
+                        PauseAnimation { duration: index * 900 }
+                        NumberAnimation { from: 0.38; to: 0.0; duration: 2700; easing.type: Easing.InQuad }
+                        PauseAnimation { duration: (2 - index) * 900 }
+                    }
+                }
+            }
+
+            // Центр: фирменный стеклянный щит. Виден всегда — и в покое, и при защите: знак бренда
+            // должен быть на экране, а не подменяться квадратом. При наведении на десктопе поверх
+            // щита появляется «стоп» — чтобы было видно, что нажатие отключит.
             Image {
+                id: centerShield
                 anchors.centerIn: parent
                 width: 104; height: 104
-                source: "qrc:/images/nvoAppIconRound.png"
-                sourceSize.width: 104; sourceSize.height: 104
+                source: "qrc:/images/nvoShieldGlass.png"
+                sourceSize.width: 208; sourceSize.height: 208
                 fillMode: Image.PreserveAspectFit
-                visible: !root.busy && !root.connected
+                visible: !root.busy && !(root.connected && knobMouse.containsMouse)
+
+                // Лёгкое «дыхание» под защитой — щит живой, но не отвлекает.
+                SequentialAnimation on scale {
+                    running: root.connected && !root.busy
+                    loops: Animation.Infinite
+                    NumberAnimation { from: 1.0; to: 1.05; duration: 1400; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: 1.05; to: 1.0; duration: 1400; easing.type: Easing.InOutSine }
+                }
             }
-            // Квадрат «стоп» (как на плеере): ясно, что кнопка теперь отключает. На тач наведения нет,
-            // поэтому показываем всегда при подключении (красный — при наведении на десктопе).
+            // Квадрат «стоп» при наведении на десктопе (на тач наведения нет — там подсказка текстом ниже).
             Rectangle {
                 anchors.centerIn: parent
                 width: 60; height: 60
                 radius: 12
-                color: knobMouse.containsMouse ? NvoStyle.color.dangerRed : "white"
-                visible: root.connected && !root.busy
+                color: NvoStyle.color.dangerRed
+                visible: root.connected && !root.busy && knobMouse.containsMouse
             }
 
             scale: knobMouse.pressed ? 0.96 : 1.0
@@ -277,6 +338,17 @@ PageType {
             font.family: "PT Root UI VF"
             font.weight: 800
             font.pixelSize: 20
+        }
+
+        // 23.09.2026: белый квадрат «стоп» убран ради фирменного щита, поэтому на тач-экранах
+        // подсказываем словами — иначе непонятно, как отключить.
+        Text {
+            Layout.alignment: Qt.AlignHCenter
+            horizontalAlignment: Text.AlignHCenter
+            visible: root.connected && !root.busy && !knobMouse.containsMouse
+            text: qsTr("нажмите на щит, чтобы отключить")
+            color: NvoStyle.color.mutedGray
+            font.pixelSize: 13
         }
 
         // Пока идёт обход блокировки — спокойно поясняем, что происходит (это на пару секунд дольше awg).

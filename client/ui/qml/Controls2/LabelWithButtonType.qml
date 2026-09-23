@@ -22,6 +22,9 @@ Item {
     property string buttonImageSource
     property string rightImageSource
     property string leftImageSource
+    // 23.09.2026: фирменные стеклянные плитки лежат в ресурсах крупными (136 px), чтобы не мылились
+    // на ретине. Здесь задаём, каким размером их рисовать; 0 — как раньше, натуральный размер SVG.
+    property int leftImageSize: 0
     property bool isLeftImageHoverEnabled: true
     property bool isSmallLeftImage: false
 
@@ -143,6 +146,12 @@ Item {
                 anchors.centerIn: parent
                 source: leftImageSource
                 visible: leftImageColor === ""
+                width: leftImageSize > 0 ? leftImageSize : implicitWidth
+                height: leftImageSize > 0 ? leftImageSize : implicitHeight
+                sourceSize.width: leftImageSize > 0 ? leftImageSize * 2 : 0
+                sourceSize.height: leftImageSize > 0 ? leftImageSize * 2 : 0
+                fillMode: Image.PreserveAspectFit
+                smooth: true
             }
 
             ColorOverlay {
