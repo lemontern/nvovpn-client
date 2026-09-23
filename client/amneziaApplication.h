@@ -43,6 +43,10 @@ public:
     void startLocalServer();
 #endif
 
+    // 04.09.2026: nvovpn://login?code=… — вход по ссылке из письма «Доступ открыт».
+    // Приходит из argv (Windows/Linux), из QFileOpenEvent (macOS) или от второго экземпляра через локальный сокет.
+    void handleDeepLink(const QString &url);
+
     QQmlApplicationEngine *qmlEngine() const;
     QNetworkAccessManager *networkManager();
     QClipboard *getClipboard();
@@ -52,6 +56,7 @@ public slots:
 
 private:
     static bool m_forceQuit;
+    QString m_pendingDeepLink;   // ссылка пришла до готовности ядра — применим после init()
     QQmlApplicationEngine *m_engine {};
     SecureQSettings* m_settings;
 
@@ -72,6 +77,7 @@ private:
 
     QNetworkAccessManager *m_nam;
 protected:
+    bool event(QEvent *event) override;   // macOS: QEvent::FileOpen с nvovpn://
     bool eventFilter(QObject *watched, QEvent *event) override;
 };
 

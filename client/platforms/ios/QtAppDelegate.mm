@@ -2,6 +2,7 @@
 #import "ios_controller.h"
 
 #include <QFile>
+#include <QString>
 
 
 @implementation QIOSApplicationDelegate (AmneziaVPNDelegate)
@@ -35,6 +36,16 @@
 - (BOOL)application:(UIApplication *)app
             openURL:(NSURL *)url
             options:(NSDictionary<UIApplicationOpenURLOptionsKey, id> *)options {
+    // NvoVPN 04.09.2026: вход по ссылке из письма «Доступ открыт» (nvovpn://login?code=…).
+    if (url && !url.fileURL && [url.scheme.lowercaseString isEqualToString:@"nvovpn"]) {
+        const QString deepLink = QString::fromNSString(url.absoluteString);
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (IosController::Instance()) {
+                emit IosController::Instance()->deepLinkReceived(deepLink);
+            }
+        });
+        return YES;
+    }
     if (url.fileURL) {
         QString filePath(url.path.UTF8String);
         if (filePath.isEmpty()) return NO;

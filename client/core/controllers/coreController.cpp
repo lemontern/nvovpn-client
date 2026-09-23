@@ -528,6 +528,11 @@ PageController* CoreController::pageController() const
     return m_pageController;
 }
 
+NvoApiController *CoreController::nvoApiController() const
+{
+    return m_nvoApiController;
+}
+
 void CoreController::openConnectionByIndex(int serverIndex)
 {
     const QString serverId =

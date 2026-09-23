@@ -91,6 +91,8 @@ signals:
     // NvoVPN macOS: расширение требует одобрения юзером в System Settings (один раз).
     void systemExtensionNeedsApproval();
     void importConfigFromOutside(const QString);
+    // 04.09.2026: nvovpn://login?code=… — вход по ссылке из письма (обработка в NvoApiController::handleDeepLink)
+    void deepLinkReceived(const QString);
     void importBackupFromOutside(const QString);
 
     void finished();

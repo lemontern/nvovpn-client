@@ -412,6 +412,12 @@ void CoreSignalHandlers::initIosImportHandler()
         m_coreController->m_importController->extractConfigFromData(data);
         emit m_coreController->m_pageController->goToPageViewConfig();
     });
+    // NvoVPN deep-link (nvovpn://login?code=…) из браузера/письма → вход по коду (как на Android).
+    connect(IosController::Instance(), &IosController::deepLinkReceived, this, [this](const QString &url) {
+        if (m_coreController->m_nvoApiController) {
+            m_coreController->m_nvoApiController->handleDeepLink(url);
+        }
+    });
     connect(IosController::Instance(), &IosController::importBackupFromOutside, this, [this](QString filePath) {
         emit m_coreController->m_pageController->goToPageHome();
         m_coreController->m_pageController->goToPageSettingsBackup();
