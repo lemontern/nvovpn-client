@@ -16,6 +16,11 @@ import "../Components"
 PageType {
     id: root
 
+    // 23.09.2026: на тач-платформах MouseArea после тапа держит containsMouse=true до следующего касания —
+    // из-за этого кольцо краснело, а щит прятался за квадратом «стоп». Наведение — только там, где есть мышь.
+    readonly property bool knobHovered: knobMouse.containsMouse
+                                        && Qt.platform.os !== "android" && Qt.platform.os !== "ios"
+
     readonly property bool connected: ConnectionController.isConnected
     readonly property bool busy: NvoApi.isBusy || ConnectionController.isConnectionInProgress
     // «Сессия активна» = подключено ИЛИ идёт установка/переустановка (Connecting/Reconnecting/Disconnecting).
@@ -156,7 +161,7 @@ PageType {
             // Цвет орба по состоянию: зелёный = защита (красный при наведении = «отключить»),
             // фиолетовый = обход блокировки (VLESS), синий = обычное подключение (awg), фиолетовый приглушённый = покой.
             readonly property color orbColor: root.connected
-                    ? (knobMouse.containsMouse ? NvoStyle.color.dangerRed : NvoStyle.color.connectedGreen)
+                    ? (root.knobHovered ? NvoStyle.color.dangerRed : NvoStyle.color.connectedGreen)
                     : (root.busy ? (NvoApi.lastConnectViaStealth ? NvoStyle.color.nvoViolet : NvoStyle.color.nvoBlue)
                                  : NvoStyle.color.nvoViolet)
             property real t: 0
@@ -280,7 +285,7 @@ PageType {
                 source: "qrc:/images/nvoShieldGlass.png"
                 sourceSize.width: 208; sourceSize.height: 208
                 fillMode: Image.PreserveAspectFit
-                visible: !root.busy && !(root.connected && knobMouse.containsMouse)
+                visible: !root.busy && !(root.connected && root.knobHovered)
 
                 // Лёгкое «дыхание» под защитой — щит живой, но не отвлекает.
                 SequentialAnimation on scale {
@@ -296,7 +301,7 @@ PageType {
                 width: 60; height: 60
                 radius: 12
                 color: NvoStyle.color.dangerRed
-                visible: root.connected && !root.busy && knobMouse.containsMouse
+                visible: root.connected && !root.busy && root.knobHovered
             }
 
             scale: knobMouse.pressed ? 0.96 : 1.0
@@ -328,7 +333,7 @@ PageType {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 4
             horizontalAlignment: Text.AlignHCenter
-            text: root.connected ? (knobMouse.containsMouse ? qsTr("Нажмите, чтобы отключить")
+            text: root.connected ? (root.knobHovered ? qsTr("Нажмите, чтобы отключить")
                                                             : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
                                  : (root.busy ? (NvoApi.lastConnectViaStealth ? qsTr("Обхожу блокировку…") : qsTr("Подключаем…"))
                                               // iOS (3.1.3(f)): без намёка на платную подписку/триал.
@@ -345,7 +350,7 @@ PageType {
         Text {
             Layout.alignment: Qt.AlignHCenter
             horizontalAlignment: Text.AlignHCenter
-            visible: root.connected && !root.busy && !knobMouse.containsMouse
+            visible: root.connected && !root.busy && !root.knobHovered
             text: qsTr("нажмите на щит, чтобы отключить")
             color: NvoStyle.color.mutedGray
             font.pixelSize: 13
