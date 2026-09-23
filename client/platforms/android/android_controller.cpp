@@ -166,6 +166,25 @@ ErrorCode AndroidController::start(const QJsonObject &vpnConfig)
         }
         merged[QStringLiteral("nvo_candidates")] = candidates;
         merged[QStringLiteral("nvo_liveness")] = extras.value(QStringLiteral("nvo_liveness"));
+        // Слой качества: запасные ноды (те же локальные настройки, что у основного конфига) и пороги детектора.
+        QJsonArray fallbackNodes;
+        for (const QJsonValue &v : extras.value(QStringLiteral("nvo_fallback_servers")).toArray()) {
+            QJsonObject node = v.toObject();
+            QJsonObject cfg = QJsonDocument::fromJson(node.value(QStringLiteral("config")).toString().toUtf8()).object();
+            if (cfg.isEmpty()) {
+                continue;
+            }
+            for (const char *key : { "dns1", "dns2", "splitTunnelType", "splitTunnelSites", "appSplitTunnelType",
+                                     "splitTunnelApps", "mtu", "serverIndex" }) {
+                if (vpnConfig.contains(QLatin1String(key))) {
+                    cfg[QLatin1String(key)] = vpnConfig.value(QLatin1String(key));
+                }
+            }
+            node[QStringLiteral("config")] = QString::fromUtf8(QJsonDocument(cfg).toJson(QJsonDocument::Compact));
+            fallbackNodes.append(node);
+        }
+        merged[QStringLiteral("nvo_fallback_servers")] = fallbackNodes;
+        merged[QStringLiteral("nvo_quality")] = extras.value(QStringLiteral("nvo_quality"));
     }
     auto config = QJsonDocument(merged).toJson();
     callActivityMethod("start", "(Ljava/lang/String;)V",
