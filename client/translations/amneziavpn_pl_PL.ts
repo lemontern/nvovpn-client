@@ -693,6 +693,11 @@ i jesteś chroniony</translation>
         <translation type="vanished">Połącz za darmo
 (2 dni)</translation>
     </message>
+    <message>
+        <location filename="../ui/qml/Pages2/PageNvoHome.qml" line="0"/>
+        <source>нажмите на щит, чтобы отключить</source>
+        <translation>dotknij tarczy, aby odłączyć</translation>
+    </message>
 </context>
 <context>
     <name>PageNvoLogin</name>
