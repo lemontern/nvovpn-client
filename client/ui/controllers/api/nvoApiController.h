@@ -26,6 +26,7 @@ class NvoApiController : public QObject
     Q_PROPERTY(QString userName READ userName NOTIFY userChanged)
     Q_PROPERTY(QString userEmail READ userEmail NOTIFY userChanged)
     Q_PROPERTY(bool hasSubscription READ hasSubscription NOTIFY subscriptionChanged)
+    Q_PROPERTY(bool everConnected READ everConnected NOTIFY everConnectedChanged)   // 11.09.2026: было ли хоть одно успешное подключение на этом устройстве
     Q_PROPERTY(double balance READ balance NOTIFY userChanged)
     Q_PROPERTY(QString balanceFormatted READ balanceFormatted NOTIFY userChanged)
     Q_PROPERTY(QString subscriptionPlan READ subscriptionPlan NOTIFY subscriptionChanged)
@@ -55,6 +56,7 @@ public:
     QString userName() const;
     QString userEmail() const;
     bool hasSubscription() const;
+    bool everConnected() const;
     double balance() const;
     QString balanceFormatted() const;
     QString subscriptionPlan() const;
@@ -120,6 +122,7 @@ signals:
     void busyChanged();
     void userChanged();
     void subscriptionChanged();
+    void everConnectedChanged();
     void selectedServerChanged();
     void onboardingChanged();
     void favoritesChanged();
