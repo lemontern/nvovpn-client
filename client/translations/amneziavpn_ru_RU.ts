@@ -425,6 +425,10 @@
         <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>HomeContainersListView</name>
@@ -690,7 +694,7 @@ Already installed containers were found on the server. All installed containers 
     <name>NotificationHandler</name>
     <message>
         <source>NvoVPN</source>
-        <translation>NvoVPN</translation>
+        <translation type="vanished">NvoVPN</translation>
     </message>
     <message>
         <source>VPN Connected</source>
@@ -711,6 +715,10 @@ Already installed containers were found on the server. All installed containers 
 </context>
 <context>
     <name>NvoApiController</name>
+    <message>
+        <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message>
         <source>Не удалось подобрать сервер, попробуйте позже</source>
         <translation type="unfinished"></translation>
@@ -796,11 +804,11 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Нет интернета — проверьте подключение</source>
+        <source>Нет связи с NvoVPN. Проверьте интернет или попробуйте через минуту</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Сервер не отвечает, попробуйте ещё раз</source>
+        <source>Сервер NvoVPN не отвечает, попробуйте ещё раз</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -816,6 +824,10 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Покупка ожидает подтверждения. Как только App Store её подтвердит, подписка включится сама</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Покупка не завершена</source>
         <translation type="unfinished"></translation>
     </message>
@@ -825,6 +837,10 @@ Already installed containers were found on the server. All installed containers 
     </message>
     <message>
         <source>Подписка активирована</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Нет связи с сервером NvoVPN. Покупка сохранена — подписка включится при следующем запуске</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -970,6 +986,10 @@ Thank you for staying with us!</source>
     <message>
         <source>Подключиться бесплатно (2 дня)</source>
         <translation>Подключиться бесплатно (2 дня)</translation>
+    </message>
+    <message>
+        <source>нажмите на щит, чтобы отключить</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Подключаемся через защищённый канал</source>
@@ -2232,7 +2252,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Выключена</translation>
     </message>
     <message>
         <source>Save</source>
@@ -3349,6 +3369,10 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>У вас последняя версия</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Сайт nvovpn.com</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4082,6 +4106,10 @@ Create one from the current settings.</source>
         <translation>KillSwitch</translation>
     </message>
     <message>
+        <source>Блокировка интернета без VPN — через системную настройку «Постоянная VPN»</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Blocks network connections without VPN</source>
         <translation>Блокирует интернет-соединение без VPN</translation>
     </message>
@@ -4291,7 +4319,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>NvoVPN logs</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">NvoVPN logs</translation>
     </message>
     <message>
         <source>Save</source>
@@ -4334,10 +4362,6 @@ Create one from the current settings.</source>
         <translation>Логи приложения</translation>
     </message>
     <message>
-        <source>NvoVPN logs</source>
-        <translation type="vanished">NvoVPN logs</translation>
-    </message>
-    <message>
         <source>Open logs folder</source>
         <translation>Открыть папку с логами</translation>
     </message>
@@ -4362,11 +4386,11 @@ Create one from the current settings.</source>
     <name>PageSettingsNewsDetail</name>
     <message>
         <source>Update</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Обновить</translation>
     </message>
     <message>
         <source>Skip</source>
-        <translation type="unfinished"></translation>
+        <translation type="unfinished">Позже</translation>
     </message>
 </context>
 <context>
@@ -5885,6 +5909,51 @@ Create one from the current settings.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>OpenVPN is one of the most popular and reliable VPN protocols. It uses SSL/TLS encryption, supports a wide variety of devices and operating systems, and is continuously improved by the community due to its open-source nature. It provides a good balance between speed and security but is easily recognized by DPI systems, making it susceptible to blocking.
+
+Features:
+* Available on all AmneziaVPN platforms
+* Normal battery consumption on mobile devices
+* Flexible customization for various devices and OS
+* Operates over both TCP and UDP protocols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>WireGuard is a modern, streamlined VPN protocol offering stable connectivity and excellent performance across all devices. It uses fixed encryption settings, delivering lower latency and higher data transfer speeds compared to OpenVPN. However, WireGuard is easily identifiable by DPI systems due to its distinctive packet signatures, making it susceptible to blocking.
+
+Features:
+* Available on all AmneziaVPN platforms
+* Low power consumption on mobile devices
+* Minimal configuration required
+* Easily detected by DPI systems (susceptible to blocking)
+* Operates over UDP protocol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AmneziaWG is a modern VPN protocol based on WireGuard, combining simplified architecture with high performance across all devices. It addresses WireGuard&apos;s main vulnerability (easy detection by DPI systems) through advanced obfuscation techniques, making VPN traffic indistinguishable from regular internet traffic.
+
+AmneziaWG is an excellent choice for those seeking a fast, stealthy VPN connection.
+
+Features:
+* Available on all AmneziaVPN platforms
+* Low battery consumption on mobile devices
+* Minimal settings required
+* Undetectable by traffic analysis systems (DPI)
+* Operates over UDP protocol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
+
+Features:
+* Available in AmneziaVPN only on Windows
+* Low battery consumption on mobile devices
+* Minimal configuration required
+* Detectable by DPI analysis systems(easily blocked)
+* Operates over UDP protocol(ports 500 and 4500)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>DNS Service</source>
         <translation>Сервис DNS</translation>
     </message>
@@ -5952,7 +6021,7 @@ Features:
 * Normal battery consumption on mobile devices
 * Flexible customization for various devices and OS
 * Operates over both TCP and UDP protocols</source>
-        <translation>OpenVPN — один из самых популярных и надежных VPN-протоколов. Он использует шифрование SSL/TLS, совместим со множеством устройств и ОС, а благодаря открытому коду постоянно совершенствуется сообществом. Имеет хороший баланс скорости и безопасности, но легко распознаётся системами DPI, что делает его уязвимым к блокировкам.
+        <translation type="vanished">OpenVPN — один из самых популярных и надежных VPN-протоколов. Он использует шифрование SSL/TLS, совместим со множеством устройств и ОС, а благодаря открытому коду постоянно совершенствуется сообществом. Имеет хороший баланс скорости и безопасности, но легко распознаётся системами DPI, что делает его уязвимым к блокировкам.
 
 Особенности:
 * Доступен во всех приложениях NvoVPN
@@ -6016,7 +6085,7 @@ Features:
 * Minimal configuration required
 * Easily detected by DPI systems (susceptible to blocking)
 * Operates over UDP protocol</source>
-        <translation>WireGuard — современный и простой VPN-протокол, который обеспечивает стабильное соединение и высокую скорость передачи данных на любых устройствах. Он использует фиксированные настройки шифрования, имеет меньшую задержку и выше пропускную способность по сравнению с OpenVPN.
+        <translation type="vanished">WireGuard — современный и простой VPN-протокол, который обеспечивает стабильное соединение и высокую скорость передачи данных на любых устройствах. Он использует фиксированные настройки шифрования, имеет меньшую задержку и выше пропускную способность по сравнению с OpenVPN.
 
 Однако WireGuard легко распознаётся системами DPI из-за характерных сигнатур трафика, что делает его уязвимым к блокировкам.
 
@@ -6038,7 +6107,7 @@ Features:
 * Minimal settings required
 * Undetectable by traffic analysis systems (DPI)
 * Operates over UDP protocol</source>
-        <translation>AmneziaWG — современный VPN-протокол на основе WireGuard, сочетающий простую архитектуру и высокую производительность на всех устройствах. Он устраняет основной недостаток WireGuard (лёгкое обнаружение трафика системами DPI) за счёт эффективного маскирования VPN-трафика под обычный интернет-трафик.
+        <translation type="vanished">AmneziaWG — современный VPN-протокол на основе WireGuard, сочетающий простую архитектуру и высокую производительность на всех устройствах. Он устраняет основной недостаток WireGuard (лёгкое обнаружение трафика системами DPI) за счёт эффективного маскирования VPN-трафика под обычный интернет-трафик.
 
 Таким образом, AmneziaWG идеально подойдёт тем, кто ищет быстрое и незаметное VPN-соединение.
 
@@ -6081,7 +6150,7 @@ Features:
 * Minimal configuration required
 * Detectable by DPI analysis systems(easily blocked)
 * Operates over UDP protocol(ports 500 and 4500)</source>
-        <translation>IKEv2 — современный и стабильный VPN-протокол, работающий совместно с шифрованием IPSec. Он обеспечивает быстрое переподключение при смене сети или устройства, отлично подходит для динамичных сетевых условий. Несмотря на хорошую скорость и безопасность, легко распознаётся системами DPI и подвержен блокировкам.
+        <translation type="vanished">IKEv2 — современный и стабильный VPN-протокол, работающий совместно с шифрованием IPSec. Он обеспечивает быстрое переподключение при смене сети или устройства, отлично подходит для динамичных сетевых условий. Несмотря на хорошую скорость и безопасность, легко распознаётся системами DPI и подвержен блокировкам.
 
 Особенности:
 * Доступен в NvoVPN только на Windows
@@ -6559,6 +6628,14 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
 <context>
     <name>UpdateController</name>
     <message>
+        <source>На этой платформе обновления ставятся вручную</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось проверить обновления — сервер NvoVPN недоступен</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6568,6 +6645,30 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
     </message>
     <message>
         <source>Что нового: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ссылка на установщик некорректна. Скачайте его с сайта nvovpn.com</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось скачать обновление. Проверьте интернет или скачайте установщик с сайта</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Файл обновления повреждён, попробуйте позже</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Файл обновления не прошёл проверку, попробуйте позже</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось сохранить установщик, скачайте его с сайта</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Не удалось запустить установщик, скачайте его с сайта</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

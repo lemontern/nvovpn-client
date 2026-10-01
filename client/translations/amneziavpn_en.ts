@@ -189,6 +189,10 @@
         <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
         <translation>Connection established, but no data is passing — your network is probably blocking VPN. Try another server or another network.</translation>
     </message>
+    <message>
+        <source>macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз.</source>
+        <translation>macOS needs your permission for the NvoVPN network extension: System Settings → General → Login Items &amp; Extensions → Network Extensions → enable NvoVPN. Then click the shield again.</translation>
+    </message>
 </context>
 <context>
     <name>HomeContainersListView</name>
@@ -360,10 +364,6 @@ Already installed containers were found on the server. All installed containers 
 <context>
     <name>NotificationHandler</name>
     <message>
-        <source>NvoVPN</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>VPN Connected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -382,6 +382,10 @@ Already installed containers were found on the server. All installed containers 
 </context>
 <context>
     <name>NvoApiController</name>
+    <message>
+        <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
+        <translation type="unfinished">Connection established, but no data is passing — your network is probably blocking VPN. Try another server or another network.</translation>
+    </message>
     <message>
         <source>Не удалось подобрать сервер, попробуйте позже</source>
         <translation>Couldn&apos;t find a server, please try again later</translation>
@@ -467,12 +471,20 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished">Google sign-in was not completed, please try again</translation>
     </message>
     <message>
+        <source>Нет связи с NvoVPN. Проверьте интернет или попробуйте через минуту</source>
+        <translation>Can&apos;t reach NvoVPN. Check your internet connection or try again in a minute</translation>
+    </message>
+    <message>
+        <source>Сервер NvoVPN не отвечает, попробуйте ещё раз</source>
+        <translation>The NvoVPN server is not responding, please try again</translation>
+    </message>
+    <message>
         <source>Нет интернета — проверьте подключение</source>
-        <translation>No internet — check your connection</translation>
+        <translation type="vanished">No internet — check your connection</translation>
     </message>
     <message>
         <source>Сервер не отвечает, попробуйте ещё раз</source>
-        <translation>The server isn&apos;t responding, please try again</translation>
+        <translation type="vanished">The server isn&apos;t responding, please try again</translation>
     </message>
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
@@ -487,6 +499,10 @@ Already installed containers were found on the server. All installed containers 
         <translation>Couldn&apos;t load prices from the App Store: %1</translation>
     </message>
     <message>
+        <source>Покупка ожидает подтверждения. Как только App Store её подтвердит, подписка включится сама</source>
+        <translation>The purchase is awaiting approval. Once the App Store confirms it, your subscription will activate automatically</translation>
+    </message>
+    <message>
         <source>Покупка не завершена</source>
         <translation>Purchase not completed</translation>
     </message>
@@ -497,6 +513,10 @@ Already installed containers were found on the server. All installed containers 
     <message>
         <source>Подписка активирована</source>
         <translation>Subscription activated</translation>
+    </message>
+    <message>
+        <source>Нет связи с сервером NvoVPN. Покупка сохранена — подписка включится при следующем запуске</source>
+        <translation>Can&apos;t reach the NvoVPN server. Your purchase is saved — the subscription will activate on the next launch</translation>
     </message>
     <message>
         <source>Не удалось активировать подписку</source>
@@ -694,7 +714,6 @@ and you&apos;re protected</translation>
 (2 days)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/Pages2/PageNvoHome.qml" line="0"/>
         <source>нажмите на щит, чтобы отключить</source>
         <translation>tap the shield to disconnect</translation>
     </message>
@@ -2936,6 +2955,10 @@ Create one from the current settings.</source>
         <translation>Software version: %1</translation>
     </message>
     <message>
+        <source>У вас последняя версия</source>
+        <translation>You have the latest version</translation>
+    </message>
+    <message>
         <source>Privacy Policy</source>
         <translation>Privacy Policy</translation>
     </message>
@@ -3587,6 +3610,10 @@ Create one from the current settings.</source>
     <message>
         <source>KillSwitch</source>
         <translation>KillSwitch</translation>
+    </message>
+    <message>
+        <source>Блокировка интернета без VPN — через системную настройку «Постоянная VPN»</source>
+        <translation>Blocks the internet without VPN — via the system “Always-on VPN” setting</translation>
     </message>
     <message>
         <source>Blocks network connections without VPN</source>
@@ -4882,7 +4909,7 @@ Create one from the current settings.</source>
         <source>OpenVPN is one of the most popular and reliable VPN protocols. It uses SSL/TLS encryption, supports a wide variety of devices and operating systems, and is continuously improved by the community due to its open-source nature. It provides a good balance between speed and security but is easily recognized by DPI systems, making it susceptible to blocking.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Normal battery consumption on mobile devices
 * Flexible customization for various devices and OS
 * Operates over both TCP and UDP protocols</source>
@@ -4892,7 +4919,7 @@ Features:
         <source>WireGuard is a modern, streamlined VPN protocol offering stable connectivity and excellent performance across all devices. It uses fixed encryption settings, delivering lower latency and higher data transfer speeds compared to OpenVPN. However, WireGuard is easily identifiable by DPI systems due to its distinctive packet signatures, making it susceptible to blocking.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Low power consumption on mobile devices
 * Minimal configuration required
 * Easily detected by DPI systems (susceptible to blocking)
@@ -4905,11 +4932,22 @@ Features:
 AmneziaWG is an excellent choice for those seeking a fast, stealthy VPN connection.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Low battery consumption on mobile devices
 * Minimal settings required
 * Undetectable by traffic analysis systems (DPI)
 * Operates over UDP protocol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
+
+Features:
+* Available in AmneziaVPN only on Windows
+* Low battery consumption on mobile devices
+* Minimal configuration required
+* Detectable by DPI analysis systems(easily blocked)
+* Operates over UDP protocol(ports 500 and 4500)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4922,17 +4960,6 @@ Features:
 * Highly effective in heavily censored regions
 * Minimal battery consumption on devices
 * Operates over TCP protocol</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
-
-Features:
-* Available in NvoVPN only on Windows
-* Low battery consumption on mobile devices
-* Minimal configuration required
-* Detectable by DPI analysis systems(easily blocked)
-* Operates over UDP protocol(ports 500 and 4500)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5536,6 +5563,14 @@ For more detailed information, you can
 <context>
     <name>UpdateController</name>
     <message>
+        <source>На этой платформе обновления ставятся вручную</source>
+        <translation>Updates on this platform are installed manually</translation>
+    </message>
+    <message>
+        <source>Не удалось проверить обновления — сервер NvoVPN недоступен</source>
+        <translation>Couldn&apos;t check for updates — the NvoVPN server is unreachable</translation>
+    </message>
+    <message>
         <source>Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.</source>
         <translation>Version %1 is available. Tap “Update” to open the app store.</translation>
     </message>
@@ -5546,6 +5581,30 @@ For more detailed information, you can
     <message>
         <source>Что нового: %1</source>
         <translation>What&apos;s new: %1</translation>
+    </message>
+    <message>
+        <source>Ссылка на установщик некорректна. Скачайте его с сайта nvovpn.com</source>
+        <translation>The installer link is invalid. Please download it from nvovpn.com</translation>
+    </message>
+    <message>
+        <source>Не удалось скачать обновление. Проверьте интернет или скачайте установщик с сайта</source>
+        <translation>Couldn&apos;t download the update. Check your internet connection or download the installer from the website</translation>
+    </message>
+    <message>
+        <source>Файл обновления повреждён, попробуйте позже</source>
+        <translation>The update file is corrupted, please try again later</translation>
+    </message>
+    <message>
+        <source>Файл обновления не прошёл проверку, попробуйте позже</source>
+        <translation>The update file failed verification, please try again later</translation>
+    </message>
+    <message>
+        <source>Не удалось сохранить установщик, скачайте его с сайта</source>
+        <translation>Couldn&apos;t save the installer, please download it from the website</translation>
+    </message>
+    <message>
+        <source>Не удалось запустить установщик, скачайте его с сайта</source>
+        <translation>Couldn&apos;t start the installer, please download it from the website</translation>
     </message>
 </context>
 <context>

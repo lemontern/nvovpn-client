@@ -108,11 +108,11 @@
     <name>ChangelogDrawer</name>
     <message>
         <source>Update</source>
-        <translation type="unfinished"></translation>
+        <translation>Aggiorna</translation>
     </message>
     <message>
         <source>Skip</source>
-        <translation type="unfinished"></translation>
+        <translation>Più tardi</translation>
     </message>
 </context>
 <context>
@@ -188,6 +188,10 @@
     <message>
         <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
         <translation>Connessione stabilita, ma i dati non passano — probabilmente la tua rete blocca la VPN. Prova un altro server o un&apos;altra rete.</translation>
+    </message>
+    <message>
+        <source>macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз.</source>
+        <translation>macOS chiede il permesso per l&apos;estensione di rete NvoVPN: Impostazioni di Sistema → Generali → Elementi login ed estensioni → Estensioni di rete → attiva NvoVPN. Poi premi di nuovo lo scudo.</translation>
     </message>
 </context>
 <context>
@@ -360,10 +364,6 @@ Already installed containers were found on the server. All installed containers 
 <context>
     <name>NotificationHandler</name>
     <message>
-        <source>NvoVPN</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>VPN Connected</source>
         <translation type="unfinished"></translation>
     </message>
@@ -382,6 +382,10 @@ Already installed containers were found on the server. All installed containers 
 </context>
 <context>
     <name>NvoApiController</name>
+    <message>
+        <source>Соединение установлено, но данные не проходят — вероятно, ваша сеть блокирует VPN. Попробуйте другой сервер или другую сеть.</source>
+        <translation type="unfinished">Connessione stabilita, ma i dati non passano — probabilmente la tua rete blocca la VPN. Prova un altro server o un&apos;altra rete.</translation>
+    </message>
     <message>
         <source>Не удалось подобрать сервер, попробуйте позже</source>
         <translation>Impossibile trovare un server, riprova più tardi</translation>
@@ -467,12 +471,20 @@ Already installed containers were found on the server. All installed containers 
         <translation type="unfinished">Accesso con Google non completato, riprova</translation>
     </message>
     <message>
+        <source>Нет связи с NvoVPN. Проверьте интернет или попробуйте через минуту</source>
+        <translation>Nessun collegamento con NvoVPN. Controlla la connessione a Internet o riprova tra un minuto</translation>
+    </message>
+    <message>
+        <source>Сервер NvoVPN не отвечает, попробуйте ещё раз</source>
+        <translation>Il server NvoVPN non risponde, riprova</translation>
+    </message>
+    <message>
         <source>Нет интернета — проверьте подключение</source>
-        <translation>Nessuna connessione a Internet — controlla la rete</translation>
+        <translation type="vanished">Nessuna connessione a Internet — controlla la rete</translation>
     </message>
     <message>
         <source>Сервер не отвечает, попробуйте ещё раз</source>
-        <translation>Il server non risponde, riprova</translation>
+        <translation type="vanished">Il server non risponde, riprova</translation>
     </message>
     <message>
         <source>Что-то пошло не так, попробуйте ещё раз</source>
@@ -487,6 +499,10 @@ Already installed containers were found on the server. All installed containers 
         <translation>Impossibile caricare i prezzi dall&apos;App Store: %1</translation>
     </message>
     <message>
+        <source>Покупка ожидает подтверждения. Как только App Store её подтвердит, подписка включится сама</source>
+        <translation>L&apos;acquisto è in attesa di conferma. Appena l&apos;App Store lo confermerà, l&apos;abbonamento si attiverà da solo</translation>
+    </message>
+    <message>
         <source>Покупка не завершена</source>
         <translation>Acquisto non completato</translation>
     </message>
@@ -497,6 +513,10 @@ Already installed containers were found on the server. All installed containers 
     <message>
         <source>Подписка активирована</source>
         <translation>Abbonamento attivato</translation>
+    </message>
+    <message>
+        <source>Нет связи с сервером NvoVPN. Покупка сохранена — подписка включится при следующем запуске</source>
+        <translation>Nessun collegamento con il server NvoVPN. L&apos;acquisto è salvato: l&apos;abbonamento si attiverà al prossimo avvio</translation>
     </message>
     <message>
         <source>Не удалось активировать подписку</source>
@@ -694,7 +714,6 @@ e sei protetto</translation>
 (2 giorni)</translation>
     </message>
     <message>
-        <location filename="../ui/qml/Pages2/PageNvoHome.qml" line="0"/>
         <source>нажмите на щит, чтобы отключить</source>
         <translation>tocca lo scudo per disconnetterti</translation>
     </message>
@@ -1827,7 +1846,7 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>Disattivata</translation>
     </message>
     <message>
         <source>Save</source>
@@ -2936,6 +2955,10 @@ Create one from the current settings.</source>
         <translation>Versione del software: %1</translation>
     </message>
     <message>
+        <source>У вас последняя версия</source>
+        <translation>Hai l&apos;ultima versione</translation>
+    </message>
+    <message>
         <source>Privacy Policy</source>
         <translation>Informativa sulla privacy</translation>
     </message>
@@ -3444,23 +3467,23 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>Disattivata</translation>
     </message>
     <message>
         <source>Auto (on block)</source>
-        <translation type="unfinished"></translation>
+        <translation>Auto (se bloccato)</translation>
     </message>
     <message>
         <source>Always on</source>
-        <translation type="unfinished"></translation>
+        <translation>Sempre attiva</translation>
     </message>
     <message>
         <source>Backup VLESS protocol that looks like regular HTTPS — turns on when the main protocol is throttled (RU/DPI).</source>
-        <translation type="unfinished"></translation>
+        <translation>Protocollo di riserva VLESS che sembra normale HTTPS: si attiva quando il protocollo principale viene limitato (RU/DPI).</translation>
     </message>
     <message>
         <source>Stealth mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Modalità invisibile</translation>
     </message>
     <message>
         <source>News Notification</source>
@@ -3587,6 +3610,10 @@ Create one from the current settings.</source>
     <message>
         <source>KillSwitch</source>
         <translation>KillSwitch</translation>
+    </message>
+    <message>
+        <source>Блокировка интернета без VPN — через системную настройку «Постоянная VPN»</source>
+        <translation>Blocca Internet senza VPN tramite l&apos;impostazione di sistema «VPN sempre attiva»</translation>
     </message>
     <message>
         <source>Blocks network connections without VPN</source>
@@ -3849,11 +3876,11 @@ Create one from the current settings.</source>
     <name>PageSettingsNewsDetail</name>
     <message>
         <source>Update</source>
-        <translation type="unfinished"></translation>
+        <translation>Aggiorna</translation>
     </message>
     <message>
         <source>Skip</source>
-        <translation type="unfinished"></translation>
+        <translation>Più tardi</translation>
     </message>
 </context>
 <context>
@@ -4882,7 +4909,7 @@ Create one from the current settings.</source>
         <source>OpenVPN is one of the most popular and reliable VPN protocols. It uses SSL/TLS encryption, supports a wide variety of devices and operating systems, and is continuously improved by the community due to its open-source nature. It provides a good balance between speed and security but is easily recognized by DPI systems, making it susceptible to blocking.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Normal battery consumption on mobile devices
 * Flexible customization for various devices and OS
 * Operates over both TCP and UDP protocols</source>
@@ -4892,7 +4919,7 @@ Features:
         <source>WireGuard is a modern, streamlined VPN protocol offering stable connectivity and excellent performance across all devices. It uses fixed encryption settings, delivering lower latency and higher data transfer speeds compared to OpenVPN. However, WireGuard is easily identifiable by DPI systems due to its distinctive packet signatures, making it susceptible to blocking.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Low power consumption on mobile devices
 * Minimal configuration required
 * Easily detected by DPI systems (susceptible to blocking)
@@ -4905,11 +4932,22 @@ Features:
 AmneziaWG is an excellent choice for those seeking a fast, stealthy VPN connection.
 
 Features:
-* Available on all NvoVPN platforms
+* Available on all AmneziaVPN platforms
 * Low battery consumption on mobile devices
 * Minimal settings required
 * Undetectable by traffic analysis systems (DPI)
 * Operates over UDP protocol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
+
+Features:
+* Available in AmneziaVPN only on Windows
+* Low battery consumption on mobile devices
+* Minimal configuration required
+* Detectable by DPI analysis systems(easily blocked)
+* Operates over UDP protocol(ports 500 and 4500)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -4922,17 +4960,6 @@ Features:
 * Highly effective in heavily censored regions
 * Minimal battery consumption on devices
 * Operates over TCP protocol</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>IKEv2, combined with IPSec encryption, is a modern and reliable VPN protocol. It reconnects quickly when switching networks or devices, making it ideal for dynamic network environments. While it provides good security and speed, it&apos;s easily recognized by DPI systems and susceptible to blocking.
-
-Features:
-* Available in NvoVPN only on Windows
-* Low battery consumption on mobile devices
-* Minimal configuration required
-* Detectable by DPI analysis systems(easily blocked)
-* Operates over UDP protocol(ports 500 and 4500)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -5536,6 +5563,14 @@ For more detailed information, you can
 <context>
     <name>UpdateController</name>
     <message>
+        <source>На этой платформе обновления ставятся вручную</source>
+        <translation>Su questa piattaforma gli aggiornamenti si installano manualmente</translation>
+    </message>
+    <message>
+        <source>Не удалось проверить обновления — сервер NvoVPN недоступен</source>
+        <translation>Impossibile verificare gli aggiornamenti: il server NvoVPN non è raggiungibile</translation>
+    </message>
+    <message>
         <source>Доступна версия %1. Нажмите «Обновить», чтобы открыть магазин приложений.</source>
         <translation>È disponibile la versione %1. Tocca «Aggiorna» per aprire lo store.</translation>
     </message>
@@ -5547,16 +5582,40 @@ For more detailed information, you can
         <source>Что нового: %1</source>
         <translation>Novità: %1</translation>
     </message>
+    <message>
+        <source>Ссылка на установщик некорректна. Скачайте его с сайта nvovpn.com</source>
+        <translation>Il link al programma di installazione non è valido. Scaricalo da nvovpn.com</translation>
+    </message>
+    <message>
+        <source>Не удалось скачать обновление. Проверьте интернет или скачайте установщик с сайта</source>
+        <translation>Impossibile scaricare l&apos;aggiornamento. Controlla la connessione o scarica il programma di installazione dal sito</translation>
+    </message>
+    <message>
+        <source>Файл обновления повреждён, попробуйте позже</source>
+        <translation>Il file di aggiornamento è danneggiato, riprova più tardi</translation>
+    </message>
+    <message>
+        <source>Файл обновления не прошёл проверку, попробуйте позже</source>
+        <translation>Il file di aggiornamento non ha superato la verifica, riprova più tardi</translation>
+    </message>
+    <message>
+        <source>Не удалось сохранить установщик, скачайте его с сайта</source>
+        <translation>Impossibile salvare il programma di installazione, scaricalo dal sito</translation>
+    </message>
+    <message>
+        <source>Не удалось запустить установщик, скачайте его с сайта</source>
+        <translation>Impossibile avviare il programma di installazione, scaricalo dal sito</translation>
+    </message>
 </context>
 <context>
     <name>UpdateUiController</name>
     <message>
         <source>New version released: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Nuova versione disponibile: %1</translation>
     </message>
     <message>
         <source>New version released: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>Nuova versione disponibile: %1 (%2)</translation>
     </message>
     <message>
         <source>Failed to load changelog text</source>
