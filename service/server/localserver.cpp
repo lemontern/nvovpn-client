@@ -10,6 +10,7 @@
 #include <QString>
 
 #include "ipc.h"
+#include "ipcpeer.h"
 #include "killswitch.h"
 #include "logger.h"
 
@@ -35,7 +36,14 @@ LocalServer::LocalServer(QObject *parent) : QObject(parent),
 
     QObject::connect(m_server.data(), &QLocalServer::newConnection, this, [this]() {
         qDebug() << "LocalServer new connection";
-        m_serverNode.addHostSideConnection(m_server->nextPendingConnection());
+        QLocalSocket *socket = m_server->nextPendingConnection();
+        // 01.10.2026 (аудит D-12): командовать службой может только наш NvoVPN.exe (см. ipc/ipcpeer.h).
+        if (!amnezia::ipcPeerIsTrusted(socket)) {
+            socket->abort();
+            socket->deleteLater();
+            return;
+        }
+        m_serverNode.addHostSideConnection(socket);
 
         if (!m_isRemotingEnabled) {
             m_isRemotingEnabled = true;

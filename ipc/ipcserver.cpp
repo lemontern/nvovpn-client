@@ -14,6 +14,7 @@
 #include <QStringList>
 
 #include "logger.h"
+#include "ipcpeer.h"
 #include "router.h"
 #include "killswitch.h"
 #include "xray.h"
@@ -48,8 +49,15 @@ int IpcServer::createPrivilegedProcess()
     // Make sure any connections are handed to QtRO
     QObject::connect(pd.localServer.data(), &QLocalServer::newConnection, this, [pd]() {
         qDebug() << "IpcServer new connection";
+        QLocalSocket *socket = pd.localServer->nextPendingConnection();
+        // 01.10.2026 (аудит D-12): каналы привилегированных процессов — тоже только для нашего NvoVPN.exe.
+        if (!amnezia::ipcPeerIsTrusted(socket)) {
+            socket->abort();
+            socket->deleteLater();
+            return;
+        }
         if (pd.serverNode) {
-            pd.serverNode->addHostSideConnection(pd.localServer->nextPendingConnection());
+            pd.serverNode->addHostSideConnection(socket);
             pd.serverNode->enableRemoting(pd.ipcProcess.data());
         }
     });
