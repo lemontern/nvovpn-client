@@ -63,6 +63,10 @@ public:
     void startLivenessWatch(uint64_t rxBytes, uint64_t txBytes);
     void stopLivenessWatch();
     void checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long long lastHandshakeSec);
+    // 01.10.2026 (аудит M-7): подозрение на мёртвый туннель → сначала проба оркестратора (GET /ping сквозь VPN),
+    // и только по её провалу — разрыв. Раньше живой awg рвался при медленной отправке (много tx, мало rx).
+    void confirmTunnelAlive();     // проба прошла — счётчик подозрений обнулить, слежение продолжить
+    void teardownForFallback();    // проба провалилась — рвём туннель, оркестратор уведёт на VLESS
 
     bool shareText(const QStringList &filesToSend);
     QString openFile();
@@ -76,6 +80,11 @@ public:
     void restorePurchases(std::function<void(bool success,
                                              const QList<QVariantMap> &transactions,
                                              const QString &errorString)> &&callback);
+    // 01.10.2026 (аудит M-2): транзакция завершается только после подтверждения нашим сервером; незавершённые
+    // досылаются при запуске; Transaction.updates (продления, Ask to Buy) доставляются в приложение.
+    void finishTransaction(const QString &transactionId, std::function<void(bool finished)> &&callback);
+    void fetchUnfinishedTransactions(std::function<void(const QList<QVariantMap> &transactions)> &&callback);
+    void startTransactionUpdates(std::function<void(const QVariantMap &transaction)> &&callback);
 
     // Fetch product info for given product identifiers and return basic fields for logging
     void fetchProducts(const QStringList &productIds,
@@ -90,6 +99,8 @@ signals:
     void bytesChanged(quint64 receivedBytes, quint64 sentBytes);
     // NvoVPN macOS: расширение требует одобрения юзером в System Settings (один раз).
     void systemExtensionNeedsApproval();
+    // 01.10.2026: туннель выглядит мёртвым — оркестратор должен прогнать пробу и решить, рвать ли (см. confirmTunnelAlive).
+    void tunnelSuspect();
     void importConfigFromOutside(const QString);
     void importBackupFromOutside(const QString);
 
@@ -150,6 +161,8 @@ private:
     // Разрыв уже запущен. Остановка таймера асинхронная (идёт в поток объекта), поэтому
     // без этого флага таймер успевал сработать ещё раз и рвал соединение повторно.
     bool m_livenessTearingDown = false;
+    bool m_livenessProbePending = false;   // 01.10.2026: ждём результата пробы оркестратора, подозрения не копим
+    void requestLivenessProbe(const char *why);
     Vpn::ConnectionState m_lastEmittedState = Vpn::ConnectionState::Unknown;
     std::atomic_bool m_statusRequestInFlight { false };
     // Когда ушёл запрос статуса: по нему выпускаем флаг, если расширение так и не ответило.

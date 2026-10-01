@@ -19,6 +19,8 @@
 #if defined(Q_OS_IOS)
     #include "platforms/ios/ios_controller.h"
     #include <NvoVPN-Swift.h>
+#elif defined(MACOS_NE)
+    #include "platforms/ios/ios_controller.h"   // 01.10.2026 (аудит D-15): подсказка про одобрение сетевого расширения
 #endif
 
 namespace {
@@ -324,6 +326,9 @@ void CoreController::initControllers()
     connect(m_nvoApiController, &NvoApiController::tunnelProbeFinished, this, [this](bool alive) {
         if (alive) {
             m_deadTunnelRetries = 0;   // рабочий туннель — счётчик смен нод обнуляем
+#ifdef Q_OS_IOS
+            IosController::Instance()->confirmTunnelAlive();   // 01.10.2026: подозрение сторожа живости не подтвердилось
+#endif
         }
         if (alive || m_stealthFallbackPending || m_nvoApiController->serviceSwitching()
                 || !m_connectionUiController->isConnected()) {
@@ -447,6 +452,25 @@ void CoreController::initAppleController()
 #ifdef Q_OS_IOS
     IosController::Instance()->initialize();
     QTimer::singleShot(0, this, [this]() { NvoVPN::toggleScreenshots(m_appSettingsRepository->isScreenshotsEnabled()); });
+    // 01.10.2026 (аудит M-7): IosController больше не рвёт awg сам по счётчику «много tx, мало rx» — он просит пробу.
+    // Проба GET /ping идёт сквозь туннель; её исход разбирает обработчик tunnelProbeFinished ниже (жив → продолжаем,
+    // мёртв → teardown-first и уход на VLESS, как при любом мёртвом туннеле).
+    connect(IosController::Instance(), &IosController::tunnelSuspect, this, [this]() {
+        if (m_connectionUiController->isConnected() && !m_stealthFallbackPending) {
+            m_nvoApiController->probeTunnel();
+        } else {
+            IosController::Instance()->confirmTunnelAlive();   // уже рвём/переключаемся — подозрение не считаем
+        }
+    });
+#endif
+#if defined(MACOS_NE) && !defined(Q_OS_IOS)
+    // 01.10.2026 (аудит D-15): сигнал «расширение ждёт одобрения» никто не слушал — человек видел бесконечное
+    // «Подключаем…» и не знал, что macOS ждёт его разрешения (главная причина обращений «на Mac не подключается»).
+    connect(IosController::Instance(), &IosController::systemExtensionNeedsApproval, this, [this]() {
+        emit m_pageController->showErrorMessage(
+            tr("macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → "
+               "Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз."));
+    });
 #endif
 }
 

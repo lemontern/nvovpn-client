@@ -66,7 +66,7 @@ class ServiceNotification(private val context: Context) {
 
         return notificationBuilder
             .setSmallIcon(R.drawable.ic_amnezia_round)
-            .setContentTitle((serverName ?: "AmneziaVPN") + (protocol?.let { " $it" } ?: ""))
+            .setContentTitle((serverName ?: "NvoVPN") + (protocol?.let { " $it" } ?: ""))   // 01.10.2026 (аудит M-14): был чужой бренд
             .setContentText(context.getString(state))
             .setSubText(speedString)
             .setWhen(System.currentTimeMillis())
@@ -158,7 +158,7 @@ class ServiceNotification(private val context: Context) {
                         .setSound(null, null)
                         .setVibrationEnabled(false)
                         .setLightsEnabled(false)
-                        .setName("AmneziaVPN")
+                        .setName("NvoVPN")   // 01.10.2026 (аудит M-14): имя канала уведомлений видно в системных настройках
                         .setDescription(context.resources.getString(R.string.notificationChannelDescription))
                         .build()
                 )

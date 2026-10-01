@@ -155,6 +155,13 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
             m_baseSwitchesInRow = 0;
         }
     });
+
+#if defined(Q_OS_IOS)
+    // 01.10.2026 (аудит M-2): незавершённые покупки досылаем при запуске и после входа; продления ловим слушателем.
+    startIapTransactionListener();
+    QTimer::singleShot(5000, this, &NvoApiController::syncPendingIap);
+    connect(this, &NvoApiController::loginSucceeded, this, &NvoApiController::syncPendingIap);
+#endif
 }
 
 bool NvoApiController::isAuthenticated() const { return !m_token.isEmpty(); }
@@ -1393,14 +1400,18 @@ void NvoApiController::purchaseIap(const QString &productId)
     IosController::Instance()->purchaseProduct(productId,
         [this](bool success, const QString &transactionId, const QString &purchasedProductId,
                const QString &originalTransactionId, const QString &errorString) {
-            Q_UNUSED(transactionId)
             if (!success) {
                 setBusy(false);
+                // «Purchase pending» — это не ошибка: Ask to Buy / ожидание подтверждения; транзакция придёт через Transaction.updates.
+                if (errorString.contains(QStringLiteral("pending"), Qt::CaseInsensitive)) {
+                    emit iapPurchaseFailed(tr("Покупка ожидает подтверждения. Как только App Store её подтвердит, подписка включится сама"));
+                    return;
+                }
                 emit iapPurchaseFailed(errorString.isEmpty() ? tr("Покупка не завершена") : errorString);
                 return;
             }
-            // StoreKit подтвердил покупку → чек на бэкенд для активации подписки.
-            sendAppleReceipt(originalTransactionId, purchasedProductId);
+            // StoreKit подтвердил покупку → чек на бэкенд для активации подписки; транзакцию завершим после ответа сервера.
+            sendAppleReceipt(originalTransactionId, purchasedProductId, transactionId, false);
         });
 #else
     Q_UNUSED(productId)
@@ -1419,35 +1430,113 @@ void NvoApiController::restoreIap()
                 emit iapPurchaseFailed(errorString.isEmpty() ? tr("Активных покупок не найдено") : errorString);
                 return;
             }
-            const QVariantMap t = transactions.first();  // StoreKit отдаёт отсортированные по дате
-            sendAppleReceipt(t.value(QStringLiteral("originalTransactionId")).toString(),
-                             t.value(QStringLiteral("productId")).toString());
+            // 01.10.2026 (аудит M-2): раньше на сервер уходила только первая транзакция. Теперь — все текущие права
+            // (StoreKit отдаёт их отсортированными по дате; тост показываем по первой, остальные — тихо).
+            bool first = true;
+            for (const QVariantMap &t : transactions) {
+                sendAppleReceipt(t.value(QStringLiteral("originalTransactionId")).toString(),
+                                 t.value(QStringLiteral("productId")).toString(),
+                                 t.value(QStringLiteral("transactionId")).toString(), !first);
+                first = false;
+            }
         });
 #endif
 }
 
-void NvoApiController::sendAppleReceipt(const QString &originalTransactionId, const QString &productId)
+void NvoApiController::sendAppleReceipt(const QString &originalTransactionId, const QString &productId,
+                                        const QString &transactionId, bool silent, int attempt)
 {
-    if (m_token.isEmpty()) { setBusy(false); emit sessionExpired(); return; }
+    if (m_token.isEmpty()) {
+        setBusy(false);
+        if (!silent) emit sessionExpired();
+        return;   // транзакция остаётся незавершённой — дошлём после входа (syncPendingIap)
+    }
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body {
         { QStringLiteral("transaction_id"), originalTransactionId },
         { QStringLiteral("product_id"), productId }
     };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/app/iap/apple"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this,
+            [this, reply, originalTransactionId, productId, transactionId, silent, attempt, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
-        if (status == 401) { setToken(QString()); emit sessionExpired(); return; }
+        // 01.10.2026 (аудит M-2): раньше — один POST без повтора: сетевой сбой в этот момент = списанные деньги без
+        // подписки. Теперь при сетевой ошибке меняем домен и повторяем (до 3 попыток с паузой), а транзакцию
+        // в StoreKit завершаем только после ответа сервера — если не вышло, она останется незавершённой и уйдёт при
+        // следующем запуске (syncPendingIap).
+        if (isConnectivityError(reply) && attempt < 2) {
+            maybeSwitchBase(reply, startBase);
+            QTimer::singleShot(2000, this, [this, originalTransactionId, productId, transactionId, silent, attempt]() {
+                sendAppleReceipt(originalTransactionId, productId, transactionId, silent, attempt + 1);
+            });
+            return;
+        }
+        setBusy(false);
+        if (status == 401) { setToken(QString()); if (!silent) emit sessionExpired(); return; }
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         const bool ok = (status >= 200 && status < 300) && root.value(QStringLiteral("success")).toBool(true);
         const QString message = root.value(QStringLiteral("message")).toString();
         if (ok) {
-            emit iapPurchaseSucceeded(message.isEmpty() ? tr("Подписка активирована") : message);
+#if defined(Q_OS_IOS)
+            if (!transactionId.isEmpty()) {
+                IosController::Instance()->finishTransaction(transactionId, [](bool) {});
+            }
+#endif
+            if (!silent) {
+                emit iapPurchaseSucceeded(message.isEmpty() ? tr("Подписка активирована") : message);
+            }
             refreshUser();   // обновить статус подписки → разблокировать подключение
         } else {
-            emit iapPurchaseFailed(message.isEmpty() ? tr("Не удалось активировать подписку") : message);
+            qWarning() << "NvoApiController: IAP activation failed, HTTP" << status << message << "tx" << transactionId;
+            if (!silent) {
+                emit iapPurchaseFailed(message.isEmpty()
+                    ? (isConnectivityError(reply) ? tr("Нет связи с сервером NvoVPN. Покупка сохранена — подписка включится при следующем запуске")
+                                                  : tr("Не удалось активировать подписку"))
+                    : message);
+            }
         }
     });
+}
+
+void NvoApiController::syncPendingIap()
+{
+#if defined(Q_OS_IOS)
+    if (m_token.isEmpty()) {
+        return;
+    }
+    IosController::Instance()->fetchUnfinishedTransactions([this](const QList<QVariantMap> &transactions) {
+        for (const QVariantMap &t : transactions) {
+            const QString txId = t.value(QStringLiteral("transactionId")).toString();
+            // Предохранитель: одну и ту же транзакцию, которую сервер раз за разом отвергает, не шлём бесконечно.
+            const QString key = QStringLiteral("Conf/nvoIapTries/%1").arg(txId);
+            const int tries = m_settings ? m_settings->value(key, 0).toInt() : 0;
+            if (tries >= 5) {
+                qWarning() << "NvoApiController: unfinished IAP transaction skipped after" << tries << "tries:" << txId;
+                continue;
+            }
+            if (m_settings) m_settings->setValue(key, tries + 1);
+            qInfo() << "NvoApiController: resending unfinished IAP transaction" << txId;
+            sendAppleReceipt(t.value(QStringLiteral("originalTransactionId")).toString(),
+                             t.value(QStringLiteral("productId")).toString(), txId, true);
+        }
+    });
+#endif
+}
+
+void NvoApiController::startIapTransactionListener()
+{
+#if defined(Q_OS_IOS)
+    if (m_iapListenerStarted) {
+        return;
+    }
+    m_iapListenerStarted = true;
+    IosController::Instance()->startTransactionUpdates([this](const QVariantMap &t) {
+        // Продление, Ask to Buy, покупка с другого устройства: тихо активируем и завершаем.
+        sendAppleReceipt(t.value(QStringLiteral("originalTransactionId")).toString(),
+                         t.value(QStringLiteral("productId")).toString(),
+                         t.value(QStringLiteral("transactionId")).toString(), true);
+    });
+#endif
 }

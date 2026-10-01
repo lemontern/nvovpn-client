@@ -28,6 +28,11 @@ API_AVAILABLE(ios(15.0), macos(12.0))
                                                  NSArray<NSDictionary *> *_Nullable restoredTransactions,
                                                  NSError *_Nullable error))completion;
 
+// 01.10.2026 (аудит M-2): завершение транзакции после ответа сервера, досылка незавершённых, слушатель обновлений.
+- (void)finishTransaction:(NSString *)transactionId completion:(void (^)(BOOL finished))completion;
+- (void)fetchUnfinishedTransactionsWithCompletion:(void (^)(NSArray<NSDictionary *> *transactions))completion;
+- (void)startTransactionUpdatesWithHandler:(void (^)(NSDictionary *transaction))handler;
+
 // Fetch product information for a set of identifiers without initiating a purchase
 - (void)fetchProductsWithIdentifiers:(NSSet<NSString *> *)productIdentifiers
                           completion:(void (^)(NSArray<NSDictionary *> *products,

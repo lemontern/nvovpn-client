@@ -115,6 +115,7 @@ public slots:
     void fetchIapProducts();                     // подтянуть цены 1m/1y из StoreKit (iOS; no-op иначе)
     void purchaseIap(const QString &productId);  // купить продукт → чек в бэкенд → активация подписки
     void restoreIap();                           // «Восстановить покупки» → чеки в бэкенд
+    void syncPendingIap();                       // 01.10.2026: дослать незавершённые транзакции (покупка без ответа сервера, продление)
 
 signals:
     void authenticationChanged();
@@ -164,7 +165,12 @@ private:
     QString humanError(QNetworkReply *reply) const;
     void pollGoogleLogin();                      // один тик опроса /auth/poll?ds=...
     void stopGooglePolling();
-    void sendAppleReceipt(const QString &originalTransactionId, const QString &productId);  // POST /app/iap/apple
+    // POST /app/iap/apple. 01.10.2026: transactionId завершается в StoreKit только после ответа сервера; при сетевой
+    // ошибке — смена домена и повтор; silent — без тостов (досылка при запуске, продления).
+    void sendAppleReceipt(const QString &originalTransactionId, const QString &productId,
+                          const QString &transactionId = QString(), bool silent = false, int attempt = 0);
+    void startIapTransactionListener();          // Transaction.updates → sendAppleReceipt (один раз за запуск)
+    bool m_iapListenerStarted = false;
     static QByteArray clientUserAgent();       // «NvoVPN/1.0.2.235 (iOS 18.6)» — сборка объявляет себя бэкенду в каждом запросе
 
     QNetworkAccessManager *m_nam;

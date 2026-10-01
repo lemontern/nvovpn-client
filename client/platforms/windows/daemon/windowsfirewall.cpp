@@ -291,6 +291,24 @@ bool WindowsFirewall::enablePeerTraffic(const InterfaceConfig& config) {
                       "Block Internet", config.m_serverPublicKey)) {
     return false;
   }
+  // 01.10.2026 (аудит D-29): сервер NvoVPN выдаёт AllowedIPs = 0.0.0.0/0 без ::/0 → IPv6-маршрута в туннель нет,
+  // а блок ::/0 стоял только в «строгом» режиме. В «мягком» (по умолчанию) IPv6-трафик (сайты с AAAA, DNS по IPv6)
+  // уходил мимо VPN с реальным адресом. Если в туннель не ведёт ни один IPv6-диапазон — блокируем IPv6 целиком;
+  // разрешение на VPN-адаптере (MED_WEIGHT) сильнее этого блока (LOW_WEIGHT), так что при появлении ::/0 в
+  // AllowedIPs туннельный IPv6 продолжит работать.
+  bool routesIpv6 = false;
+  for (const IPAddress& ip : config.m_allowedIPAddressRanges) {
+    if (ip.type() == QAbstractSocket::IPv6Protocol) {
+      routesIpv6 = true;
+      break;
+    }
+  }
+  if (!routesIpv6) {
+    if (!blockTrafficTo(IPAddress("::/0"), LOW_WEIGHT,
+                        "Block IPv6 (not routed via VPN)", config.m_serverPublicKey)) {
+      return false;
+    }
+  }
   if (!config.m_primaryDnsServer.isEmpty()) {
     if (!allowTrafficTo(QHostAddress(config.m_primaryDnsServer), 53, HIGH_WEIGHT,
                         "Allow DNS-Server", config.m_serverPublicKey)) {

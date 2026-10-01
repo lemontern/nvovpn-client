@@ -14,7 +14,7 @@ import org.json.JSONObject
 
 private const val TAG = "Protocol"
 
-const val VPN_SESSION_NAME = "AmneziaVPN"
+const val VPN_SESSION_NAME = "NvoVPN"   // 01.10.2026 (аудит M-14): имя VPN-сессии видно в системных настройках Android
 
 private const val SPLIT_TUNNEL_DISABLE = 0
 private const val SPLIT_TUNNEL_INCLUDE = 1

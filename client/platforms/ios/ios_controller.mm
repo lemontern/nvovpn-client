@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QFile>
+#include <QMetaMethod>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -470,7 +471,47 @@ void IosController::startLivenessWatch(uint64_t rxBytes, uint64_t txBytes)
     m_livenessTxMark = txBytes;
     m_livenessDeadStreak = 0;
     m_livenessTearingDown = false;
+    m_livenessProbePending = false;
     qDebug() << "IosController: слежение за живостью включено (опрос VpnConnection раз в секунду)";
+}
+
+// 01.10.2026 (аудит M-7): на Android обрыв подтверждается пробой /ping через туннель, на iOS туннель рвался сразу по
+// счётчику «отправили много, получили мало» — живой awg падал при медленной отправке (фото/видео в слабом LTE).
+// Теперь: подозрение → сигнал оркестратору → проба → разрыв только по её провалу. Если оркестратор сигнал не слушает
+// (сборка macOS NE), ведём себя как раньше — рвём сразу.
+void IosController::requestLivenessProbe(const char *why)
+{
+    if (m_livenessProbePending || m_livenessTearingDown) {
+        return;
+    }
+    if (!isSignalConnected(QMetaMethod::fromSignal(&IosController::tunnelSuspect))) {
+        qWarning() << "IosController:" << why << "— пробы нет, рвём соединение, чтобы уйти на VLESS";
+        teardownForFallback();
+        return;
+    }
+    m_livenessProbePending = true;
+    qWarning() << "IosController:" << why << "— просим оркестратор проверить туннель пробой, прежде чем рвать";
+    emit tunnelSuspect();
+}
+
+void IosController::confirmTunnelAlive()
+{
+    if (m_livenessProbePending) {
+        qInfo() << "IosController: проба прошла — туннель жив, подозрения сброшены";
+    }
+    m_livenessProbePending = false;
+    m_livenessDeadStreak = 0;
+}
+
+void IosController::teardownForFallback()
+{
+    if (m_livenessTearingDown) {
+        return;
+    }
+    m_livenessTearingDown = true;
+    m_livenessProbePending = false;
+    stopLivenessWatch();
+    disconnectVpn();
 }
 
 void IosController::stopLivenessWatch()
@@ -493,8 +534,8 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
              << "tx" << txBytes << "(было" << m_livenessTxMark << ")"
              << "рукопожатие" << lastHandshakeSec;
 
-    if (m_livenessTearingDown) {
-        return;  // разрыв уже запущен; остановка таймера асинхронная, второй раз не рвём
+    if (m_livenessTearingDown || m_livenessProbePending) {
+        return;  // разрыв уже запущен (или идёт проба оркестратора); второй раз не рвём
     }
 
     // Сравниваем приращения ЗА ИНТЕРВАЛ (опрос идёт раз в секунду), а не накопленные суммы.
@@ -521,11 +562,7 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
         qDebug() << "IosController: за интервал отправили" << txDelta << "б, получили" << rxDelta
                  << "б — подряд" << (m_livenessDeadStreak + 1) << "из" << kLivenessDeadStreak;
         if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
-            qWarning() << "IosController: отправляем, ответа нет" << m_livenessDeadStreak
-                       << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
-            m_livenessTearingDown = true;
-            stopLivenessWatch();
-            disconnectVpn();
+            requestLivenessProbe("отправляем, ответа нет 10 проверок подряд");
         }
         return;
     }
@@ -541,11 +578,8 @@ void IosController::checkTunnelLiveness(uint64_t rxBytes, uint64_t txBytes, long
         return;
     }
 
-    qWarning() << "IosController: туннель молчит" << age
-               << "сек — рвём соединение, чтобы уйти на VLESS";
-    m_livenessTearingDown = true;
-    stopLivenessWatch();
-    disconnectVpn();
+    qWarning() << "IosController: туннель молчит" << age << "сек";
+    requestLivenessProbe("рукопожатие давно молчит");
 }
 
 void IosController::checkStatus()
@@ -576,12 +610,9 @@ void IosController::checkStatus()
         // рвать соединение по этому признаку нельзя — фолбека дальше нет, а «молчание» может
         // ничего не значить (проверка симметрична ветке пустого ответа ниже).
         if (isWireGuardBasedProto(m_proto) && m_handshakeConfirmed && !m_livenessTearingDown) {
-            if (++m_livenessDeadStreak >= kLivenessDeadStreak) {
-                qWarning() << "IosController: статус недоступен" << m_livenessDeadStreak
-                           << "проверок подряд — рвём соединение, чтобы уйти на VLESS";
-                m_livenessTearingDown = true;
-                stopLivenessWatch();
-                disconnectVpn();
+            if (!m_livenessProbePending && ++m_livenessDeadStreak >= kLivenessDeadStreak) {
+                qWarning() << "IosController: статус недоступен" << m_livenessDeadStreak << "проверок подряд";
+                requestLivenessProbe("расширение не отвечает на запрос статуса");
                 return;
             }
         }
@@ -969,7 +1000,16 @@ bool IosController::setupAwg()
 
     wgConfig.insert(configKey::hostName, config[configKey::hostName]);
     wgConfig.insert(configKey::port, config[configKey::port]);
-    wgConfig.insert(configKey::clientIp, config[configKey::clientIp]);
+    // 01.10.2026 (аудит M-5/D-11): сервер NvoVPN выдаёт AllowedIPs = 0.0.0.0/0 без ::/0 и только IPv4-адрес интерфейса.
+    // WireGuardKit строит IPv6-маршруты в туннель только из IPv6-записей AllowedIPs, а NEIPv6Settings — из IPv6-адреса
+    // интерфейса; без них в dual-stack сети (LTE с IPv6) весь IPv6-трафик шёл мимо VPN с адресом оператора.
+    // Добавляем ::/0 и ULA-адрес сами: IPv6 уходит в туннель (сервер его отбрасывает — «чёрная дыра», не утечка),
+    // а проверка «0.0.0.0/0, ::/0» в PacketTunnelProvider+WireGuard.swift снова включает раздельное туннелирование.
+    QString clientIp = config[configKey::clientIp].toString();
+    if (!clientIp.contains(QLatin1Char(':'))) {
+        clientIp += QStringLiteral(", fd58:baa6:dead::2/128");
+    }
+    wgConfig.insert(configKey::clientIp, clientIp);
     wgConfig.insert(configKey::clientPrivKey, config[configKey::clientPrivKey]);
     wgConfig.insert(configKey::serverPubKey, config[configKey::serverPubKey]);
     wgConfig.insert(configKey::pskKey, config[configKey::pskKey]);
@@ -984,7 +1024,18 @@ bool IosController::setupAwg()
     wgConfig.insert(configKey::splitTunnelSites, splitTunnelSites);
 
     if (config.contains(configKey::allowedIps) && config[configKey::allowedIps].isArray()) {
-        wgConfig.insert(configKey::allowedIps, config[configKey::allowedIps]);
+        QJsonArray allowed_ips = config[configKey::allowedIps].toArray();
+        bool hasV4Default = false;
+        bool hasV6 = false;
+        for (const QJsonValue &v : std::as_const(allowed_ips)) {
+            const QString s = v.toString().trimmed();
+            if (s == QStringLiteral("0.0.0.0/0")) hasV4Default = true;
+            if (s.contains(QLatin1Char(':'))) hasV6 = true;
+        }
+        if (hasV4Default && !hasV6) {
+            allowed_ips.append(QStringLiteral("::/0"));
+        }
+        wgConfig.insert(configKey::allowedIps, allowed_ips);
     } else {
         QJsonArray allowed_ips { "0.0.0.0/0", "::/0" };
         wgConfig.insert(configKey::allowedIps, allowed_ips);
@@ -1414,6 +1465,71 @@ void IosController::restorePurchases(std::function<void(bool success,
         if (callback) {
             callback(false, QList<QVariantMap>(), "StoreKit 2 requires iOS 15.0 or later");
         }
+    }
+}
+
+namespace
+{
+QVariantMap transactionMapFromDict(NSDictionary *dict)
+{
+    QVariantMap transaction;
+    NSString *transactionId = dict[@"transactionId"];
+    NSString *productId = dict[@"productId"];
+    NSString *originalTransactionId = dict[@"originalTransactionId"];
+    if (transactionId) {
+        transaction.insert(QStringLiteral("transactionId"), QString::fromUtf8(transactionId.UTF8String));
+    }
+    if (productId) {
+        transaction.insert(QStringLiteral("productId"), QString::fromUtf8(productId.UTF8String));
+    }
+    if (originalTransactionId) {
+        transaction.insert(QStringLiteral("originalTransactionId"), QString::fromUtf8(originalTransactionId.UTF8String));
+    }
+    return transaction;
+}
+}
+
+void IosController::finishTransaction(const QString &transactionId, std::function<void(bool finished)> &&callback)
+{
+    if (@available(iOS 15.0, macOS 12.0, *)) {
+        __block auto cb = std::move(callback);
+        [[StoreKitController sharedInstance] finishTransaction:transactionId.toNSString() completion:^(BOOL finished) {
+            if (cb) {
+                cb(finished);
+            }
+        }];
+    } else if (callback) {
+        callback(false);
+    }
+}
+
+void IosController::fetchUnfinishedTransactions(std::function<void(const QList<QVariantMap> &transactions)> &&callback)
+{
+    if (@available(iOS 15.0, macOS 12.0, *)) {
+        __block auto cb = std::move(callback);
+        [[StoreKitController sharedInstance] fetchUnfinishedTransactionsWithCompletion:^(NSArray<NSDictionary *> *transactions) {
+            QList<QVariantMap> list;
+            for (NSDictionary *dict in transactions ?: @[]) {
+                list.push_back(transactionMapFromDict(dict));
+            }
+            if (cb) {
+                cb(list);
+            }
+        }];
+    } else if (callback) {
+        callback(QList<QVariantMap>());
+    }
+}
+
+void IosController::startTransactionUpdates(std::function<void(const QVariantMap &transaction)> &&callback)
+{
+    if (@available(iOS 15.0, macOS 12.0, *)) {
+        __block auto cb = std::move(callback);
+        [[StoreKitController sharedInstance] startTransactionUpdatesWithHandler:^(NSDictionary *transaction) {
+            if (cb) {
+                cb(transactionMapFromDict(transaction));
+            }
+        }];
     }
 }
 

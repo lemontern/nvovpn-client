@@ -145,6 +145,14 @@ open class AmneziaVpnService : VpnService() {
     // §5.7 failover state (см. константы NVO_* выше)
     private var nvoCandidates: List<NvoCandidate> = emptyList()
     private var nvoLiveness: NvoLiveness? = null
+    // 01.10.2026 (аудит M-9): сырые §5.7-данные последнего коннекта от C++ — чтобы при перерейсе дописать их
+    // в конфиг кандидата, который сохраняется как LAST_CONF (иначе после перезагрузки с Always-on туннель
+    // поднимался без живости и без запасных путей).
+    private var nvoCandidatesJson: JSONArray? = null
+    private var nvoLivenessJson: JSONObject? = null
+    // 01.10.2026 (аудит M-8): протокол, под который запущена ЭТА служба (AwgService). Внутри неё при перерейсе
+    // поднимается xray, но для UI и плитки она остаётся службой awg — иначе они искали туннель в XrayService.
+    private var serviceProto: VpnProto? = null
     private var livenessJob: Job? = null
     private var switchJob: Job? = null
     private var switching = false
@@ -433,7 +441,9 @@ open class AmneziaVpnService : VpnService() {
                     }
                 }
 
-                VpnStateStore.store { VpnState(protocolState, serverName, serverIndex, vpnProto) }
+                // 01.10.2026 (аудит M-8): в состояние для UI/плитки — протокол службы, а не текущего пути (после перерейса
+                // внутри awg-службы vpnProto = XRAY, и приложение искало туннель в несуществующем XrayService).
+                VpnStateStore.store { VpnState(protocolState, serverName, serverIndex, serviceProto ?: vpnProto) }
 
                 when (protocolState) {
                     CONNECTED -> {
@@ -542,6 +552,8 @@ open class AmneziaVpnService : VpnService() {
         val live: JSONObject? = config.optJSONObject(NVO_LIVENESS_KEY)
         // Конфиг без §5.7-данных (кандидат при свитче, старый C++) — состояние не трогаем.
         if (cands == null && live == null) return
+        nvoCandidatesJson = cands
+        nvoLivenessJson = live
         nvoCandidates = buildList {
             if (cands != null) for (i in 0 until cands.length()) {
                 val o = cands.optJSONObject(i) ?: continue
@@ -562,7 +574,9 @@ open class AmneziaVpnService : VpnService() {
             )
         }
         currentPath = nvoLiveness?.path
-        switchCycles = 0
+        // 01.10.2026: при перерейсе конфиг кандидата теперь несёт те же §5.7-данные и проходит здесь снова —
+        // счётчик циклов перерейса не сбрасываем, иначе предел SWITCH_MAX_CYCLES не работал бы.
+        if (!switching) switchCycles = 0
         Log.d(TAG, "nvo extras: path=$currentPath candidates=${nvoCandidates.map { it.path }} " +
             "ping=${nvoLiveness?.pingUrls?.size ?: 0} server=${nvoLiveness?.serverId}")
     }
@@ -573,7 +587,8 @@ open class AmneziaVpnService : VpnService() {
         if (switching) return   // свитчер сам дождётся CONNECTED, проверит пробом и перезапустит живость
         val live = nvoLiveness
         if (live != null) {
-            val ms = if (connectStartedMs > 0) (connectedAtMs - connectStartedMs).toInt() else 0
+            // 01.10.2026 (аудит A-21): сервер отвергал ~21 % событий (422) — значения вне его пределов (ms ≤ 3 600 000, alive_s ≤ 604 800).
+            val ms = if (connectStartedMs > 0) (connectedAtMs - connectStartedMs).coerceIn(0L, 3_600_000L).toInt() else 0
             queueTelemetry(event("tunnel_up") { put("proto", currentPath); put("server_id", live.serverId); put("ms", ms) })
         }
         startLivenessJob()
@@ -664,7 +679,8 @@ open class AmneziaVpnService : VpnService() {
     @MainThread
     private fun onTunnelDead(reason: String) {
         val live = nvoLiveness ?: return
-        val aliveS = ((SystemClock.elapsedRealtime() - connectedAtMs) / 1000).toInt()
+        // 01.10.2026 (аудит A-21): без подключения (connectedAtMs == 0) получался аптайм устройства → сервер отвечал 422.
+        val aliveS = if (connectedAtMs > 0) ((SystemClock.elapsedRealtime() - connectedAtMs) / 1000).coerceIn(0L, 604_800L).toInt() else 0
         queueTelemetry(event("tunnel_dead") {
             put("proto", currentPath); put("server_id", live.serverId); put("alive_s", aliveS); put("reason", reason)
         })
@@ -705,7 +721,23 @@ open class AmneziaVpnService : VpnService() {
                     Log.w(TAG, "switch: tunnel did not stop, abort")
                     break
                 }
-                connect(c.config)  // сохранится как LAST_CONF: после рестарта поднимется этот же путь
+                // 01.10.2026 (аудит M-9): в LAST_CONF уходит конфиг кандидата — дописываем в него кандидатов и параметры
+                // живости (с путём кандидата), чтобы после перезагрузки с Always-on служба подняла этот же путь
+                // С живостью и запасными каналами, а не «голый» xray без сторожа.
+                val toConnect = try {
+                    val cj = nvoCandidatesJson
+                    val lj = nvoLivenessJson
+                    if (cj != null && lj != null) {
+                        JSONObject(c.config).apply {
+                            put(NVO_CANDIDATES_KEY, cj)
+                            put(NVO_LIVENESS_KEY, JSONObject(lj.toString()).put("path", c.path))
+                        }.toString()
+                    } else c.config
+                } catch (e: Exception) {
+                    Log.w(TAG, "switch: cannot merge nvo extras into candidate config: ${e.message}")
+                    c.config
+                }
+                connect(toConnect)  // сохранится как LAST_CONF: после рестарта поднимется этот же путь
                 val up = try {
                     withTimeout(SWITCH_CONNECT_TIMEOUT_MS) { protocolState.first { it == CONNECTED || it == DISCONNECTED } }
                     isConnected
@@ -716,7 +748,7 @@ open class AmneziaVpnService : VpnService() {
                     delay(SWITCH_PROBE_DELAY_MS)
                     probeTunnel(live?.pingUrls ?: emptyList())
                 }
-                val ms = (SystemClock.elapsedRealtime() - started).toInt()
+                val ms = (SystemClock.elapsedRealtime() - started).coerceIn(0L, 3_600_000L).toInt()
                 queueTelemetry(event("switch") {
                     put("proto", currentPath); put("to", c.path); put("server_id", live?.serverId ?: -1); put("ms", ms); put("ok", ok)
                 })
@@ -848,6 +880,9 @@ open class AmneziaVpnService : VpnService() {
             protocolState.value = DISCONNECTED
             return
         }
+        // 01.10.2026 (аудит M-8): протокол службы фиксируем по первому (не свитч-) коннекту; кандидат xray при перерейсе
+        // его не меняет — UI и плитка продолжают биндиться к этой же службе.
+        if (!switching || serviceProto == null) serviceProto = vpnProto
 
         // §5.7: кандидаты failover + параметры живости из connect-JSON (если есть — это новый коннект от C++).
         parseNvoExtras(config)

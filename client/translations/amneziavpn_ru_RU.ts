@@ -309,11 +309,11 @@
     <name>ChangelogDrawer</name>
     <message>
         <source>Update</source>
-        <translation type="unfinished"></translation>
+        <translation>Обновить</translation>
     </message>
     <message>
         <source>Skip</source>
-        <translation type="unfinished"></translation>
+        <translation>Позже</translation>
     </message>
 </context>
 <context>
@@ -3925,23 +3925,23 @@ Create one from the current settings.</source>
     </message>
     <message>
         <source>Off</source>
-        <translation type="unfinished"></translation>
+        <translation>Выключена</translation>
     </message>
     <message>
         <source>Auto (on block)</source>
-        <translation type="unfinished"></translation>
+        <translation>Авто (при блокировке)</translation>
     </message>
     <message>
         <source>Always on</source>
-        <translation type="unfinished"></translation>
+        <translation>Всегда включена</translation>
     </message>
     <message>
         <source>Backup VLESS protocol that looks like regular HTTPS — turns on when the main protocol is throttled (RU/DPI).</source>
-        <translation type="unfinished"></translation>
+        <translation>Защищённый канал VLESS, похожий на обычный HTTPS. «Авто» — включается, когда основной протокол режут; «Всегда включена» — то же, что «Максимальная надёжность» на главном экране.</translation>
     </message>
     <message>
         <source>Stealth mode</source>
-        <translation type="unfinished"></translation>
+        <translation>Маскировка</translation>
     </message>
     <message>
         <source>News Notification</source>
@@ -6575,11 +6575,11 @@ FileZilla или другие SFTP-клиенты, а также смонтир�
     <name>UpdateUiController</name>
     <message>
         <source>New version released: %1</source>
-        <translation type="unfinished"></translation>
+        <translation>Доступна новая версия: %1</translation>
     </message>
     <message>
         <source>New version released: %1 (%2)</source>
-        <translation type="unfinished"></translation>
+        <translation>Доступна новая версия: %1 (%2)</translation>
     </message>
     <message>
         <source>Failed to load changelog text</source>

@@ -67,7 +67,9 @@ public class StoreKit2Helper: NSObject {
                 case .success(let verification):
                     switch verification {
                     case .verified(let transaction):
-                        await transaction.finish()
+                        // 01.10.2026 (аудит M-2): транзакцию НЕ завершаем здесь. finish() — только после того, как наш
+                        // сервер принял чек (finishTransaction ниже). Иначе при сетевом сбое деньги списаны, а подписка
+                        // не активирована, и StoreKit больше о покупке не напомнит (так потерялась покупка 20.09.2026).
                         completePurchase(completion: completion, success: true, transactionId: String(transaction.id),
                                          productId: transaction.productID, originalTransactionId: String(transaction.originalID), error: nil)
                     case .unverified(_, let error):
@@ -87,6 +89,59 @@ public class StoreKit2Helper: NSObject {
             } catch {
                 completePurchase(completion: completion, success: false, transactionId: nil, productId: nil, originalTransactionId: nil,
                                  error: error as NSError)
+            }
+        }
+    }
+
+    /// 01.10.2026: завершить транзакцию после подтверждения сервером. Ищем среди незавершённых.
+    public func finishTransaction(transactionId: String, completion: @escaping (Bool) -> Void) {
+        Task {
+            for await result in Transaction.unfinished {
+                if case .verified(let transaction) = result, String(transaction.id) == transactionId {
+                    await transaction.finish()
+                    print("[IAP][StoreKit2] finished transaction \(transactionId)")
+                    DispatchQueue.main.async { completion(true) }
+                    return
+                }
+            }
+            DispatchQueue.main.async { completion(false) }
+        }
+    }
+
+    /// 01.10.2026: незавершённые транзакции (покупка без ответа сервера, продление, отложенная покупка) —
+    /// приложение досылает их на сервер при запуске и после входа.
+    public func fetchUnfinishedTransactions(completion: @escaping ([NSDictionary]) -> Void) {
+        Task {
+            var list: [NSDictionary] = []
+            for await result in Transaction.unfinished {
+                if case .verified(let transaction) = result {
+                    list.append(EntitlementInfo(transactionId: transaction.id,
+                                                originalTransactionId: transaction.originalID,
+                                                productId: transaction.productID,
+                                                purchaseDate: transaction.purchaseDate).dictionary)
+                }
+            }
+            DispatchQueue.main.async { completion(list) }
+        }
+    }
+
+    private var updatesTask: Task<Void, Never>?
+
+    /// 01.10.2026: слушатель Transaction.updates — продления, покупки «Ask to Buy», транзакции с других устройств.
+    /// Раньше его не было, и такие транзакции некуда было доставить.
+    public func startTransactionUpdates(handler: @escaping (NSDictionary) -> Void) {
+        if updatesTask != nil {
+            return
+        }
+        updatesTask = Task.detached {
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    let info = EntitlementInfo(transactionId: transaction.id,
+                                               originalTransactionId: transaction.originalID,
+                                               productId: transaction.productID,
+                                               purchaseDate: transaction.purchaseDate).dictionary
+                    DispatchQueue.main.async { handler(info) }
+                }
             }
         }
     }

@@ -109,7 +109,10 @@ extension PacketTunnelProvider {
         }
 
         // Tunnel settings
-        let ipv6Enabled = false
+        // 01.10.2026 (аудит M-5/D-11): было false → у туннеля не было IPv6-маршрута, и в dual-stack сети (LTE с IPv6)
+        // IPv6-трафик шёл мимо VPN с адресом оператора. Теперь IPv6 заворачивается в tun; что hev/xray с ним не могут —
+        // отбрасывается (быстрый отказ → приложения уходят на IPv4), но наружу мимо туннеля не уходит.
+        let ipv6Enabled = true
         let hideVPNIcon = false
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "254.1.1.1")

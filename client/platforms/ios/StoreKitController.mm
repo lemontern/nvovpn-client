@@ -89,6 +89,38 @@ API_AVAILABLE(ios(15.0), macos(12.0))
     }];
 }
 
+- (void)finishTransaction:(NSString *)transactionId completion:(void (^)(BOOL finished))completion API_AVAILABLE(ios(15.0), macos(12.0))
+{
+    [[StoreKit2Helper shared] finishTransactionWithTransactionId:transactionId completion:^(BOOL finished) {
+        qInfo().noquote() << "[IAP][StoreKit2] finishTransaction" << toQString(transactionId) << "->" << (finished ? "finished" : "not found");
+        if (completion) {
+            completion(finished);
+        }
+    }];
+}
+
+- (void)fetchUnfinishedTransactionsWithCompletion:(void (^)(NSArray<NSDictionary *> *transactions))completion API_AVAILABLE(ios(15.0), macos(12.0))
+{
+    [[StoreKit2Helper shared] fetchUnfinishedTransactionsWithCompletion:^(NSArray<NSDictionary *> *transactions) {
+        qInfo().noquote() << "[IAP][StoreKit2] unfinished transactions:" << (int)(transactions ? transactions.count : 0);
+        if (completion) {
+            completion(transactions ?: @[]);
+        }
+    }];
+}
+
+- (void)startTransactionUpdatesWithHandler:(void (^)(NSDictionary *transaction))handler API_AVAILABLE(ios(15.0), macos(12.0))
+{
+    [[StoreKit2Helper shared] startTransactionUpdatesWithHandler:^(NSDictionary *transaction) {
+        qInfo().noquote() << "[IAP][StoreKit2] Transaction.updates:" << toQString(transaction[@"transactionId"])
+                          << "originalTransactionId=" << toQString(transaction[@"originalTransactionId"])
+                          << "productId=" << toQString(transaction[@"productId"]);
+        if (handler) {
+            handler(transaction);
+        }
+    }];
+}
+
 - (void)fetchProductsWithIdentifiers:(NSSet<NSString *> *)productIdentifiers
                           completion:(void (^)(NSArray<NSDictionary *> *products,
                                                NSArray<NSString *> *invalidIdentifiers,
