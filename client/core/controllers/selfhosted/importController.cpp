@@ -413,7 +413,8 @@ void ImportController::importConfig(const QJsonObject &config)
         }
     } else {
         qDebug() << "Failed to import profile";
-        qDebug().noquote() << QJsonDocument(config).toJson();
+        // 01.10.2026 (аудит M-19): раньше в лог уходил весь конфиг — с приватным ключом AWG и UUID VLESS. Теперь только ключи JSON.
+        qDebug() << "Config keys:" << config.keys();
         emit importErrorOccurred(ErrorCode::ImportInvalidConfigError, false);
     }
 }

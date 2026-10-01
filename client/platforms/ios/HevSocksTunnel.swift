@@ -66,7 +66,9 @@ public enum Socks5Tunnel {
     @discardableResult
     public static func run(withConfig filePath: String) -> Int32 {
         guard let fileDescriptor = self.tunnelFileDescriptor else {
-            fatalError("Get tunnel file descriptor failed.")
+            // 01.10.2026 (аудит M-24): fatalError ронял всё расширение; теперь — ошибка запуска, как при любом другом сбое.
+            NSLog("[hev] Get tunnel file descriptor failed")
+            return -1
         }
         return hev_socks5_tunnel_main(filePath.cString(using: .utf8), fileDescriptor)
     }

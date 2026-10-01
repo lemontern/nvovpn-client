@@ -89,8 +89,10 @@ Component.prototype.createOperations = function()
         // (sc create не перезаписывает существующую). exit /b 0 — игнорируем отсутствие службы.
         component.addElevatedOperation("Execute",
                                        ["cmd", "/c", "sc stop " + serviceName() + " & sc delete " + serviceName() + " & exit /b 0"]);
+        // 01.10.2026 (аудит D-20): путь службы в кавычках — без них путь с пробелом («C:\Program Files\…») Windows может
+        // трактовать как «C:\Program.exe» (CWE-428, unquoted service path). Внутренние кавычки — часть аргумента.
         component.addElevatedOperation("Execute",
-                                       ["sc", "create", serviceName(), "binpath=", pu_path + serviceName() + ".exe",
+                                       ["sc", "create", serviceName(), "binpath=", "\"" + pu_path + serviceName() + ".exe\"",
                                         "start=", "auto", "depend=", "BFE/nsi"],
                                         "UNDOEXECUTE", "cmd", "/c", pu_path + "post_uninstall.cmd");
 										
