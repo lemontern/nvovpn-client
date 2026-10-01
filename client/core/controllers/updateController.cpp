@@ -17,6 +17,9 @@
 #include "version.h"
 #include "core/utils/selfhosted/scriptsRegistry.h"
 
+#include <QCryptographicHash>
+#include <QUrl>
+
 namespace
 {
     Logger logger("UpdateController");
@@ -31,9 +34,10 @@ namespace
     // Основная база — незаблокированный в РФ домен, nvovpn.com — резерв.
     constexpr const char *kAppcastUrls[] = {
         "https://api.netguarder.net/api/v1/app/version",
+        "https://ru.netguarder.net/api/v1/app/version",   // 01.10.2026: прямой российский вход — третья база, как в NvoApiController
         "https://nvovpn.com/api/v1/app/version",
     };
-    constexpr int kAppcastUrlCount = 2;
+    constexpr int kAppcastUrlCount = 3;
 }
 
 UpdateController::UpdateController(SecureAppSettingsRepository* appSettingsRepository, QObject *parent)
@@ -62,12 +66,41 @@ void UpdateController::checkForUpdates()
         return;
     }
     m_updateCheckRunning = true;
+    m_manualCheck = false;
     fetchAppcast(0);
 }
 
-void UpdateController::finishUpdateCheck()
+void UpdateController::checkForUpdatesManual()
+{
+    if (m_updateCheckRunning) {
+        return;
+    }
+    m_updateCheckRunning = true;
+    m_manualCheck = true;
+    fetchAppcast(0);
+}
+
+void UpdateController::finishUpdateCheck(bool found, const QString &error)
 {
     m_updateCheckRunning = false;
+    emit updateCheckFinished(found, m_manualCheck, error);
+    m_manualCheck = false;
+}
+
+// Хост, с которого appcast реально скачался, заведомо доступен из этой сети; у всех наших хостов один корень,
+// поэтому /downloads/<файл> есть на каждом. nvovpn.com (как в appcast) в РФ режется по SNI.
+QUrl UpdateController::downloadUrlVia(int appcastIdx) const
+{
+    QUrl url(m_downloadUrl);
+    if (!url.isValid() || url.host().isEmpty()) {
+        return url;
+    }
+    if (appcastIdx >= 0 && appcastIdx < kAppcastUrlCount) {
+        const QUrl base(QLatin1String(kAppcastUrls[appcastIdx]));
+        url.setScheme(QStringLiteral("https"));
+        url.setHost(base.host());
+    }
+    return url;
 }
 
 QString UpdateController::platformKey()
@@ -87,8 +120,12 @@ QString UpdateController::platformKey()
 
 void UpdateController::fetchAppcast(int urlIdx)
 {
-    if (urlIdx >= kAppcastUrlCount || platformKey().isEmpty()) {
-        finishUpdateCheck();
+    if (platformKey().isEmpty()) {
+        finishUpdateCheck(false, tr("На этой платформе обновления ставятся вручную"));
+        return;
+    }
+    if (urlIdx >= kAppcastUrlCount) {
+        finishUpdateCheck(false, tr("Не удалось проверить обновления — сервер NvoVPN недоступен"));
         return;
     }
 
@@ -117,6 +154,8 @@ void UpdateController::fetchAppcast(int urlIdx)
         const QJsonObject platform = root.value(QStringLiteral("platforms")).toObject().value(platformKey()).toObject();
         m_version = platform.value(QStringLiteral("version")).toString().trimmed();
         m_downloadUrl = platform.value(QStringLiteral("url")).toString();
+        m_sha256 = platform.value(QStringLiteral("sha256")).toString().trimmed().toLower();
+        m_appcastUrlIdx = urlIdx;
 #if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
         const QString storeUrl = platform.value(QStringLiteral("store_url")).toString();
         if (!storeUrl.isEmpty()) {
@@ -139,12 +178,12 @@ void UpdateController::fetchAppcast(int urlIdx)
 
         if (m_version.isEmpty() || !isNewVersionAvailable()) {
             logger.info() << "appcast: обновлений нет (текущая" << APP_VERSION << ", в канале" << m_version << ")";
-            finishUpdateCheck();
+            finishUpdateCheck(false);
             return;
         }
         logger.info() << "appcast: доступна версия" << m_version << m_downloadUrl;
         emit updateFound();
-        finishUpdateCheck();
+        finishUpdateCheck(true);
     });
 }
 
@@ -185,46 +224,78 @@ void UpdateController::runInstaller()
     }
 #if defined(Q_OS_MACOS) || defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
     // NvoVPN: macOS раздаётся как .dmg с сайта (скрипт mac_installer.sh рассчитан на .pkg), Android — Google Play.
-    // Открываем ссылку — человек ставит сам.
+    // Открываем ссылку — человек ставит сам. macOS: ссылка на хосте, с которого пришёл appcast (nvovpn.com в РФ закрыт).
+#if defined(Q_OS_MACOS)
+    QDesktopServices::openUrl(downloadUrlVia(m_appcastUrlIdx));
+#else
     QDesktopServices::openUrl(QUrl(m_downloadUrl));
+#endif
     return;
 #endif
 #if defined(Q_OS_WINDOWS)
-
-    QNetworkRequest request;
-    request.setTransferTimeout(30000);
-    request.setUrl(m_downloadUrl);
-
-    QNetworkReply *reply = amnApp->networkManager()->get(request);
-
-    QObject::connect(reply, &QNetworkReply::finished, [this, reply]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            QFile file(kInstallerLocalPath);
-            if (!file.open(QIODevice::WriteOnly)) {
-                logger.error() << "Failed to open installer file for writing:" << kInstallerLocalPath << "Error:" << file.errorString();
-                reply->deleteLater();
-                return;
-            }
-
-            if (file.write(reply->readAll()) == -1) {
-                logger.error() << "Failed to write installer data to file:" << kInstallerLocalPath << "Error:" << file.errorString();
-                file.close();
-                reply->deleteLater();
-                return;
-            }
-
-            file.close();
-
-            runWindowsInstaller(kInstallerLocalPath);
-        } else {
-            logger.error() << "Installer download failed, network error:" << static_cast<int>(reply->error())
-                           << reply->errorString();
-            logger.error() << "HTTP status:" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        }
-        reply->deleteLater();
-    });
+    // 01.10.2026 (аудит D-3): качаем с доступного хоста, только https, сверяем sha256 из appcast, об ошибке говорим человеку.
+    downloadInstaller(downloadUrlVia(m_appcastUrlIdx), false);
 #endif
 }
+
+#if defined(Q_OS_WINDOWS)
+void UpdateController::downloadInstaller(const QUrl &url, bool lastTry)
+{
+    if (!url.isValid() || url.scheme() != QStringLiteral("https")) {
+        logger.error() << "Installer URL rejected (not https):" << url.toString();
+        emit installerFailed(tr("Ссылка на установщик некорректна. Скачайте его с сайта nvovpn.com"));
+        return;
+    }
+    QNetworkRequest request;
+    request.setTransferTimeout(180000);   // 112 МБ по медленной сети — 30 с не хватало
+    request.setUrl(url);
+    request.setRawHeader(QByteArrayLiteral("User-Agent"), QByteArray("NvoVPN/") + APP_VERSION + " (" + QSysInfo::prettyProductName().toUtf8() + ")");
+
+    QNetworkReply *reply = amnApp->networkManager()->get(request);
+    setupNetworkErrorHandling(reply, QStringLiteral("installer"));
+
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, url, lastTry]() {
+        reply->deleteLater();
+        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->error() != QNetworkReply::NoError || status != 200) {
+            logger.error() << "Installer download failed:" << url.toString() << static_cast<int>(reply->error()) << reply->errorString() << "HTTP" << status;
+            if (!lastTry) {
+                // Второй шанс — тот же файл на следующем из наших хостов.
+                const int next = (m_appcastUrlIdx + 1) % kAppcastUrlCount;
+                downloadInstaller(downloadUrlVia(next), true);
+                return;
+            }
+            emit installerFailed(tr("Не удалось скачать обновление. Проверьте интернет или скачайте установщик с сайта"));
+            return;
+        }
+        const QByteArray data = reply->readAll();
+        if (data.size() < 10 * 1024 * 1024) {   // установщик ~110 МБ; страница-заглушка или обрезанный файл — не запускаем
+            logger.error() << "Installer suspiciously small:" << data.size();
+            emit installerFailed(tr("Файл обновления повреждён, попробуйте позже"));
+            return;
+        }
+        if (!m_sha256.isEmpty()) {
+            const QString actual = QString::fromLatin1(QCryptographicHash::hash(data, QCryptographicHash::Sha256).toHex());
+            if (actual != m_sha256) {
+                logger.error() << "Installer sha256 mismatch: expected" << m_sha256 << "got" << actual;
+                emit installerFailed(tr("Файл обновления не прошёл проверку, попробуйте позже"));
+                return;
+            }
+        }
+        QFile file(kInstallerLocalPath);
+        if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size()) {
+            logger.error() << "Failed to write installer file:" << kInstallerLocalPath << "Error:" << file.errorString();
+            file.close();
+            emit installerFailed(tr("Не удалось сохранить установщик, скачайте его с сайта"));
+            return;
+        }
+        file.close();
+        if (runWindowsInstaller(kInstallerLocalPath) != 0) {
+            emit installerFailed(tr("Не удалось запустить установщик, скачайте его с сайта"));
+        }
+    });
+}
+#endif
 
 #if defined(Q_OS_WINDOWS)
 int UpdateController::runWindowsInstaller(const QString &installerPath)

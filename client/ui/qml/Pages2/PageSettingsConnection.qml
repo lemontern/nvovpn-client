@@ -59,12 +59,17 @@ PageType {
 
             LabelWithButtonType {
                 id: killSwitchButton
-                visible: !GC.isMobile()
+                // 01.10.2026 (аудит M-10, D-4): на Android кнопка была скрыта — страница «Connection» открывалась пустой,
+                // а инструкция про системный Always-on была недостижима. На macOS (сборка с сетевым расширением)
+                // KillSwitch не реализован — не показываем, чтобы не обещать защиту, которой нет.
+                visible: Qt.platform.os === "android" || (GC.isDesktop() && !IsMacOsNeBuild)
 
                 Layout.fillWidth: true
 
                 text: qsTr("KillSwitch")
-                descriptionText: qsTr("Blocks network connections without VPN")
+                descriptionText: Qt.platform.os === "android"
+                                 ? qsTr("Блокировка интернета без VPN — через системную настройку «Постоянная VPN»")
+                                 : qsTr("Blocks network connections without VPN")
                 rightImageSource: "qrc:/images/controls/chevron-right.svg"
 
                 clickedFunction: function() {
@@ -73,7 +78,7 @@ PageType {
             }
 
             DividerType {
-                visible: GC.isDesktop()
+                visible: killSwitchButton.visible
             }
         }
     }

@@ -234,7 +234,8 @@ PageType {
         // Desktop — свой KillSwitch (firewall-демон); Android — переход в системный
         // Always-on VPN (иначе юзеры не находят KillSwitch и пишут в поддержку).
         // На iOS пункт скрыт: там KillSwitch пока не реализован.
-        property bool isVisible: GC.isDesktop() || Qt.platform.os === "android"
+        // 01.10.2026 (аудит D-4): на macOS (сетевое расширение) KillSwitch тоже не реализован — пункт скрыт.
+        property bool isVisible: (GC.isDesktop() && !IsMacOsNeBuild) || Qt.platform.os === "android"
         readonly property var clickedHandler: function() {
             PageController.goToPage(PageEnum.PageSettingsConnection)
         }

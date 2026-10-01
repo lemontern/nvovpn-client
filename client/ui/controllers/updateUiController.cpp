@@ -5,6 +5,15 @@ UpdateUiController::UpdateUiController(UpdateController* updateController, QObje
 {
     if (m_updateController) {
         connect(m_updateController, &UpdateController::updateFound, this, &UpdateUiController::updateFound);
+        connect(m_updateController, &UpdateController::updateCheckFinished, this, &UpdateUiController::updateCheckFinished);
+        connect(m_updateController, &UpdateController::installerFailed, this, &UpdateUiController::installerFailed);
+    }
+}
+
+void UpdateUiController::checkForUpdatesManual()
+{
+    if (m_updateController) {
+        m_updateController->checkForUpdatesManual();
     }
 }
 

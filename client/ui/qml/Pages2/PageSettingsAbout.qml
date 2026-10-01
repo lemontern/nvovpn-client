@@ -152,8 +152,20 @@ PageType {
 
                 text: qsTr("Проверить обновления")
 
+                // 01.10.2026 (аудит M-18/D-1): раньше кнопка открывала nvovpn.com (в РФ закрыт). Теперь — наш appcast;
+                // если версия свежая, говорим об этом тостом (см. Connections ниже), иначе открывается окно обновления.
                 clickedFunc: function() {
-                    Qt.openUrlExternally("https://nvovpn.com/")
+                    UpdateController.checkForUpdatesManual()
+                }
+            }
+
+            Connections {
+                target: UpdateController
+                function onUpdateCheckFinished(found, manual, error) {
+                    if (!manual || found) {
+                        return
+                    }
+                    PageController.showNotificationMessage(error ? error : qsTr("У вас последняя версия"))
                 }
             }
 
@@ -174,8 +186,9 @@ PageType {
                 text: qsTr("Privacy Policy")
 
                 clickedFunc: function() {
-                    // nvovpn.com/privacy → сайт сам редиректит на нужную локаль (не amnezia.org!)
-                    Qt.openUrlExternally("https://nvovpn.com/privacy")
+                    // /privacy → сайт сам редиректит на нужную локаль (не amnezia.org!)
+                    // 01.10.2026 (аудит D-8): через активный домен — nvovpn.com в РФ закрыт.
+                    Qt.openUrlExternally(NvoApi.siteUrl("/privacy"))
                 }
             }
 
@@ -215,7 +228,7 @@ PageType {
         readonly property string description: qsTr("Подписка, поддержка, оплата")
         readonly property string imageSource: "qrc:/images/controls/globe-2.svg"
         readonly property var handler: function() {
-            Qt.openUrlExternally("https://nvovpn.com/")
+            Qt.openUrlExternally(NvoApi.siteUrl("/"))   // 01.10.2026 (аудит D-8): через активный домен
         }
     }
 

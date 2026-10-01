@@ -451,6 +451,17 @@ Window  {
         onRejected: SystemController.fileDialogClosed(false)
     }
 
+    Connections {
+        objectName: "updateControllerConnections"
+
+        target: UpdateController
+
+        // 01.10.2026 (аудит D-3): раньше сбой скачивания/проверки установщика уходил только в лог — человек ждал молча.
+        function onInstallerFailed(message) {
+            PageController.showNotificationMessage(message)
+        }
+    }
+
     Item {
         anchors.fill: parent
 

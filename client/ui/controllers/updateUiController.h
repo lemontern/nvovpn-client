@@ -21,10 +21,13 @@ public:
 
 public slots:
     void checkForUpdates();
+    void checkForUpdatesManual();   // 01.10.2026: кнопка «Проверить обновления» в «О приложении»
     void runInstaller();
 
 signals:
     void updateFound();
+    void updateCheckFinished(bool found, bool manual, const QString &error);   // 01.10.2026
+    void installerFailed(const QString &message);                              // 01.10.2026
 
 private:
     UpdateController* m_updateController;

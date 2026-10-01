@@ -30,7 +30,9 @@ PageType {
     readonly property bool appleAvailable: true
     // Регистрация: на iOS — внутри приложения (ссылка на сайт с ценами = риск App Store 3.1.1),
     // на остальных платформах — как раньше, на сайте.
-    readonly property bool inAppRegister: isIos
+    // 01.10.2026 (аудит A-2/M-6): внутри приложения на ВСЕХ платформах — ссылка вела на nvovpn.com,
+    // который в России закрыт, и новые пользователи Android/Windows регистрацию не находили.
+    readonly property bool inAppRegister: true
 
     Connections {
         target: NvoApi

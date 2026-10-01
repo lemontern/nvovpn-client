@@ -104,6 +104,7 @@ public slots:
     void loginWithApple();                       // Sign in with Apple через тот же polling-механизм (/app/login/apple)
     void registerAccount(const QString &name, const QString &email, const QString &password); // POST /auth/register → сразу вход (iOS: регистрация внутри приложения)
     void openForgotPassword();                   // восстановление пароля на сайте через активный домен
+    QString siteUrl(const QString &path = QString()) const; // 01.10.2026: ссылка на сайт через активный домен (nvovpn.com в РФ закрыт)
     void deleteAccount();                        // POST /auth/account/delete → аккаунт удалён, локальный выход (App Store 5.1.1(v))
     void openWebCabinet(const QString &redirect); // SSO в веб-ЛК: POST /auth/web-login → открыть url ("billing"/"plans"/"")
     void redeemPromo(const QString &code);        // POST /promo/redeem — активация промокода (кросс-промо 5 дней)
@@ -170,7 +171,9 @@ private:
     SecureQSettings *m_settings;
     NvoServersModel *m_serversModel;
 
-    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net primary, 1=nvovpn.com резерв); переключается при недоступности
+    int m_apiBaseIdx = 0;                        // индекс текущей базы API (0=api.netguarder.net, 1=ru.netguarder.net, 2=nvovpn.com); запоминается в Conf/nvoApiBase
+    int m_baseSwitchesInRow = 0;                 // сколько баз подряд оказались мёртвыми без единого живого ответа (стоп после круга)
+    qint64 m_lastBaseSwitchSec = 0;              // когда переключались в последний раз (через минуту счётчик обнуляется)
     QString m_token;
     QString m_userName;
     QString m_userEmail;

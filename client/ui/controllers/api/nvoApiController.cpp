@@ -48,11 +48,17 @@ namespace
     // ECH, скрытый SNI), nvovpn.com остаётся резервом (на сетевой ошибке переключаемся на него).
     // Раньше первым был nvovpn.com → каждая сессия в РФ висла 6-12с на таймауте, прежде чем
     // переключиться = «бесконечная загрузка» у юзеров при входе.
+    // 01.10.2026 (аудит A-3): три базы вместо двух — ru.netguarder.net (прямой российский вход, без Cloudflare)
+    // между основной и nvovpn.com (в РФ режется по SNI). Рабочая база запоминается (Conf/nvoApiBase), чтобы после
+    // перезапуска не ждать 12 с таймаута на заблокированном домене; перебор циклический, с ограничением
+    // «не больше круга без единого живого ответа» (см. maybeSwitchBase).
     constexpr const char *API_BASES[] = {
         "https://api.netguarder.net/api/v1",
+        "https://ru.netguarder.net/api/v1",
         "https://nvovpn.com/api/v1",
     };
-    constexpr int API_BASE_COUNT = 2;
+    constexpr int API_BASE_COUNT = 3;
+    constexpr char API_BASE_KEY[] = "Conf/nvoApiBase";
     // Site/OAuth URL (Google/Apple/веб-кабинет) строим динамически от активной базы (siteBase()) —
     // чтобы в РФ всё шло через тот же незаблокированный домен, а не хардкод nvovpn.com.
     // Apple: redirect_uri host-relative на бэкенде + домен api.netguarder.net заведён в Apple Developer
@@ -91,6 +97,11 @@ namespace
 #if defined(Q_OS_ANDROID)
         platform = QStringLiteral("Android");
         detail = QJniObject::getStaticObjectField<jstring>("android/os/Build", "MODEL").toString();
+        // 01.10.2026 (аудит M-11): два одинаковых телефона в одном аккаунте давали одно имя «Android • <модель>»,
+        // и бэкенд, считая одинаковые имена одним устройством, выбивал первый при входе второго. Метка — как на iOS.
+        if (!g_deviceTag.isEmpty()) {
+            detail += QStringLiteral(" • ") + g_deviceTag;   // «Android • SM-S938B • a1b2c3»
+        }
 #elif defined(Q_OS_WIN)
         platform = QStringLiteral("Windows");
         detail = QSysInfo::machineHostName();
@@ -125,6 +136,7 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
             m_settings->setValue(QString::fromLatin1(DEVICE_TAG_KEY), g_deviceTag);
         }
         m_token = QString::fromUtf8(m_settings->value(QString::fromLatin1(TOKEN_KEY)).toByteArray());
+        m_apiBaseIdx = qBound(0, m_settings->value(QString::fromLatin1(API_BASE_KEY), 0).toInt(), API_BASE_COUNT - 1);
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
         m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
@@ -135,6 +147,14 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
     // ручной коннект секундой позже уже работает. Не пугаем пользователя этим диалогом на старте —
     // гасим ошибки коннекта в этом окне. Дальше ошибки показываются как обычно.
     QTimer::singleShot(8000, this, [this]() { m_startupGrace = false; });
+
+    // Любой ответ сервера (даже 4xx) = база жива → счётчик переключений обнуляем, иначе после круга
+    // по мёртвым базам перебор остался бы заблокированным до перезапуска.
+    connect(m_nam, &QNetworkAccessManager::finished, this, [this](QNetworkReply *r) {
+        if (!isConnectivityError(r)) {
+            m_baseSwitchesInRow = 0;
+        }
+    });
 }
 
 bool NvoApiController::isAuthenticated() const { return !m_token.isEmpty(); }
@@ -605,9 +625,22 @@ bool NvoApiController::maybeSwitchBase(QNetworkReply *reply, int startBase)
     if (!isConnectivityError(reply)) {
         return false;
     }
-    if (m_apiBaseIdx == startBase && m_apiBaseIdx + 1 < API_BASE_COUNT) {
-        ++m_apiBaseIdx;
-        logger.info() << "API base unreachable, switching to fallback:" << apiBase();
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    if (now - m_lastBaseSwitchSec > 60) {
+        m_baseSwitchesInRow = 0;   // старое «все мертвы» не держим дольше минуты — сеть могла вернуться
+    }
+    if (m_apiBaseIdx == startBase) {
+        if (m_baseSwitchesInRow >= API_BASE_COUNT - 1) {
+            logger.info() << "all API bases unreachable, not switching further";
+            return false;   // полный круг без живого ответа — отдаём ошибку человеку, не крутимся вечно
+        }
+        m_apiBaseIdx = (m_apiBaseIdx + 1) % API_BASE_COUNT;   // циклически: резерв тоже может умереть
+        ++m_baseSwitchesInRow;
+        m_lastBaseSwitchSec = now;
+        if (m_settings) {
+            m_settings->setValue(QString::fromLatin1(API_BASE_KEY), m_apiBaseIdx);
+        }
+        logger.info() << "API base unreachable, switching to:" << apiBase();
     }
     return m_apiBaseIdx != startBase;   // повторить, если база реально сменилась
 }
@@ -757,11 +790,16 @@ void NvoApiController::deleteAccount()
     // локально делаем то же, что logout(), но без запроса /auth/logout — токена уже нет.
     if (m_token.isEmpty()) { emit sessionExpired(); return; }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { QStringLiteral("confirm"), true } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/account/delete"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
+        if (maybeSwitchBase(reply, startBase)) {   // 01.10.2026: домен недоступен → резерв и повтор
+            deleteAccount();
+            return;
+        }
         setBusy(false);
         const int status = httpStatus(reply);
         if (status == 401) { setToken(QString()); emit sessionExpired(); return; }
@@ -786,6 +824,11 @@ void NvoApiController::deleteAccount()
     });
 }
 
+QString NvoApiController::siteUrl(const QString &path) const
+{
+    return siteBase() + path;
+}
+
 void NvoApiController::openForgotPassword()
 {
     // Восстановление пароля — страница сайта через активный домен (в РФ nvovpn.com режется по SNI).
@@ -795,18 +838,24 @@ void NvoApiController::openForgotPassword()
 void NvoApiController::loginByCode(const QString &code)
 {
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "code", code }, { "device_name", deviceName() } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/login/code"), false),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, code, startBase]() {
         reply->deleteLater();
-        setBusy(false);
         const int status = httpStatus(reply);
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
         if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300) {
+            if (maybeSwitchBase(reply, startBase)) {   // 01.10.2026: домен недоступен → резерв и повтор, как у login()
+                loginByCode(code);
+                return;
+            }
+            setBusy(false);
             emit loginFailed(status == 401 || status == 404 ? tr("Код неверный или истёк") : humanError(reply));
             return;
         }
+        setBusy(false);
         const QString token = root.value(QStringLiteral("token")).toString();
         if (token.isEmpty()) {
             emit loginFailed(tr("Не удалось войти, попробуйте ещё раз"));
@@ -915,11 +964,16 @@ void NvoApiController::redeemPromo(const QString &code)
         return;
     }
     setBusy(true);
+    const int startBase = m_apiBaseIdx;
     const QJsonObject body { { "code", trimmed } };
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/promo/redeem"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, code, startBase]() {
         reply->deleteLater();
+        if (maybeSwitchBase(reply, startBase)) {   // 01.10.2026: домен недоступен → резерв и повтор
+            redeemPromo(code);
+            return;
+        }
         setBusy(false);
         const int status = httpStatus(reply);
         if (status == 401) {
@@ -1158,14 +1212,17 @@ void NvoApiController::pollGoogleLogin()
     q.addQueryItem(QStringLiteral("device_name"), deviceName());
     const QString path = QStringLiteral("/auth/poll?") + q.query(QUrl::FullyEncoded);
 
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->get(makeRequest(path, false));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, startBase]() {
         reply->deleteLater();
         // Опрос мог быть остановлен (таймаут/успех/новая попытка) — игнорируем поздний ответ.
         if (!m_googlePollTimer || !m_googlePollTimer->isActive()) {
             return;
         }
         if (reply->error() != QNetworkReply::NoError) {
+            // 01.10.2026: домен недоступен → следующий тик пойдёт на резерв (ds и кэш на бэкенде общие для всех хостов).
+            maybeSwitchBase(reply, startBase);
             return; // сетевой сбой — просто ждём следующий тик
         }
         const QJsonObject root = QJsonDocument::fromJson(reply->readAll()).object();
@@ -1197,10 +1254,15 @@ void NvoApiController::openWebCabinet(const QString &redirect)
     if (!redirect.isEmpty()) {
         body.insert(QStringLiteral("redirect"), redirect);
     }
+    const int startBase = m_apiBaseIdx;
     QNetworkReply *reply = m_nam->post(makeRequest(QStringLiteral("/auth/web-login"), true),
                                        QJsonDocument(body).toJson(QJsonDocument::Compact));
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, redirect, startBase]() {
         reply->deleteLater();
+        if (maybeSwitchBase(reply, startBase)) {   // 01.10.2026: домен недоступен → резерв и повтор (кабинет откроется на живом домене)
+            openWebCabinet(redirect);
+            return;
+        }
         const int status = httpStatus(reply);
         if (status == 401) {
             setToken(QString());
@@ -1260,10 +1322,11 @@ QString NvoApiController::humanError(QNetworkReply *reply) const
     case QNetworkReply::NetworkSessionFailedError:
     case QNetworkReply::UnknownNetworkError:
     case QNetworkReply::ConnectionRefusedError:
-        return tr("Нет интернета — проверьте подключение");
+        // 01.10.2026 (аудит M-12): раньше — «Нет интернета», хотя чаще интернет есть, а заблокирован наш домен.
+        return tr("Нет связи с NvoVPN. Проверьте интернет или попробуйте через минуту");
     case QNetworkReply::TimeoutError:
     case QNetworkReply::OperationCanceledError:
-        return tr("Сервер не отвечает, попробуйте ещё раз");
+        return tr("Сервер NvoVPN не отвечает, попробуйте ещё раз");
     default:
         return tr("Что-то пошло не так, попробуйте ещё раз");
     }

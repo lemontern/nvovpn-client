@@ -151,13 +151,15 @@ PageType {
             }
 
             DividerType {
-                visible: !GC.isMobile()
+                visible: true
             }
 
             SwitcherType {
                 id: switcherAutoConnect
 
-                visible: !GC.isMobile()
+                // 01.10.2026 (аудит M-22): логика автоподключения живёт на главном экране и работает на всех
+                // платформах, а тумблер был только на десктопе.
+                visible: true
 
                 Layout.fillWidth: true
                 Layout.margins: 16
