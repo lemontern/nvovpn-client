@@ -22,7 +22,7 @@ set_target_properties(AmneziaVPNNetworkExtension PROPERTIES
 
     # APPLICATION_EXTENSION_API_ONLY убран — system extension это не app extension.
     XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
-    XCODE_ATTRIBUTE_MACOSX_DEPLOYMENT_TARGET "11.0"
+    XCODE_ATTRIBUTE_MACOSX_DEPLOYMENT_TARGET "13.0"   # 01.10.2026 (аудит D-14): как у приложения — реальный минимум macOS 13
 
     XCODE_ATTRIBUTE_INFOPLIST_FILE ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in
     XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "@executable_path/../../../../Frameworks @loader_path/../../../../Frameworks"

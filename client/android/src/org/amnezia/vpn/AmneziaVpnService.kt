@@ -153,6 +153,7 @@ open class AmneziaVpnService : VpnService() {
     // 01.10.2026 (аудит M-8): протокол, под который запущена ЭТА служба (AwgService). Внутри неё при перерейсе
     // поднимается xray, но для UI и плитки она остаётся службой awg — иначе они искали туннель в XrayService.
     private var serviceProto: VpnProto? = null
+    private var reconnectingAfterNetworkChange = false   // 01.10.2026: RECONNECTING по смене сети — не считать за новое подключение
     private var livenessJob: Job? = null
     private var switchJob: Job? = null
     private var switching = false
@@ -458,6 +459,7 @@ open class AmneziaVpnService : VpnService() {
                         stopTrafficStatsUpdateJob()
                         stopSendingStatistics()
                         stopLivenessJob()
+                        reconnectingAfterNetworkChange = false
                         if (!isServiceBound && !switching) stopService()
                     }
 
@@ -583,8 +585,14 @@ open class AmneziaVpnService : VpnService() {
 
     @MainThread
     private fun onTunnelConnected() {
-        connectedAtMs = SystemClock.elapsedRealtime()
         if (switching) return   // свитчер сам дождётся CONNECTED, проверит пробом и перезапустит живость
+        if (reconnectingAfterNetworkChange) {
+            // Туннель пережил смену сети: время подключения и счётчики не трогаем, только возобновляем живость.
+            reconnectingAfterNetworkChange = false
+            startLivenessJob()
+            return
+        }
+        connectedAtMs = SystemClock.elapsedRealtime()
         val live = nvoLiveness
         if (live != null) {
             // 01.10.2026 (аудит A-21): сервер отвергал ~21 % событий (422) — значения вне его пределов (ms ≤ 3 600 000, alive_s ≤ 604 800).
@@ -938,6 +946,9 @@ open class AmneziaVpnService : VpnService() {
 
         Log.d(TAG, "Reconnect VPN")
 
+        // 01.10.2026: смена сети → RECONNECTING → CONNECTED; это не новое подключение, телеметрию tunnel_up не шлём
+        // (на дребезжащей мобильной сети уходило по 9 событий за 2 секунды).
+        reconnectingAfterNetworkChange = true
         protocolState.value = RECONNECTING
 
         connectionJob = connectionScope.launch {
