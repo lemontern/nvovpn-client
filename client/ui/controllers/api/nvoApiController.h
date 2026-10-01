@@ -5,6 +5,8 @@
 #include <QString>
 #include <QStringList>
 #include <QList>
+#include <QSet>
+#include <QVariantMap>
 #include <QNetworkRequest>
 
 class QNetworkAccessManager;
@@ -169,8 +171,15 @@ private:
     // ошибке — смена домена и повтор; silent — без тостов (досылка при запуске, продления).
     void sendAppleReceipt(const QString &originalTransactionId, const QString &productId,
                           const QString &transactionId = QString(), bool silent = false, int attempt = 0);
-    void startIapTransactionListener();          // Transaction.updates → sendAppleReceipt (один раз за запуск)
+    void startIapTransactionListener();          // Transaction.updates → очередь чеков (один раз за запуск)
     bool m_iapListenerStarted = false;
+    // 01.10.2026: фоновые чеки (досылка незавершённых и Transaction.updates) — через очередь по одному раз в 400 мс,
+    // каждая транзакция не больше одного раза за запуск. На TestFlight 1.0.5 без этого ушло 38 запросов за 4 секунды.
+    void enqueueIapTransaction(const QVariantMap &transaction);
+    void drainIapQueue();
+    QList<QVariantMap> m_iapQueue;
+    QSet<QString> m_iapQueued;
+    QTimer *m_iapQueueTimer = nullptr;
     static QByteArray clientUserAgent();       // «NvoVPN/1.0.2.235 (iOS 18.6)» — сборка объявляет себя бэкенду в каждом запросе
 
     QNetworkAccessManager *m_nam;
