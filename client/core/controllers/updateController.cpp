@@ -96,7 +96,7 @@ QUrl UpdateController::downloadUrlVia(int appcastIdx) const
         return url;
     }
     if (appcastIdx >= 0 && appcastIdx < kAppcastUrlCount) {
-        const QUrl base(QLatin1String(kAppcastUrls[appcastIdx]));
+        const QUrl base = QUrl(QString::fromLatin1(kAppcastUrls[appcastIdx]));   // не QUrl base(...): компиляторы читали это как объявление функции
         url.setScheme(QStringLiteral("https"));
         url.setHost(base.host());
     }
