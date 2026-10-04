@@ -20,6 +20,10 @@ PageType {
         PageController.closePage()
     }
 
+    // 04.10.2026 (тикет 344, Android TV): строки списка — в цепочке фокуса FocusController, OK = выбрать.
+    // Рамку фокуса показываем только при управлении клавиатурой/пультом (компьютер, Android TV).
+    readonly property bool keyboardFocusVisible: GC.isDesktop() || SettingsController.isOnTv()
+
     BackButtonType {
         id: backButton
         anchors.top: parent.top
@@ -51,6 +55,9 @@ PageType {
         clip: true
         spacing: 12
 
+        // Список целиком — элемент цепочки фокуса; внутри FocusController ходит по шапке и строкам.
+        property bool isFocusable: true
+
         model: NvoServersModel
 
         header: Rectangle {
@@ -58,8 +65,9 @@ PageType {
             height: 72
             radius: 16
             color: NvoStyle.color.onyxBlack
-            border.width: NvoApi.selectedServerId < 0 ? 2 : 1
-            border.color: NvoApi.selectedServerId < 0 ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray
+            border.width: (headerMouse.activeFocus && root.keyboardFocusVisible) ? 3 : (NvoApi.selectedServerId < 0 ? 2 : 1)
+            border.color: (headerMouse.activeFocus && root.keyboardFocusVisible) ? NvoStyle.color.paleGray
+                          : (NvoApi.selectedServerId < 0 ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray)
 
             RowLayout {
                 anchors.fill: parent
@@ -91,9 +99,20 @@ PageType {
             }
 
             MouseArea {
+                id: headerMouse
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.selectAndBack(-1)
+
+                property bool isFocusable: true
+                Keys.onTabPressed: FocusController.nextKeyTabItem()
+                Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+                Keys.onUpPressed: FocusController.nextKeyUpItem()
+                Keys.onDownPressed: FocusController.nextKeyDownItem()
+                Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+                Keys.onRightPressed: FocusController.nextKeyRightItem()
+                Keys.onEnterPressed: root.selectAndBack(-1)
+                Keys.onReturnPressed: root.selectAndBack(-1)
             }
         }
 
@@ -102,8 +121,9 @@ PageType {
             height: 72
             radius: 16
             color: NvoStyle.color.onyxBlack
-            border.width: NvoApi.selectedServerId === serverId ? 2 : 1
-            border.color: NvoApi.selectedServerId === serverId ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray
+            border.width: (rowMouse.activeFocus && root.keyboardFocusVisible) ? 3 : (NvoApi.selectedServerId === serverId ? 2 : 1)
+            border.color: (rowMouse.activeFocus && root.keyboardFocusVisible) ? NvoStyle.color.paleGray
+                          : (NvoApi.selectedServerId === serverId ? NvoStyle.color.nvoBlue : NvoStyle.color.slateGray)
             // Не притемняем по health_status — он бывает ложным (France: unhealthy, но работает).
             opacity: 1.0
 
@@ -160,6 +180,7 @@ PageType {
             }
 
             MouseArea {
+                id: rowMouse
                 anchors.fill: parent
                 // Выбор разрешён даже для нод с health_status=unhealthy: бэкендовый healthcheck
                 // бывает ложным (France: unhealthy, но /connect 200 и нода реально работает).
@@ -167,6 +188,17 @@ PageType {
                 enabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.selectAndBack(serverId)
+
+                // Пульт/клавиатура: строка в цепочке фокуса, OK = выбрать страну.
+                property bool isFocusable: true
+                Keys.onTabPressed: FocusController.nextKeyTabItem()
+                Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+                Keys.onUpPressed: FocusController.nextKeyUpItem()
+                Keys.onDownPressed: FocusController.nextKeyDownItem()
+                Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+                Keys.onRightPressed: FocusController.nextKeyRightItem()
+                Keys.onEnterPressed: root.selectAndBack(serverId)
+                Keys.onReturnPressed: root.selectAndBack(serverId)
             }
         }
     }

@@ -32,6 +32,51 @@ PageType {
     // §12.7: авто-подключение при запуске (один раз за сессию экрана), если включено в настройках.
     property bool autoConnectTried: false
 
+    // 04.10.2026 (тикет 344, Xiaomi TV Stick): у пульта Android TV нет «мыши» — щит, выбор страны и ссылки были
+    // обычными MouseArea вне цепочки фокуса FocusController, отключить VPN с пульта было нельзя. Теперь они
+    // фокусируемые (isFocusable) и нажимаются кнопкой OK (Enter/Return). Рамку фокуса показываем там, где фокус
+    // ведут клавиатурой или пультом: на компьютере и на Android TV (на телефоне — нет).
+    readonly property bool keyboardFocusVisible: GC.isDesktop() || SettingsController.isOnTv()
+
+    function toggleConnection() {
+        // То же, что тап по щиту: пока сессия активна — отключить/отменить, иначе подключить.
+        if (!(root.connectionActive || !root.busy)) {
+            return
+        }
+        if (root.connectionActive) {
+            // Именно ByUser: осознанное отключение/отмена не должно уводить на VLESS, в отличие от обрыва.
+            ConnectionController.closeConnectionByUser()
+        } else {
+            NvoApi.connectToSelected()
+        }
+    }
+
+    // На Android TV после открытия экрана фокус сразу на щите: PageType через 200 мс ставит фокус «по умолчанию»,
+    // и без этого первое нажатие пульта уводило в настройки (верхний элемент).
+    Timer {
+        id: tvFocusTimer
+        interval: 350
+        repeat: false
+        onTriggered: {
+            if (!root.visible || !SettingsController.isOnTv()) {
+                return
+            }
+            if (onboarding.visible) {
+                onboarding.forceActiveFocus()
+            } else {
+                FocusController.setFocusItem(orbHost)
+            }
+        }
+    }
+    Connections {
+        target: root
+        function onVisibleChanged() {
+            if (root.visible) {
+                tvFocusTimer.restart()
+            }
+        }
+    }
+
     // Таймер активной сессии: считаем время с момента подключения, сбрасываем при отключении.
     property int sessionSeconds: 0
     onConnectedChanged: {
@@ -79,6 +124,7 @@ PageType {
     }
 
     Component.onCompleted: {
+        tvFocusTimer.restart()
         if (NvoApi.isAuthenticated) {
             NvoApi.refreshServers()
             NvoApi.refreshUser()
@@ -161,6 +207,31 @@ PageType {
             Layout.alignment: Qt.AlignHCenter
             implicitWidth: 280
             implicitHeight: 280
+
+            // Пульт/клавиатура: щит в цепочке фокуса, OK (Enter/Return) = нажать щит.
+            property bool isFocusable: true
+            activeFocusOnTab: true
+            Keys.onTabPressed: FocusController.nextKeyTabItem()
+            Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+            Keys.onUpPressed: FocusController.nextKeyUpItem()
+            Keys.onDownPressed: FocusController.nextKeyDownItem()
+            Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+            Keys.onRightPressed: FocusController.nextKeyRightItem()
+            Keys.onEnterPressed: root.toggleConnection()
+            Keys.onReturnPressed: root.toggleConnection()
+
+            // Рамка фокуса вокруг орба (только клавиатура/пульт).
+            Rectangle {
+                anchors.centerIn: parent
+                width: Math.min(parent.width, parent.height) - 24
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.width: 3
+                border.color: NvoStyle.color.paleGray
+                visible: orbHost.activeFocus && root.keyboardFocusVisible
+                z: 5
+            }
 
             // Цвет орба по состоянию: зелёный = защита (красный при наведении = «отключить»),
             // фиолетовый = обход блокировки (VLESS), синий = обычное подключение (awg), фиолетовый приглушённый = покой.
@@ -321,14 +392,7 @@ PageType {
                 // → тап «Отключить» проглатывался. Теперь опираемся на connectionActive.
                 enabled: root.connectionActive || !root.busy
                 hoverEnabled: true
-                onClicked: {
-                    if (root.connectionActive) {
-                        // Именно ByUser: осознанное отключение/отмена не должно уводить на VLESS, в отличие от обрыва.
-                        ConnectionController.closeConnectionByUser()
-                    } else {
-                        NvoApi.connectToSelected()
-                    }
-                }
+                onClicked: root.toggleConnection()
             }
         }
 
@@ -418,14 +482,27 @@ PageType {
 
         // ---- Выбор страны ----
         Rectangle {
+            id: countryPill
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 8
             implicitWidth: countryRow.implicitWidth + 40
             implicitHeight: 56
             radius: 28
             color: NvoStyle.color.onyxBlack
-            border.width: 1
-            border.color: NvoStyle.color.slateGray
+            border.width: activeFocus && root.keyboardFocusVisible ? 3 : 1
+            border.color: activeFocus && root.keyboardFocusVisible ? NvoStyle.color.paleGray : NvoStyle.color.slateGray
+
+            // Пульт/клавиатура: в цепочке фокуса, пока выбор доступен (как и для мыши — не во время подключения).
+            property bool isFocusable: !root.busy && !root.connected
+            activeFocusOnTab: isFocusable
+            Keys.onTabPressed: FocusController.nextKeyTabItem()
+            Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+            Keys.onUpPressed: FocusController.nextKeyUpItem()
+            Keys.onDownPressed: FocusController.nextKeyDownItem()
+            Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+            Keys.onRightPressed: FocusController.nextKeyRightItem()
+            Keys.onEnterPressed: if (isFocusable) PageController.goToPage(PageEnum.PageNvoCountries)
+            Keys.onReturnPressed: if (isFocusable) PageController.goToPage(PageEnum.PageNvoCountries)
 
             RowLayout {
                 id: countryRow
@@ -476,35 +553,68 @@ PageType {
 
             // Режим «Авто»: ненавязчивая ссылка — предлагаем максимальную надёжность одной строкой.
             Text {
+                id: reliLink
                 Layout.alignment: Qt.AlignHCenter
                 visible: NvoApi.stealthMode !== 2
                 text: qsTr("Плохо подключается? →")
-                color: NvoStyle.color.mutedGray
+                color: activeFocus && root.keyboardFocusVisible ? NvoStyle.color.paleGray : NvoStyle.color.mutedGray
                 font.pixelSize: 14
-                font.underline: reliMouse.containsMouse
+                font.underline: reliMouse.containsMouse || (activeFocus && root.keyboardFocusVisible)
+
+                function activate() {
+                    NvoApi.stealthMode = 2
+                    PageController.showNotificationMessage(
+                        qsTr("Максимальная надёжность включена — всегда через защищённый канал"))
+                }
+
+                property bool isFocusable: visible
+                activeFocusOnTab: visible
+                Keys.onTabPressed: FocusController.nextKeyTabItem()
+                Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+                Keys.onUpPressed: FocusController.nextKeyUpItem()
+                Keys.onDownPressed: FocusController.nextKeyDownItem()
+                Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+                Keys.onRightPressed: FocusController.nextKeyRightItem()
+                Keys.onEnterPressed: activate()
+                Keys.onReturnPressed: activate()
+
                 MouseArea {
                     id: reliMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        NvoApi.stealthMode = 2
-                        PageController.showNotificationMessage(
-                            qsTr("Максимальная надёжность включена — всегда через защищённый канал"))
-                    }
+                    onClicked: reliLink.activate()
                 }
             }
 
             // Включённый режим максимальной надёжности — спокойная плашка с возможностью вернуть «Авто».
             Rectangle {
+                id: reliChip
                 Layout.alignment: Qt.AlignHCenter
                 visible: NvoApi.stealthMode === 2
                 implicitWidth: reliRow.implicitWidth + 32
                 implicitHeight: 44
                 radius: 22
                 color: NvoStyle.color.onyxBlack
-                border.width: 1
-                border.color: NvoStyle.color.connectedGreenDeep
+                border.width: activeFocus && root.keyboardFocusVisible ? 3 : 1
+                border.color: activeFocus && root.keyboardFocusVisible ? NvoStyle.color.paleGray : NvoStyle.color.connectedGreenDeep
+
+                function activate() {
+                    NvoApi.stealthMode = 1
+                    PageController.showNotificationMessage(
+                        qsTr("Обычный режим — защита включится сама при блокировке"))
+                }
+
+                property bool isFocusable: visible
+                activeFocusOnTab: visible
+                Keys.onTabPressed: FocusController.nextKeyTabItem()
+                Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+                Keys.onUpPressed: FocusController.nextKeyUpItem()
+                Keys.onDownPressed: FocusController.nextKeyDownItem()
+                Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+                Keys.onRightPressed: FocusController.nextKeyRightItem()
+                Keys.onEnterPressed: activate()
+                Keys.onReturnPressed: activate()
 
                 RowLayout {
                     id: reliRow
@@ -522,11 +632,7 @@ PageType {
                 MouseArea {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        NvoApi.stealthMode = 1
-                        PageController.showNotificationMessage(
-                            qsTr("Обычный режим — защита включится сама при блокировке"))
-                    }
+                    onClicked: reliChip.activate()
                 }
             }
         }
@@ -543,6 +649,21 @@ PageType {
         MouseArea {
             anchors.fill: parent
             onClicked: NvoApi.setOnboardingDone()
+        }
+
+        // Пульт/клавиатура: окно закрывается любой кнопкой (на Android TV тапнуть «в любом месте» нечем),
+        // после этого фокус — на щит.
+        Keys.onPressed: function(event) {
+            event.accepted = true
+            NvoApi.setOnboardingDone()
+            if (SettingsController.isOnTv()) {
+                FocusController.setFocusItem(orbHost)
+            }
+        }
+        onVisibleChanged: {
+            if (visible && SettingsController.isOnTv()) {
+                forceActiveFocus()
+            }
         }
 
         ColumnLayout {
@@ -582,8 +703,21 @@ PageType {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 24 + PageController.safeAreaBottomMargin
         horizontalAlignment: Text.AlignHCenter
-        color: NvoStyle.color.mutedGray
+        color: activeFocus && root.keyboardFocusVisible ? NvoStyle.color.paleGray : NvoStyle.color.mutedGray
+        font.underline: activeFocus && root.keyboardFocusVisible
         font.pixelSize: 13
+
+        // Пульт/клавиатура: OK открывает экран подписки.
+        property bool isFocusable: true
+        activeFocusOnTab: true
+        Keys.onTabPressed: FocusController.nextKeyTabItem()
+        Keys.onBacktabPressed: FocusController.previousKeyTabItem()
+        Keys.onUpPressed: FocusController.nextKeyUpItem()
+        Keys.onDownPressed: FocusController.nextKeyDownItem()
+        Keys.onLeftPressed: FocusController.nextKeyLeftItem()
+        Keys.onRightPressed: FocusController.nextKeyRightItem()
+        Keys.onEnterPressed: PageController.goToPage(PageEnum.PageNvoSubscription)
+        Keys.onReturnPressed: PageController.goToPage(PageEnum.PageNvoSubscription)
         text: {
             if (!NvoApi.hasSubscription)
                 return qsTr("Подписка неактивна")
