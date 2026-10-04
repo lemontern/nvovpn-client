@@ -24,6 +24,7 @@
 
 #if defined(Q_OS_IOS)
     #include "platforms/ios/ios_controller.h"
+    #include "platforms/ios/NvoAuthSession.h"
 #endif
 
 // In-App Purchase product identifiers (App Store Connect: группа NvoVPN Premium).
@@ -1152,7 +1153,7 @@ void NvoApiController::loginWithGoogle()
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("ds"), m_googleDs);
     url.setQuery(q);
-    QDesktopServices::openUrl(url);
+    openOAuthPage(url);
 
     setBusy(true);
     m_googlePollElapsedMs = 0;
@@ -1182,7 +1183,7 @@ void NvoApiController::loginWithApple()
     QUrlQuery q;
     q.addQueryItem(QStringLiteral("ds"), m_googleDs);
     url.setQuery(q);
-    QDesktopServices::openUrl(url);
+    openOAuthPage(url);
 
     setBusy(true);
     m_googlePollElapsedMs = 0;
@@ -1194,12 +1195,32 @@ void NvoApiController::loginWithApple()
     m_googlePollTimer->start();
 }
 
+void NvoApiController::openOAuthPage(const QUrl &url)
+{
+#if defined(Q_OS_IOS)
+    // App Review 03.10.2026 (Guideline 4, 1.0.5 отклонена): на iPhone/iPad вход через Apple и Google — внутри
+    // приложения (системное окно ASWebAuthenticationSession), а не во внешнем Safari. Окно закрывает
+    // stopGooglePolling(); если человек закрыл его сам — тихо прекращаем ждать, без сообщения об ошибке.
+    NvoAuthSession::open(url.toString(QUrl::FullyEncoded), [this]() {
+        if (m_googlePollTimer && m_googlePollTimer->isActive()) {
+            stopGooglePolling();
+            setBusy(false);
+        }
+    });
+#else
+    QDesktopServices::openUrl(url);
+#endif
+}
+
 void NvoApiController::stopGooglePolling()
 {
     if (m_googlePollTimer) {
         m_googlePollTimer->stop();
     }
     m_googleDs.clear();
+#if defined(Q_OS_IOS)
+    NvoAuthSession::close(); // вход завершён, отменён, истёк или начат заново — окно входа больше не нужно
+#endif
 }
 
 void NvoApiController::pollGoogleLogin()

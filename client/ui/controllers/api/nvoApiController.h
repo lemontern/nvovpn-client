@@ -167,6 +167,7 @@ private:
     QString humanError(QNetworkReply *reply) const;
     void pollGoogleLogin();                      // один тик опроса /auth/poll?ds=...
     void stopGooglePolling();
+    void openOAuthPage(const QUrl &url);         // страница входа Apple/Google: iOS — окно внутри приложения, иначе браузер
     // POST /app/iap/apple. 01.10.2026: transactionId завершается в StoreKit только после ответа сервера; при сетевой
     // ошибке — смена домена и повтор; silent — без тостов (досылка при запуске, продления).
     void sendAppleReceipt(const QString &originalTransactionId, const QString &productId,
