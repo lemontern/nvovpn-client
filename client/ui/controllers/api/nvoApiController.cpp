@@ -70,6 +70,9 @@ namespace
     constexpr char CONNECT_COUNT_KEY[] = "Conf/nvoConnectCount";
     constexpr char REVIEW_ASKED_KEY[] = "Conf/nvoReviewAsked";
     constexpr char STEALTH_MODE_KEY[] = "Conf/nvoStealthMode";
+    // 05.10.2026 (тикет 353): последний известный статус подписки — чтобы при недоступном API (МТС режет хосты)
+    // главный экран не показывал «Подписка неактивна» человеку с оплаченной подпиской. Источник истины — сервер.
+    constexpr char HAS_SUB_KEY[] = "Conf/nvoHasSubscription";
     // Адаптивный коннект: «память» о недавнем провале awg по каждому серверу — следующую попытку
     // на нём начинаем сразу с VLESS (не жжём таймаут там, где DPI режет awg). TTL 30 мин → пере-проба.
     constexpr qint64 kAwgFailTtlSec = 1800;
@@ -141,6 +144,9 @@ NvoApiController::NvoApiController(SecureQSettings *settings, NvoServersModel *s
         m_onboardingDone = m_settings->value(QString::fromLatin1(ONBOARDING_KEY), false).toBool();
         m_favoriteCountries = m_settings->value(QString::fromLatin1(FAVORITES_KEY)).toStringList();
         m_stealthMode = m_settings->value(QString::fromLatin1(STEALTH_MODE_KEY), 1).toInt();
+        if (!m_token.isEmpty()) {
+            m_hasSubscription = m_settings->value(QString::fromLatin1(HAS_SUB_KEY), false).toBool();
+        }
     }
 
     // Окно тишины после запуска: первые секунды авто-коннект и restoreConnection на Android часто
@@ -819,6 +825,9 @@ void NvoApiController::deleteAccount()
         m_userName.clear();
         m_userEmail.clear();
         m_hasSubscription = false;
+        if (m_settings) {
+            m_settings->remove(QString::fromLatin1(HAS_SUB_KEY));
+        }
         m_subPlan.clear();
         m_subStatus.clear();
         m_subExpiresAt.clear();
@@ -888,6 +897,9 @@ void NvoApiController::logout()
     m_userName.clear();
     m_userEmail.clear();
     m_hasSubscription = false;
+    if (m_settings) {
+        m_settings->remove(QString::fromLatin1(HAS_SUB_KEY));
+    }
     m_subPlan.clear();
     m_subStatus.clear();
     m_subExpiresAt.clear();
@@ -1338,6 +1350,10 @@ void NvoApiController::applyUser(const QJsonObject &root)
             m_subDaysRemaining = 0;
         }
         emit subscriptionChanged();
+    }
+
+    if (m_settings && (!user.isEmpty() || root.contains(QStringLiteral("subscription")))) {
+        m_settings->setValue(QString::fromLatin1(HAS_SUB_KEY), m_hasSubscription);   // 05.10.2026: для старта без связи с API
     }
 }
 

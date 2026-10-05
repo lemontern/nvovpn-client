@@ -404,9 +404,10 @@ PageType {
             text: root.connected ? (root.knobHovered ? qsTr("Нажмите, чтобы отключить")
                                                             : qsTr("ЗАЩИТА ВКЛЮЧЕНА"))
                                  : (root.busy ? (NvoApi.lastConnectViaStealth ? qsTr("Обхожу блокировку…") : qsTr("Подключаем…"))
-                                              // iOS (3.1.3(f)): без намёка на платную подписку/триал.
-                                              : ((NvoApi.hasSubscription || Qt.platform.os === "ios") ? qsTr("Нажмите, чтобы включить")
-                                                                        : qsTr("Подключиться бесплатно (2 дня)")))
+                                              // 05.10.2026 (тикет 353): «Подключиться бесплатно (2 дня)» было неправдой — такого
+                                              // предложения нет (в РФ пробный день платный), а без связи с API приложение
+                                              // показывало это и человеку с оплаченным пробным днём. Один нейтральный текст для всех.
+                                              : qsTr("Нажмите, чтобы включить"))
             color: root.connected ? NvoStyle.color.connectedGreen : NvoStyle.color.paleGray
             font.family: "PT Root UI VF"
             font.weight: 800
