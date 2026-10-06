@@ -196,8 +196,16 @@ PageType {
     }
 
     // ---- Центр: огромная кнопка ----
+    // 07.10.2026: колонка стоит по центру между шапкой и строкой подписки. Подключённая, она выше (бейдж,
+    // «IP скрыт», «На связи»), и в невысоком окне Mac/Windows наезжала на «Подписка активна». Не помещается —
+    // уменьшаем её целиком: scale не меняет implicitHeight, поэтому петли привязок нет.
     ColumnLayout {
-        anchors.centerIn: parent
+        id: centerColumn
+        readonly property real areaTop: topBar.y + topBar.height + 8
+        readonly property real areaHeight: Math.max(1, subscriptionText.y - 8 - areaTop)
+        x: 0
+        y: areaTop + (areaHeight - implicitHeight) / 2
+        scale: implicitHeight > areaHeight ? areaHeight / implicitHeight : 1
         spacing: 24
         width: parent.width
 
@@ -700,6 +708,7 @@ PageType {
 
     // ---- Низ: статус подписки ----
     Text {
+        id: subscriptionText
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 24 + PageController.safeAreaBottomMargin

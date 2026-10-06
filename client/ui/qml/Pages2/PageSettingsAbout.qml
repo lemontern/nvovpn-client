@@ -96,11 +96,13 @@ PageType {
                 Layout.fillWidth: true
                 Layout.topMargin: 6
 
-                text: title
-                descriptionText: description
-                leftImageSource: imageSource
+                // 07.10.2026: модель — JS-массив (var), её поля не подставляются в делегат как роли: голое `title`
+                // находило заголовок окна, и обе строки были «NvoVPN» без описания и значка. Берём из modelData.
+                text: modelData.title
+                descriptionText: modelData.description
+                leftImageSource: modelData.imageSource
 
-                clickedFunction: handler
+                clickedFunction: modelData.handler
             }
 
             DividerType {}

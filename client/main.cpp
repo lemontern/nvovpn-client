@@ -47,8 +47,13 @@ int main(int argc, char *argv[])
     AmneziaApplication app(argc, argv);
     OsSignalHandler::setup();
 
-    // NvoVPN: иконка окна/дока/таскбара (не зависит от exe-ресурса и кэша иконок ОС).
+    // NvoVPN: иконка окна/таскбара (не зависит от exe-ресурса и кэша иконок ОС).
+    // 07.10.2026: на macOS НЕ ставим — Qt подменяет ею иконку в Доке, а nvoAppIcon.png квадратная во весь холст
+    // (как для iOS/Android, где форму режет система), и в Доке выходил «голый квадрат». На Mac Док берёт
+    // иконку бандла (images/app.icns — тот же рисунок по шаблону macOS: сквиркл, поля, тень).
+#if !defined(Q_OS_MACOS)
     app.setWindowIcon(QIcon(QStringLiteral(":/images/nvoAppIcon.png")));
+#endif
 
     ssh_init();
     QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
