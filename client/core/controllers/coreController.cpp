@@ -1,6 +1,7 @@
 #include "coreController.h"
 
 #include <QDirIterator>
+#include <QOperatingSystemVersion>
 #include <QTranslator>
 #include <QTimer>
 
@@ -466,10 +467,30 @@ void CoreController::initAppleController()
 #if defined(MACOS_NE) && !defined(Q_OS_IOS)
     // 01.10.2026 (аудит D-15): сигнал «расширение ждёт одобрения» никто не слушал — человек видел бесконечное
     // «Подключаем…» и не знал, что macOS ждёт его разрешения (главная причина обращений «на Mac не подключается»).
+    // 06.10.2026 (тикет 357): с macOS 15 одобрение переехало из «Конфиденциальность и безопасность» в «Объекты входа
+    // и расширения», а строка «Сетевые расширения» открывается кнопкой ⓘ. Названия пунктов во всех переводах сверены
+    // с системной локализацией macOS (LoginItems, SettingsSystemExtensionController, SecurityPrivacy, GeneralSettings).
     connect(IosController::Instance(), &IosController::systemExtensionNeedsApproval, this, [this]() {
+        const bool sequoiaOrLater =
+            QOperatingSystemVersion::current() >= QOperatingSystemVersion(QOperatingSystemVersion::MacOS, 15);
+        emit m_pageController->showErrorMessage(sequoiaOrLater
+            ? tr("macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → «Основные» → "
+                 "«Объекты входа и расширения». В разделе «Расширения» нажмите ⓘ у строки «Сетевые расширения», "
+                 "включите NvoVPN и нажмите «Готово». Затем нажмите на щит ещё раз.")
+            : tr("macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → "
+                 "«Конфиденциальность и безопасность». Внизу, у строки о заблокированной загрузке системного ПО "
+                 "программы «NvoVPN», нажмите «Разрешить». Затем нажмите на щит ещё раз."));
+    });
+    // Запуск не из «Программ» (окно .dmg, «Загрузки»): macOS не регистрирует расширение, строки «Сетевые расширения» нет.
+    connect(IosController::Instance(), &IosController::systemExtensionWrongLocation, this, [this]() {
         emit m_pageController->showErrorMessage(
-            tr("macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → "
-               "Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз."));
+            tr("NvoVPN открыт не из папки «Программы», а macOS включает сетевое расширение только оттуда. Закройте NvoVPN, "
+               "перетащите его в папку «Программы» (в окне установщика это папка Applications) и откройте оттуда."));
+    });
+    connect(IosController::Instance(), &IosController::systemExtensionFailed, this, [this](int code) {
+        emit m_pageController->showErrorMessage(
+            tr("macOS не смогла включить сетевое расширение NvoVPN (ошибка %1). Перезагрузите Mac и нажмите на щит "
+               "ещё раз. Если не поможет, напишите в поддержку.").arg(code));
     });
 #endif
 }

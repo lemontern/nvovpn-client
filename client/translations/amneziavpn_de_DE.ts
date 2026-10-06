@@ -190,8 +190,20 @@
         <translation>Verbindung hergestellt, aber es fließen keine Daten — wahrscheinlich blockiert Ihr Netzwerk VPN. Versuchen Sie einen anderen Server oder ein anderes Netzwerk.</translation>
     </message>
     <message>
-        <source>macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз.</source>
-        <translation>macOS benötigt Ihre Erlaubnis für die NvoVPN-Netzwerkerweiterung: Systemeinstellungen → Allgemein → Anmeldeobjekte &amp; Erweiterungen → Netzwerkerweiterungen → NvoVPN aktivieren. Danach erneut auf das Schild klicken.</translation>
+        <source>macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → «Основные» → «Объекты входа и расширения». В разделе «Расширения» нажмите ⓘ у строки «Сетевые расширения», включите NvoVPN и нажмите «Готово». Затем нажмите на щит ещё раз.</source>
+        <translation>macOS wartet auf Ihre Erlaubnis für die Netzwerkerweiterung von NvoVPN. Öffnen Sie „Systemeinstellungen“ → „Allgemein“ → „Anmeldeobjekte &amp; Erweiterungen“. Klicken Sie im Bereich „Erweiterungen“ auf ⓘ neben „Netzwerkerweiterungen“, aktivieren Sie NvoVPN und klicken Sie auf „Fertig“. Klicken Sie danach erneut auf das Schild.</translation>
+    </message>
+    <message>
+        <source>macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → «Конфиденциальность и безопасность». Внизу, у строки о заблокированной загрузке системного ПО программы «NvoVPN», нажмите «Разрешить». Затем нажмите на щит ещё раз.</source>
+        <translation>macOS wartet auf Ihre Erlaubnis für die Netzwerkerweiterung von NvoVPN. Öffnen Sie „Systemeinstellungen“ → „Datenschutz &amp; Sicherheit“. Klicken Sie unten bei der Meldung, dass das Laden der Systemsoftware des Programms „NvoVPN“ blockiert wurde, auf „Erlauben“. Klicken Sie danach erneut auf das Schild.</translation>
+    </message>
+    <message>
+        <source>NvoVPN открыт не из папки «Программы», а macOS включает сетевое расширение только оттуда. Закройте NvoVPN, перетащите его в папку «Программы» (в окне установщика это папка Applications) и откройте оттуда.</source>
+        <translation>NvoVPN wurde nicht aus dem Ordner „Programme“ geöffnet, macOS aktiviert die Netzwerkerweiterung aber nur von dort. Beenden Sie NvoVPN, ziehen Sie es in den Ordner „Programme“ (im Installationsfenster heißt er Applications) und öffnen Sie es von dort.</translation>
+    </message>
+    <message>
+        <source>macOS не смогла включить сетевое расширение NvoVPN (ошибка %1). Перезагрузите Mac и нажмите на щит ещё раз. Если не поможет, напишите в поддержку.</source>
+        <translation>macOS konnte die Netzwerkerweiterung von NvoVPN nicht aktivieren (Fehler %1). Starten Sie den Mac neu und klicken Sie erneut auf das Schild. Wenn das nicht hilft, schreiben Sie dem Support.</translation>
     </message>
 </context>
 <context>

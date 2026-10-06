@@ -45,6 +45,11 @@ API_AVAILABLE(macos(10.15))
 @property (nonatomic) dispatch_semaphore_t sem;
 @property (nonatomic) BOOL activated;
 @property (nonatomic) BOOL needsApproval;
+// 06.10.2026 (тикет 357): различаем «ждём одобрения» и «macOS отказала» — раньше на любой исход
+// показывалась одна подсказка «включите в Сетевых расширениях».
+@property (nonatomic) BOOL failed;
+@property (nonatomic) NSInteger errorCode;
+@property (nonatomic) BOOL wrongLocation;
 @end
 
 @implementation NvoSysExtDelegate
@@ -67,6 +72,10 @@ API_AVAILABLE(macos(10.15))
 - (void)request:(OSSystemExtensionRequest *)request didFailWithError:(NSError *)error {
     NSLog(@"NvoVPN: system extension activation failed: %@", error);
     self.activated = NO;
+    self.errorCode = error.code;
+    self.wrongLocation = [error.domain isEqualToString:OSSystemExtensionErrorDomain]
+                         && error.code == OSSystemExtensionErrorUnsupportedParentBundleLocation;
+    self.failed = YES;
     if (self.sem) dispatch_semaphore_signal(self.sem);
 }
 @end
@@ -301,13 +310,38 @@ bool IosController::ensureSystemExtensionActivated()
             qDebug() << "IosController: system extension active";
             return true;
         }
+        // 06.10.2026 (тикет 357): Apple активирует системное расширение только у приложения из /Applications
+        // (или вложенной папки; в macOS 15 даже ~/Applications не годится). Запуск из окна .dmg (/Volumes/…),
+        // из «Загрузок» или после App Translocation кончался ошибкой, а человек видел «включите в Сетевых
+        // расширениях» и не находил такой строки — macOS её не показывает, пока расширение не зарегистрировано.
+        // Расположение проверяем по факту ответа, а не заранее: в режиме разработчика (systemextensionsctl
+        // developer on) активация работает и вне /Applications.
+        NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
+        const bool outsideApplications = ![bundlePath hasPrefix:@"/Applications/"];
+        if (delegate.failed) {
+            qWarning() << "IosController: system extension activation failed, code" << delegate.errorCode
+                       << "bundle" << QString::fromNSString(bundlePath);
+            if (delegate.wrongLocation || outsideApplications) {
+                emit systemExtensionWrongLocation();
+            } else {
+                emit systemExtensionFailed(static_cast<int>(delegate.errorCode));
+            }
+            return false;
+        }
         if (delegate.needsApproval) {
             qWarning() << "IosController: system extension needs user approval — emitting signal";
             emit systemExtensionNeedsApproval();
             return false;
         }
-        qWarning() << "IosController: system extension not yet active (awaiting approval/failed)";
-        emit systemExtensionNeedsApproval();
+        // Вердикта за 20 с нет. Вне /Applications ждать нечего — говорим про папку; иначе, скорее всего,
+        // macOS показывает своё окно и ждёт человека.
+        qWarning() << "IosController: system extension not yet active (no verdict in 20 s), bundle"
+                   << QString::fromNSString(bundlePath);
+        if (outsideApplications) {
+            emit systemExtensionWrongLocation();
+        } else {
+            emit systemExtensionNeedsApproval();
+        }
         return false;
     }
     return false;

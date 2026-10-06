@@ -426,7 +426,19 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>macOS просит разрешить сетевое расширение NvoVPN: Системные настройки → Основные → Объекты входа и расширения → Сетевые расширения → включите NvoVPN. После этого нажмите на щит ещё раз.</source>
+        <source>macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → «Основные» → «Объекты входа и расширения». В разделе «Расширения» нажмите ⓘ у строки «Сетевые расширения», включите NvoVPN и нажмите «Готово». Затем нажмите на щит ещё раз.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>macOS ждёт разрешения для сетевого расширения NvoVPN. Откройте «Системные настройки» → «Конфиденциальность и безопасность». Внизу, у строки о заблокированной загрузке системного ПО программы «NvoVPN», нажмите «Разрешить». Затем нажмите на щит ещё раз.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NvoVPN открыт не из папки «Программы», а macOS включает сетевое расширение только оттуда. Закройте NvoVPN, перетащите его в папку «Программы» (в окне установщика это папка Applications) и откройте оттуда.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>macOS не смогла включить сетевое расширение NvoVPN (ошибка %1). Перезагрузите Mac и нажмите на щит ещё раз. Если не поможет, напишите в поддержку.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -99,6 +99,10 @@ signals:
     void bytesChanged(quint64 receivedBytes, quint64 sentBytes);
     // NvoVPN macOS: расширение требует одобрения юзером в System Settings (один раз).
     void systemExtensionNeedsApproval();
+    // 06.10.2026 (тикет 357): приложение запущено не из /Applications — macOS не активирует расширение.
+    void systemExtensionWrongLocation();
+    // 06.10.2026 (тикет 357): macOS отказала в активации (код OSSystemExtensionErrorDomain).
+    void systemExtensionFailed(int code);
     // 01.10.2026: туннель выглядит мёртвым — оркестратор должен прогнать пробу и решить, рвать ли (см. confirmTunnelAlive).
     void tunnelSuspect();
     void importConfigFromOutside(const QString);
