@@ -177,6 +177,8 @@ extension PacketTunnelProvider {
             let socksCredentials = ensureInboundAuth(jsonDict: &jsonDict, port: port, address: address)
 
             let updatedData = try JSONSerialization.data(withJSONObject: jsonDict, options: [])
+            // 07.10.2026: запоминаем — смена сети перезапустит ядро xray с этим же конфигом (тот же порт и учётка hev).
+            self.lastXrayConfigData = updatedData
 
             setTunnelNetworkSettings(settings) { [weak self] error in
                 if let error {
@@ -206,6 +208,21 @@ extension PacketTunnelProvider {
             completionHandler(error)
             return
         }
+    }
+
+    /// 07.10.2026: смена сети на stealth-туннеле — перезапуск ТОЛЬКО ядра xray с последним конфигом (тот же
+    /// локальный SOCKS-порт и учётка), без hev-socks5-tunnel: его повторный запуск в одном процессе роняет
+    /// расширение (см. handle(networkChange:)). Нет конфига (не стартовали) — ничего не делаем.
+    func restartXrayCoreForNetworkChange(completionHandler: @escaping (Error?) -> Void) {
+        guard let configData = lastXrayConfigData else {
+            completionHandler(nil)
+            return
+        }
+        if let err = amnezia_xray_stop() {
+            xrayLog(.error, message: "amnezia_xray_stop (network change): \(String(cString: err))")
+            amnezia_xray_free(UnsafeMutableRawPointer(err))
+        }
+        setupAndStartXray(configData: configData, completionHandler: completionHandler)
     }
 
     func stopXray(completionHandler: () -> Void) {

@@ -130,6 +130,9 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
     private var pendingOpenVPNReconnectWorkItem: DispatchWorkItem?
     private var pendingNetworkChangeWorkItem: DispatchWorkItem?
     private var isApplyingNetworkChange = false
+    // 07.10.2026: полный конфиг xray последнего запуска (с локальным SOCKS-портом и учёткой для hev) — чтобы при
+    // смене сети перезапускать ТОЛЬКО ядро xray на тех же порту и учётке, не трогая hev-socks5-tunnel.
+    var lastXrayConfigData: Data?
 #if canImport(OpenVPNAdapter)
     private var lastOpenVPNReachabilityStatus: OpenVPNReachabilityStatus?
 #endif
@@ -456,9 +459,13 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
 
         updateActiveInterfaceIndex(for: changePath)
         reasserting = true
-        xrayLog(.info, message: "Applying network change to xray tunnel")
-        stopXray { }
-        startXray { [weak self] error in
+        // 07.10.2026: перезапускаем только ядро xray. Прежний путь stopXray{} + startXray{} заново звал
+        // Socks5Tunnel.run в ТОМ ЖЕ процессе, а lwIP hev-socks5-tunnel повторной инициализации не переживает:
+        // SIGABRT в tcp_input/ip6_input (Mac владельца 07.10, через 0,7 с после подключения, «Plugin failed» →
+        // обрыв и переподключение ~17 с) или в netif_add (02.09). hev держит utun и ходит в локальный SOCKS xray
+        // на том же порту — его трогать не нужно; оборвутся только текущие соединения, новые пойдут сразу.
+        xrayLog(.info, message: "Applying network change: restarting xray core only (hev keeps running)")
+        restartXrayCoreForNetworkChange { [weak self] error in
             self?.reasserting = false
             completion(error)
         }
