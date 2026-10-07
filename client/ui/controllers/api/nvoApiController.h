@@ -76,6 +76,7 @@ public:
     bool lastConnectViaStealth() const;         // последнее подключение — через VLESS?
     int lastConnectServerId() const;            // серверу последнего requestConfig (для фолбека)
     QString lastProtocol() const;               // "amneziawg" | "vless" последнего requestConfig
+    int awgWatchdogHintMs() const;              // 07.10.2026: подсказка сервера awg_watchdog_ms из последнего /connect (0 — нет)
 
 public slots:
     void setOnboardingDone();
@@ -210,6 +211,7 @@ private:
     bool m_lastConnectViaStealth = false;
     int m_lastConnectServerId = -1;              // сервер последнего requestConfig (для фолбека по таймауту)
     QString m_lastProtocol = QStringLiteral("amneziawg");
+    int m_awgWatchdogHintMs = 0;                 // 07.10.2026: сколько ждать AWG до маскировки (из ответа /connect)
     bool m_serviceSwitching = false;             // §5.7: служба переключает путь — состояния разрыва игнорируем
     QString vlessUriToServiceConfig(const QString &uri, const QString &description) const; // vless:// → vpnConfig-JSON службы
     void publishServiceExtras(const QJsonObject &root, int serverId, const QString &actualProto, const QString &serverName);

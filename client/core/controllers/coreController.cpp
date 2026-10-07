@@ -383,6 +383,17 @@ void CoreController::initControllers()
                     // Только для AWG в режиме «авто» сторожим handshake — иначе (VLESS/always/выкл) watchdog не нужен.
                     if (m_nvoApiController->lastProtocol() == QStringLiteral("amneziawg")
                             && m_nvoApiController->stealthMode() == 1) {
+#if defined(MACOS_NE) && !defined(Q_OS_IOS)
+                        // 07.10.2026: на macOS AWG через системное расширение встаёт за 3–4 с, а сторож ждал 3 с —
+                        // рабочий туннель гасился и уходил на VLESS (Mac владельца: 14–20 с на подключение вместо ~4).
+                        // Сколько ждать, подсказывает сервер (awg_watchdog_ms): 3 с там, где AWG режут (РФ, CN, IR, TM,
+                        // страна не определилась) — быстрый уход на маскировку, как было; 10 с остальным.
+                        // Нет подсказки (старый сервер) — 3 с, как было.
+                        {
+                            const int hint = m_nvoApiController->awgWatchdogHintMs();
+                            m_stealthWatchdog->setInterval(hint >= 1000 && hint <= 30000 ? hint : 3000);
+                        }
+#endif
                         m_stealthWatchdog->start();
                     }
                 }

@@ -178,6 +178,7 @@ bool NvoApiController::inStartupGrace() const { return m_startupGrace; }
 bool NvoApiController::lastConnectViaStealth() const { return m_lastConnectViaStealth; }
 int NvoApiController::lastConnectServerId() const { return m_lastConnectServerId; }
 QString NvoApiController::lastProtocol() const { return m_lastProtocol; }
+int NvoApiController::awgWatchdogHintMs() const { return m_awgWatchdogHintMs; }
 QString NvoApiController::userName() const { return m_userName; }
 QString NvoApiController::userEmail() const { return m_userEmail; }
 bool NvoApiController::hasSubscription() const { return m_hasSubscription; }
@@ -1111,6 +1112,10 @@ void NvoApiController::requestConfig(int serverId, const QString &protocol)
                 emit lastConnectViaStealthChanged();
             }
         }
+
+        // 07.10.2026: сколько ждать AmneziaWG до ухода на маскировку — подсказка сервера (по стране клиента).
+        // Читается в CoreController ДО запуска сторожа, поэтому ставим до configReady.
+        m_awgWatchdogHintMs = root.value(QStringLiteral("awg_watchdog_ms")).toInt(0);
 
         const QJsonObject server = root.value(QStringLiteral("server")).toObject();
         // §5.7: кандидаты failover + параметры живости для службы — до configReady (import → start службы).
