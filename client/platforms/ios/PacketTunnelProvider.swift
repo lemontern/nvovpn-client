@@ -367,21 +367,40 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
         cancelPendingOpenVPNReconnect()
         cancelPendingNetworkChangeHandling()
 
+        // 07.10.2026: сторож остановки. На Mac (macOS 27) остановка stealth-туннеля повисла: после
+        // «Calling stopTunnelWithReason» не вызвались ни completionHandler, ни exit(0), процесс расширения
+        // остался «останавливающимся», и ВСЕ следующие подключения висели «Подключаем…» до перезагрузки
+        // (система шлёт start в зависший процесс, тот молчит). Если протокол не остановился за 5 с —
+        // сообщаем системе, что остановились, и завершаем процесс сразу (_exit, без atexit: зависший поток
+        // мог держать их блокировки). Следующее подключение система поднимет в свежем расширении.
+        let finish = NvoStopOnce(completionHandler)
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 5) {
+            if finish.fire() {
+                neLog(.error, message: "stopTunnel: protocol did not stop in 5 s, forcing extension exit")
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.3) {
+                    _exit(0)
+                }
+            }
+        }
+
         guard let protoType else {
-            completionHandler()
+            finish.fire()
             return
         }
 
         switch protoType {
         case .wireguard:
             stopWireguard(with: reason,
-                          completionHandler: completionHandler)
+                          completionHandler: { finish.fire() })
         case .openvpn:
             stopOpenVPN(with: reason,
-                        completionHandler: completionHandler)
+                        completionHandler: { finish.fire() })
         case .xray:
-            stopXray {
-                completionHandler()
+            // Останавливаем не на очереди провайдера: если ядро xray или hev-socks5-tunnel зависнут,
+            // сторож выше всё равно сработает.
+            DispatchQueue.global(qos: .userInitiated).async {
+              self.stopXray {
+                finish.fire()
                 // hev-socks5-tunnel не переживает повторную инициализацию в ОДНОМ процессе:
                 // после quit() состояние lwIP не сбрасывается, и второй Socks5Tunnel.run()
                 // падает в netif_add по abort() — расширение умирает целиком.
@@ -391,9 +410,11 @@ class PacketTunnelProvider: NEPacketTunnelProvider {
                 // подключение система поднимет в свежем расширении, где lwIP чист.
                 // Система этого и ждёт — иначе в журнале «Extension exit timer expired …
                 // notify that extension failed».
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                // 07.10.2026: не на main — если главная очередь занята, exit не наступал бы вовсе.
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.2) {
                     exit(0)
                 }
+              }
             }
         }
     }
@@ -752,4 +773,27 @@ extension NEProviderStopReason {
       return "@unknown default"
     }
   }
+}
+
+/// 07.10.2026: completionHandler остановки — ровно один раз (его могут позвать и обычный путь, и сторож).
+private final class NvoStopOnce {
+    private let lock = NSLock()
+    private var done = false
+    private let handler: () -> Void
+
+    init(_ handler: @escaping () -> Void) { self.handler = handler }
+
+    /// true — если вызвали именно сейчас (первый раз).
+    @discardableResult
+    func fire() -> Bool {
+        lock.lock()
+        if done {
+            lock.unlock()
+            return false
+        }
+        done = true
+        lock.unlock()
+        handler()
+        return true
+    }
 }
